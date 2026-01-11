@@ -3,7 +3,7 @@ import 'package:logging/logging.dart';
 
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/course_overview.dart';
-import 'package:cumobile/features/longread/presentation/pages/longread_page.dart';
+import 'package:cumobile/features/longread/pages/longread_page.dart';
 import 'package:cumobile/data/services/api_service.dart';
 
 class CoursePage extends StatefulWidget {

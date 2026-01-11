@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'package:cumobile/features/auth/presentation/pages/auth_wrapper.dart';
+import 'package:cumobile/features/auth/pages/auth_wrapper.dart';
 
 class CUMobileApp extends StatelessWidget {
   const CUMobileApp({super.key});

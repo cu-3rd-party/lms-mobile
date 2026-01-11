@@ -12,10 +12,10 @@ import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/student_lms_profile.dart';
 import 'package:cumobile/data/models/student_profile.dart';
 import 'package:cumobile/data/models/student_task.dart';
-import 'package:cumobile/features/course/presentation/pages/course_page.dart';
-import 'package:cumobile/features/longread/presentation/pages/longread_page.dart';
-import 'package:cumobile/features/notifications/presentation/pages/notifications_page.dart';
-import 'package:cumobile/features/profile/presentation/pages/profile_page.dart';
+import 'package:cumobile/features/course/pages/course_page.dart';
+import 'package:cumobile/features/longread/pages/longread_page.dart';
+import 'package:cumobile/features/notifications/pages/notifications_page.dart';
+import 'package:cumobile/features/profile/pages/profile_page.dart';
 import 'package:cumobile/data/services/api_service.dart';
 import 'package:cumobile/data/services/caldav_service.dart';
 

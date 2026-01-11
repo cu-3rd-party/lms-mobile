@@ -60,5 +60,5 @@
 - `lib/core/` — общие сервисы и утилиты
 - `lib/data/models/` — модели данных
 - `lib/data/services/` — API, CalDAV и интеграции
-- `lib/features/*/presentation/pages/` — экраны по фичам
+- `lib/features/*/pages/` — экраны по фичам
 - `assets/` — статические ресурсы
