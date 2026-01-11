@@ -15,6 +15,7 @@ import 'package:cumobile/data/models/longread_material.dart';
 import 'package:cumobile/data/models/task_comment.dart';
 import 'package:cumobile/data/models/task_event.dart';
 import 'package:cumobile/data/services/api_service.dart';
+import 'package:cumobile/features/longread/widgets/attachment_card.dart';
 
 class LongreadPage extends StatefulWidget {
   final Longread longread;
@@ -685,89 +686,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     int index,
     MaterialAttachment attachment,
   ) {
-    final fileName = attachment.name;
-    final extension = attachment.extension;
     final key = _attachmentKey(material, index);
-    final isDownloading = _downloadingKeys.contains(key);
-    final progress = _downloadProgress[key];
-    final isDownloaded = _downloadedKeys.contains(key);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: isDownloading ? null : () => _downloadAttachment(attachment, key),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: widget.themeColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    extension.length > 4 ? extension.substring(0, 4) : extension,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: widget.themeColor,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  fileName,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (isDownloading) ...[
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 50,
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 3,
-                    color: const Color(0xFF00E676),
-                    backgroundColor: const Color(0xFF3A3A3A),
-                  ),
-                ),
-              ] else if (attachment.formattedSize.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                Text(
-                  attachment.formattedSize,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[500],
-                  ),
-                ),
-              ],
-              const SizedBox(width: 8),
-              Icon(
-                isDownloaded ? Icons.check_circle : Icons.download,
-                color: isDownloaded ? const Color(0xFF00E676) : Colors.grey[500],
-                size: 20,
-              ),
-            ],
-          ),
-        ),
-      ),
+    return AttachmentCard(
+      fileName: attachment.name,
+      extension: attachment.extension,
+      formattedSize: attachment.formattedSize,
+      isDownloading: _downloadingKeys.contains(key),
+      progress: _downloadProgress[key],
+      isDownloaded: _downloadedKeys.contains(key),
+      themeColor: widget.themeColor,
+      onTap: () => _downloadAttachment(attachment, key),
     );
   }
 
@@ -1408,90 +1336,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
   Widget _buildTaskAttachmentCard(int taskId, MaterialAttachment attachment) {
     final key = _taskAttachmentKey(taskId, attachment);
-    final isDownloading = _downloadingKeys.contains(key);
-    final progress = _downloadProgress[key];
-    final speed = _downloadSpeed[key] ?? '';
-    final isDownloaded = _downloadedKeys.contains(key);
-    final extension = attachment.extension;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: InkWell(
-        onTap: isDownloading ? null : () => _downloadAttachment(attachment, key),
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: widget.themeColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Center(
-                  child: Text(
-                    extension.length > 4 ? extension.substring(0, 4) : extension,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: widget.themeColor,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  attachment.name,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (isDownloading) ...[
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 50,
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 3,
-                    color: const Color(0xFF00E676),
-                    backgroundColor: const Color(0xFF3A3A3A),
-                  ),
-                ),
-              ] else if (attachment.formattedSize.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                Text(
-                  attachment.formattedSize,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[500],
-                  ),
-                ),
-              ],
-              const SizedBox(width: 8),
-              Icon(
-                isDownloaded ? Icons.check_circle : Icons.download,
-                color: isDownloaded
-                    ? const Color(0xFF00E676)
-                    : Colors.grey[500],
-                size: 18,
-              ),
-            ],
-          ),
-        ),
-      ),
+    return AttachmentCard(
+      fileName: attachment.name,
+      extension: attachment.extension,
+      formattedSize: attachment.formattedSize,
+      isDownloading: _downloadingKeys.contains(key),
+      progress: _downloadProgress[key],
+      isDownloaded: _downloadedKeys.contains(key),
+      themeColor: widget.themeColor,
+      size: AttachmentCardSize.compact,
+      onTap: () => _downloadAttachment(attachment, key),
     );
   }
 }
