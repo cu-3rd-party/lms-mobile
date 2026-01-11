@@ -760,7 +760,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 Expanded(
                                   child: Container(
-                                    margin: const EdgeInsets.only(top: 4),
+                                    margin: const EdgeInsets.only(top: 11),
                                     height: 1,
                                     color: Colors.grey[800],
                                   ),
@@ -1484,7 +1484,6 @@ class _HomePageState extends State<HomePage> {
           icon: Icons.calendar_today,
           tooltip: 'Выбрать дату',
           onTap: _selectScheduleDate,
-          size: 18,
         ),
         const SizedBox(width: 4),
         _navIconButton(
