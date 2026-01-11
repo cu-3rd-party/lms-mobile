@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -55,6 +58,9 @@ class _HomePageState extends State<HomePage> {
   bool _isFetchingSchedule = false;
   final Map<String, List<ClassData>> _scheduleCache = {};
   final ScrollController _scheduleScrollController = ScrollController();
+  List<FileSystemEntity> _downloadedFiles = [];
+  bool _isLoadingFiles = false;
+  final Set<String> _selectedFiles = {};
 
   @override
   void initState() {
@@ -285,6 +291,10 @@ class _HomePageState extends State<HomePage> {
         icon: Icon(Icons.school),
         label: 'Курсы',
       ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.folder),
+        label: 'Файлы',
+      ),
     ];
     return Scaffold(
       body: SafeArea(
@@ -311,7 +321,7 @@ class _HomePageState extends State<HomePage> {
                   backgroundColor: const Color(0xFF121212),
                   activeColor: const Color(0xFF00E676),
                   inactiveColor: Colors.grey[500]!,
-                  onTap: (index) => setState(() => _selectedTab = index),
+                  onTap: _onTabChanged,
                   items: navItems,
                 ),
               ),
@@ -321,10 +331,17 @@ class _HomePageState extends State<HomePage> {
               backgroundColor: const Color(0xFF121212),
               selectedItemColor: const Color(0xFF00E676),
               unselectedItemColor: Colors.grey[500],
-              onTap: (index) => setState(() => _selectedTab = index),
+              onTap: _onTabChanged,
               items: navItems,
             ),
     );
+  }
+
+  void _onTabChanged(int index) {
+    setState(() => _selectedTab = index);
+    if (index == 3 && _downloadedFiles.isEmpty) {
+      _loadFiles();
+    }
   }
 
   Widget _buildTopNavigation() {
@@ -402,6 +419,8 @@ class _HomePageState extends State<HomePage> {
         return 'Задания';
       case 2:
         return 'Курсы';
+      case 3:
+        return 'Файлы';
       default:
         return '';
     }
@@ -461,6 +480,8 @@ class _HomePageState extends State<HomePage> {
         return _buildTasksTab();
       case 2:
         return _buildCoursesTab();
+      case 3:
+        return _buildFilesTab();
       default:
         return const SizedBox.shrink();
     }
@@ -1956,5 +1977,268 @@ class _HomePageState extends State<HomePage> {
       default:
         return 'Без категории';
     }
+  }
+
+  Future<void> _loadFiles() async {
+    setState(() => _isLoadingFiles = true);
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final files = dir
+          .listSync()
+          .whereType<File>()
+          .toList()
+        ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+      setState(() {
+        _downloadedFiles = files;
+        _isLoadingFiles = false;
+      });
+    } catch (e, st) {
+      _log.warning('Error loading files', e, st);
+      setState(() => _isLoadingFiles = false);
+    }
+  }
+
+  Future<void> _deleteFile(File file) async {
+    try {
+      await file.delete();
+      _selectedFiles.remove(file.path);
+      await _loadFiles();
+    } catch (e, st) {
+      _log.warning('Error deleting file', e, st);
+    }
+  }
+
+  Future<void> _deleteSelectedFiles() async {
+    final filesToDelete = _selectedFiles.toList();
+    for (final path in filesToDelete) {
+      try {
+        await File(path).delete();
+      } catch (e) {
+        _log.warning('Error deleting file: $path');
+      }
+    }
+    _selectedFiles.clear();
+    await _loadFiles();
+  }
+
+  Future<void> _deleteAllFiles() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Удалить все файлы?', style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Будет удалено ${_downloadedFiles.length} файлов. Это действие нельзя отменить.',
+          style: TextStyle(color: Colors.grey[400]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Отмена', style: TextStyle(color: Colors.grey[400])),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Удалить', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    for (final file in _downloadedFiles) {
+      try {
+        await file.delete();
+      } catch (e) {
+        _log.warning('Error deleting file: ${file.path}');
+      }
+    }
+    _selectedFiles.clear();
+    await _loadFiles();
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  String _getFileExtension(String path) {
+    final lastDot = path.lastIndexOf('.');
+    if (lastDot == -1 || lastDot == path.length - 1) return '';
+    return path.substring(lastDot + 1).toUpperCase();
+  }
+
+  Widget _buildFilesTab() {
+    if (_isLoadingFiles && _downloadedFiles.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      );
+    }
+
+    if (_downloadedFiles.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.folder_open, size: 64, color: Colors.grey[700]),
+            const SizedBox(height: 16),
+            Text(
+              'Нет скачанных файлов',
+              style: TextStyle(color: Colors.grey[500], fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _loadFiles,
+              child: const Text('Обновить', style: TextStyle(color: Color(0xFF00E676))),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final totalSize = _downloadedFiles.fold<int>(
+      0,
+      (sum, file) => sum + (file as File).lengthSync(),
+    );
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Text(
+                '${_downloadedFiles.length} файлов • ${_formatFileSize(totalSize)}',
+                style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+              ),
+              const Spacer(),
+              if (_selectedFiles.isNotEmpty)
+                TextButton.icon(
+                  onPressed: _deleteSelectedFiles,
+                  icon: const Icon(Icons.delete, size: 18, color: Colors.redAccent),
+                  label: Text(
+                    'Удалить (${_selectedFiles.length})',
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                  ),
+                )
+              else
+                TextButton.icon(
+                  onPressed: _deleteAllFiles,
+                  icon: Icon(Icons.delete_sweep, size: 18, color: Colors.grey[500]),
+                  label: Text(
+                    'Удалить все',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadFiles,
+            color: const Color(0xFF00E676),
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _downloadedFiles.length,
+              itemBuilder: (context, index) {
+                final file = _downloadedFiles[index] as File;
+                final stat = file.statSync();
+                final name = file.path.split('/').last;
+                final ext = _getFileExtension(name);
+                final isSelected = _selectedFiles.contains(file.path);
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFF00E676).withValues(alpha: 0.1)
+                        : const Color(0xFF1E1E1E),
+                    borderRadius: BorderRadius.circular(12),
+                    border: isSelected
+                        ? Border.all(color: const Color(0xFF00E676), width: 1)
+                        : null,
+                  ),
+                  child: InkWell(
+                    onTap: () => OpenFilex.open(file.path),
+                    onLongPress: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedFiles.remove(file.path);
+                        } else {
+                          _selectedFiles.add(file.path);
+                        }
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                ext.length > 4 ? ext.substring(0, 4) : ext,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF00E676),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${_formatFileSize(stat.size)} • ${DateFormat('dd.MM.yyyy').format(stat.modified)}',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (isSelected)
+                            IconButton(
+                              onPressed: () => _deleteFile(file),
+                              icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            )
+                          else
+                            Icon(Icons.open_in_new, size: 18, color: Colors.grey[600]),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
