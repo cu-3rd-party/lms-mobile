@@ -3,8 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/notification_item.dart';
 import 'package:cumobile/data/services/api_service.dart';
+import 'package:cumobile/features/longread/pages/longread_page.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -206,10 +208,42 @@ class _NotificationsPageState extends State<NotificationsPage>
     }
   }
 
+  static final _longreadPattern = RegExp(
+    r'my\.centraluniversity\.ru/learn/courses/view/actual/\d+/themes/\d+/longreads/(\d+)',
+  );
+
   Future<void> _openLink(String url) async {
+    final longreadMatch = _longreadPattern.firstMatch(url);
+    if (longreadMatch != null) {
+      final longreadId = int.tryParse(longreadMatch.group(1) ?? '');
+      if (longreadId != null) {
+        _openLongread(longreadId);
+        return;
+      }
+    }
+
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  void _openLongread(int longreadId) {
+    final longread = Longread(
+      id: longreadId,
+      type: '',
+      name: 'Загрузка...',
+      state: '',
+      exercises: [],
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LongreadPage(
+          longread: longread,
+          themeColor: const Color(0xFF00E676),
+        ),
+      ),
+    );
   }
 }
