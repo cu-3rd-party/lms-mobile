@@ -1,0 +1,1522 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
+import 'package:flutter_html_table/flutter_html_table.dart';
+import 'package:logging/logging.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
+
+import 'package:cumobile/data/models/course_overview.dart';
+import 'package:cumobile/data/models/longread_material.dart';
+import 'package:cumobile/data/models/task_comment.dart';
+import 'package:cumobile/data/models/task_event.dart';
+import 'package:cumobile/data/services/api_service.dart';
+
+class LongreadPage extends StatefulWidget {
+  final Longread longread;
+  final Color themeColor;
+  final String? courseName;
+  final String? themeName;
+  final int? selectedTaskId;
+  final String? selectedExerciseName;
+
+  const LongreadPage({
+    super.key,
+    required this.longread,
+    required this.themeColor,
+    this.courseName,
+    this.themeName,
+    this.selectedTaskId,
+    this.selectedExerciseName,
+  });
+
+  @override
+  State<LongreadPage> createState() => _LongreadPageState();
+}
+
+class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver {
+  List<LongreadMaterial> _materials = [];
+  bool _isLoading = true;
+  final Set<String> _downloadingKeys = {};
+  final Map<String, double?> _downloadProgress = {};
+  final Map<String, String> _downloadSpeed = {};
+  final Set<String> _downloadedKeys = {};
+  final Map<int, List<TaskEvent>> _eventsByTaskId = {};
+  final Map<int, List<TaskComment>> _commentsByTaskId = {};
+  final Set<int> _loadingTaskIds = {};
+  final Map<int, String?> _taskLoadErrors = {};
+  static final Logger _log = Logger('LongreadPage');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadMaterials();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshDownloadedFlags();
+      _refreshDownloadedTaskAttachmentsOnResume();
+    }
+  }
+
+  Future<void> _loadMaterials() async {
+    try {
+      final materials = await apiService.fetchLongreadMaterials(widget.longread.id);
+      setState(() {
+        _materials = materials;
+        _isLoading = false;
+      });
+      await _refreshDownloadedFlags();
+      await _loadTaskDetails();
+    } catch (e, st) {
+      _log.warning('Error loading materials', e, st);
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _refreshDownloadedFlags() async {
+    final keys = <String>{};
+    for (final material in _materials) {
+      if (material.isFile) {
+        final fileName = material.contentName ?? material.filename ?? 'file';
+        final existingPath = await _getExistingFilePathFor(fileName, material.version);
+        if (existingPath != null) {
+          keys.add(_materialKey(material));
+        }
+      }
+      if (material.isCoding && material.attachments.isNotEmpty) {
+        for (var i = 0; i < material.attachments.length; i++) {
+          final attachment = material.attachments[i];
+          final existingPath = await _getExistingFilePathFor(attachment.name, attachment.version);
+          if (existingPath != null) {
+            keys.add(_attachmentKey(material, i));
+          }
+        }
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _downloadedKeys
+          ..clear()
+          ..addAll(keys);
+      });
+    }
+  }
+
+  Future<void> _loadTaskDetails() async {
+    final taskIds = _materials
+        .where((m) => m.isCoding && m.taskId != null)
+        .map((m) => m.taskId!)
+        .toSet();
+
+    for (final taskId in taskIds) {
+      if (_loadingTaskIds.contains(taskId)) continue;
+      _loadingTaskIds.add(taskId);
+      try {
+        final results = await Future.wait([
+          apiService.fetchTaskEvents(taskId),
+          apiService.fetchTaskComments(taskId),
+        ]);
+        if (!mounted) return;
+        setState(() {
+          _eventsByTaskId[taskId] = results[0] as List<TaskEvent>;
+          _commentsByTaskId[taskId] = results[1] as List<TaskComment>;
+          _taskLoadErrors[taskId] = null;
+        });
+        await _refreshDownloadedTaskAttachments(taskId);
+      } catch (e, st) {
+        _log.warning('Error loading task details', e, st);
+        if (mounted) {
+          setState(() => _taskLoadErrors[taskId] = 'Не удалось загрузить историю');
+        }
+      } finally {
+        _loadingTaskIds.remove(taskId);
+      }
+    }
+  }
+
+  Future<void> _refreshDownloadedTaskAttachmentsOnResume() async {
+    final taskIds = _eventsByTaskId.keys.toList();
+    for (final taskId in taskIds) {
+      await _refreshDownloadedTaskAttachments(taskId);
+    }
+  }
+
+  Future<void> _downloadFile(LongreadMaterial material) async {
+    if (material.filename == null || material.version == null) return;
+
+    final fileName = material.contentName ?? material.filename ?? 'file';
+    final key = _materialKey(material);
+    final existingPath = await _getExistingFilePathFor(fileName, material.version);
+    if (existingPath != null) {
+      if (mounted) {
+        setState(() => _downloadedKeys.add(key));
+      }
+      await OpenFilex.open(existingPath);
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _downloadingKeys.add(key);
+        _downloadProgress[key] = 0.0;
+        _downloadSpeed[key] = '';
+      });
+    }
+
+    try {
+      final url = await apiService.getDownloadLink(
+        material.filename!,
+        material.version!,
+      );
+
+      if (url == null) return;
+
+      _log.info('Download url: $url');
+      final filePath = await _downloadToDevice(url, fileName, material.version, key);
+      if (filePath == null) return;
+
+      if (mounted) {
+        setState(() => _downloadedKeys.add(key));
+      }
+      await OpenFilex.open(filePath);
+    } catch (e, st) {
+      _log.warning('Error downloading file', e, st);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _downloadingKeys.remove(key);
+          _downloadProgress.remove(key);
+          _downloadSpeed.remove(key);
+        });
+      }
+    }
+  }
+
+  Future<void> _refreshDownloadedTaskAttachments(int taskId) async {
+    final keys = <String>{};
+    final events = _eventsByTaskId[taskId] ?? [];
+    final comments = _commentsByTaskId[taskId] ?? [];
+    for (final event in events) {
+      for (final attachment in event.content.attachments) {
+        final existingPath = await _getExistingFilePathFor(
+          attachment.name,
+          attachment.version,
+        );
+        if (existingPath != null) {
+          keys.add(_taskAttachmentKey(taskId, attachment));
+        }
+      }
+    }
+    for (final comment in comments) {
+      for (final attachment in comment.attachments) {
+        final existingPath = await _getExistingFilePathFor(
+          attachment.name,
+          attachment.version,
+        );
+        if (existingPath != null) {
+          keys.add(_taskAttachmentKey(taskId, attachment));
+        }
+      }
+    }
+    if (mounted && keys.isNotEmpty) {
+      setState(() => _downloadedKeys.addAll(keys));
+    }
+  }
+
+  Future<void> _downloadAttachment(
+    MaterialAttachment attachment,
+    String key,
+  ) async {
+    final existingPath = await _getExistingFilePathFor(attachment.name, attachment.version);
+    if (existingPath != null) {
+      if (mounted) {
+        setState(() => _downloadedKeys.add(key));
+      }
+      await OpenFilex.open(existingPath);
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _downloadingKeys.add(key);
+        _downloadProgress[key] = 0.0;
+        _downloadSpeed[key] = '';
+      });
+    }
+
+    try {
+      final url = await apiService.getDownloadLink(
+        attachment.filename,
+        attachment.version,
+      );
+      if (url == null) return;
+
+      final filePath = await _downloadToDevice(url, attachment.name, attachment.version, key);
+      if (filePath == null) return;
+
+      if (mounted) {
+        setState(() => _downloadedKeys.add(key));
+      }
+      await OpenFilex.open(filePath);
+    } catch (e, st) {
+      _log.warning('Error downloading attachment', e, st);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _downloadingKeys.remove(key);
+          _downloadProgress.remove(key);
+          _downloadSpeed.remove(key);
+        });
+      }
+    }
+  }
+
+  Future<String?> _downloadToDevice(
+    String url,
+    String fileName,
+    String? version,
+    String key,
+  ) async {
+    try {
+      final path = await _getLocalFilePath(fileName, version);
+
+      final client = http.Client();
+      try {
+        final request = http.Request('GET', Uri.parse(url));
+        final response = await client.send(request);
+        if (response.statusCode != 200) {
+          _log.warning('Download failed: ${response.statusCode}');
+          return null;
+        }
+
+        final total = response.contentLength ?? -1;
+        final file = File(path);
+        final sink = file.openWrite();
+        var received = 0;
+        final startedAt = DateTime.now();
+        await for (final chunk in response.stream) {
+          received += chunk.length;
+          sink.add(chunk);
+          if (mounted) {
+            if (total > 0) {
+              _downloadProgress[key] = received / total;
+            } else {
+              _downloadProgress[key] = null;
+            }
+            final elapsedMs = DateTime.now().difference(startedAt).inMilliseconds;
+            if (elapsedMs > 0) {
+              final bytesPerSec = received / (elapsedMs / 1000);
+              _downloadSpeed[key] = _formatSpeed(bytesPerSec);
+            }
+            setState(() {});
+          }
+        }
+        await sink.flush();
+        await sink.close();
+        return file.path;
+      } finally {
+        client.close();
+      }
+    } catch (e, st) {
+      _log.warning('Failed to save file', e, st);
+      return null;
+    }
+  }
+
+  Future<String> _getLocalFilePath(String fileName, String? version) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final safeName = _buildSafeFileName(fileName, version);
+    return p.join(dir.path, safeName);
+  }
+
+  Future<String?> _getExistingFilePathFor(String fileName, String? version) async {
+    final path = await _getLocalFilePath(fileName, version);
+    final file = File(path);
+    if (await file.exists()) {
+      return path;
+    }
+    return null;
+  }
+
+  String _buildSafeFileName(String name, String? version) {
+    final safeName = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    if (version == null || version.isEmpty) return safeName;
+    final ext = p.extension(safeName);
+    if (ext.isEmpty) {
+      return '${safeName}_$version';
+    }
+    final base = safeName.substring(0, safeName.length - ext.length);
+    return '${base}_$version$ext';
+  }
+
+  String _materialKey(LongreadMaterial material) => 'm:${material.id}';
+
+  String _attachmentKey(LongreadMaterial material, int index) {
+    final attachment = material.attachments[index];
+    return 'a:${material.id}:$index:${attachment.filename}:${attachment.version}';
+  }
+
+  String _taskAttachmentKey(int taskId, MaterialAttachment attachment) {
+    return 't:$taskId:${attachment.filename}:${attachment.version}';
+  }
+
+  String _formatSpeed(double bytesPerSecond) {
+    if (bytesPerSecond <= 0) return '';
+    const kb = 1024.0;
+    const mb = kb * 1024.0;
+    if (bytesPerSecond >= mb) {
+      return '${(bytesPerSecond / mb).toStringAsFixed(1)} MB/s';
+    }
+    if (bytesPerSecond >= kb) {
+      return '${(bytesPerSecond / kb).toStringAsFixed(1)} KB/s';
+    }
+    return '${bytesPerSecond.toStringAsFixed(0)} B/s';
+  }
+
+  String _formatDateTime(DateTime? value) {
+    if (value == null) return '-';
+    final local = value.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}.'
+        '${local.month.toString().padLeft(2, '0')}.'
+        '${local.year} ${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF121212),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.longread.name,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF00E676)),
+            )
+          : _materials.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.folder_open, color: Colors.grey[600], size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Нет материалов',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                )
+              : _buildMaterialsList(),
+    );
+  }
+
+  Widget _buildMaterialsList() {
+    final filteredMaterials = widget.selectedTaskId != null
+        ? _materials
+            .where((m) => m.isCoding && m.taskId == widget.selectedTaskId)
+            .toList()
+        : widget.selectedExerciseName != null
+            ? _materials
+                .where((m) => m.isCoding && m.name == widget.selectedExerciseName)
+                .toList()
+            : _materials;
+    final hasMarkdown = filteredMaterials.any((m) => m.isMarkdown);
+    final seenTaskIds = <int>{};
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: filteredMaterials.length,
+      itemBuilder: (context, index) {
+        final material = filteredMaterials[index];
+        if (material.isMarkdown) {
+          return _buildMarkdownCard(material);
+        } else if (material.isFile) {
+          return _buildFileCard(material);
+        } else if (material.isCoding) {
+          final taskId = material.taskId;
+          if (taskId != null && !seenTaskIds.add(taskId)) {
+            return const SizedBox.shrink();
+          }
+          return _buildCodingCard(material, hasMarkdown: hasMarkdown);
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _buildMarkdownCard(LongreadMaterial material) {
+    final content = _normalizeHtmlColors(material.viewContent ?? '');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Html(
+        data: content,
+        style: {
+          "body": Style(
+            margin: Margins.zero,
+            padding: HtmlPaddings.zero,
+            fontSize: FontSize(14),
+            color: Colors.white,
+            lineHeight: LineHeight(1.5),
+          ),
+          "a": Style(
+            color: widget.themeColor,
+            textDecoration: TextDecoration.underline,
+          ),
+          "p": Style(
+            margin: Margins.only(bottom: 8),
+          ),
+          "hr": Style(
+            margin: Margins.symmetric(vertical: 8),
+            height: Height(1),
+            border: Border(bottom: BorderSide(color: Colors.white, width: 1)),
+          ),
+        },
+        onLinkTap: (url, context, attributes) async {
+          if (url != null) {
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  String _normalizeHtmlColors(String html) {
+    final colorStyle = RegExp("color\\s*:\\s*[^;\"']+;?", caseSensitive: false);
+    final cleaned = html.replaceAll(colorStyle, '');
+    final emptyDoubleStyle = RegExp(r'style=\"\\s*;*\\s*\"', caseSensitive: false);
+    final emptySingleStyle = RegExp(r"style='\\s*;*\\s*'", caseSensitive: false);
+    return cleaned.replaceAll(emptyDoubleStyle, '').replaceAll(emptySingleStyle, '');
+  }
+
+  String _normalizeCommentHtml(String html) {
+    var cleaned = _normalizeHtmlColors(html);
+    cleaned = cleaned.replaceAll(RegExp(r'</?table[^>]*>', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'</?(tbody|thead|tfoot)[^>]*>', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'</?tr[^>]*>', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'</?td[^>]*>', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'</?colgroup[^>]*>', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'<col[^>]*>', caseSensitive: false), '');
+    final anchor = RegExp(r'(<a\\b[^>]*>)([^<]+)(</a>)', caseSensitive: false);
+    return cleaned.replaceAllMapped(anchor, (match) {
+      final prefix = match.group(1)!;
+      final text = match.group(2)!;
+      final suffix = match.group(3)!;
+      return '$prefix${_softWrapLongWord(text)}$suffix';
+    });
+  }
+
+  String _softWrapLongWord(String text) {
+    if (text.length <= 24) return text;
+    const chunkSize = 16;
+    final buffer = StringBuffer();
+    for (var i = 0; i < text.length; i++) {
+      buffer.write(text[i]);
+      if ((i + 1) % chunkSize == 0) {
+        buffer.write('\u200B');
+      }
+    }
+    return buffer.toString();
+  }
+
+  Widget _buildFileCard(LongreadMaterial material) {
+    final fileName = material.contentName ?? material.filename ?? 'Файл';
+    final extension = fileName.contains('.')
+        ? fileName.split('.').last.toUpperCase()
+        : 'FILE';
+    final key = _materialKey(material);
+    final isDownloading = _downloadingKeys.contains(key);
+    final progress = _downloadProgress[key];
+    final speed = _downloadSpeed[key] ?? '';
+    final isDownloaded = _downloadedKeys.contains(key);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: isDownloading ? null : () => _downloadFile(material),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: widget.themeColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text(
+                    extension.length > 4 ? extension.substring(0, 4) : extension,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: widget.themeColor,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fileName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (material.formattedSize.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        material.formattedSize,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                    if (isDownloading) ...[
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 4,
+                        color: const Color(0xFF00E676),
+                        backgroundColor: const Color(0xFF2A2A2A),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Text(
+                            progress == null
+                                ? 'Загрузка...'
+                                : '${(progress * 100).toStringAsFixed(0)}%',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          ),
+                          const Spacer(),
+                          if (speed.isNotEmpty)
+                            Text(
+                              speed,
+                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              isDownloading
+                  ? const SizedBox(width: 24, height: 24)
+                  : Icon(
+                      isDownloaded ? Icons.check_circle : Icons.download,
+                      color: isDownloaded ? const Color(0xFF00E676) : Colors.grey[500],
+                      size: 24,
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCodingCard(LongreadMaterial material, {required bool hasMarkdown}) {
+    final shouldShowDescription =
+        (material.viewContent ?? '').isNotEmpty && !hasMarkdown;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (shouldShowDescription) _buildMarkdownCard(material),
+        if (material.attachments.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Файлы задания',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ),
+          ...material.attachments.asMap().entries.map(
+                (entry) => _buildAttachmentCard(material, entry.key, entry.value),
+              ),
+        ],
+        if (material.taskId != null) _buildTaskTabs(material),
+      ],
+    );
+  }
+
+  Widget _buildAttachmentCard(
+    LongreadMaterial material,
+    int index,
+    MaterialAttachment attachment,
+  ) {
+    final fileName = attachment.name;
+    final extension = attachment.extension;
+    final key = _attachmentKey(material, index);
+    final isDownloading = _downloadingKeys.contains(key);
+    final progress = _downloadProgress[key];
+    final speed = _downloadSpeed[key] ?? '';
+    final isDownloaded = _downloadedKeys.contains(key);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: isDownloading ? null : () => _downloadAttachment(attachment, key),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: widget.themeColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text(
+                    extension.length > 4 ? extension.substring(0, 4) : extension,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: widget.themeColor,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fileName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (attachment.formattedSize.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        attachment.formattedSize,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                    if (isDownloading) ...[
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 4,
+                        color: const Color(0xFF00E676),
+                        backgroundColor: const Color(0xFF2A2A2A),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Text(
+                            progress == null
+                                ? 'Загрузка...'
+                                : '${(progress * 100).toStringAsFixed(0)}%',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          ),
+                          const Spacer(),
+                          if (speed.isNotEmpty)
+                            Text(
+                              speed,
+                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              isDownloading
+                  ? const SizedBox(width: 24, height: 24)
+                  : Icon(
+                      isDownloaded ? Icons.check_circle : Icons.download,
+                      color: isDownloaded ? const Color(0xFF00E676) : Colors.grey[500],
+                      size: 24,
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskTabs(LongreadMaterial material) {
+    final taskId = material.taskId!;
+    final events = _eventsByTaskId[taskId] ?? [];
+    final comments = _commentsByTaskId[taskId] ?? [];
+    final isLoading = _loadingTaskIds.contains(taskId) && events.isEmpty && comments.isEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: DefaultTabController(
+        length: 3,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: TabBar(
+                isScrollable: false,
+                dividerColor: Colors.transparent,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.grey[500],
+                indicatorColor: widget.themeColor,
+                indicatorWeight: 3,
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                unselectedLabelStyle: const TextStyle(fontSize: 12),
+                tabs: const [
+                  Tab(text: 'Решение'),
+                  Tab(text: 'Комментарии'),
+                  Tab(text: 'Информация'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Builder(
+              builder: (context) {
+                final controller = DefaultTabController.of(context);
+                return AnimatedBuilder(
+                  animation: controller,
+                  builder: (context, child) {
+                    final index = controller.index;
+                    Widget content;
+                    switch (index) {
+                      case 1:
+                        content = _buildCommentsTab(taskId, comments, isLoading);
+                        break;
+                      case 2:
+                        content = _buildInfoTab(material, events, isLoading);
+                        break;
+                      default:
+                        content = _buildSolutionTab(taskId, material, events, isLoading);
+                    }
+                    return AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Container(
+                        key: ValueKey(index),
+                        color: const Color(0xFF121212),
+                        child: content,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSolutionTab(
+    int taskId,
+    LongreadMaterial material,
+    List<TaskEvent> events,
+    bool isLoading,
+  ) {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      );
+    }
+
+    final error = _taskLoadErrors[taskId];
+    if (error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              error,
+              style: TextStyle(color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => _reloadTaskDetails(taskId),
+              child: const Text('Повторить'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final sortedEvents = _sortEvents(events);
+    if (sortedEvents.isEmpty) {
+      return Center(
+        child: Text(
+          'История пока пуста',
+          style: TextStyle(color: Colors.grey[500]),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.only(top: 4),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) {
+        final event = sortedEvents[index];
+        return _buildEventCard(taskId, event);
+      },
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
+      itemCount: sortedEvents.length,
+    );
+  }
+
+  Widget _buildCommentsTab(
+    int taskId,
+    List<TaskComment> comments,
+    bool isLoading,
+  ) {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      );
+    }
+    if (comments.isEmpty) {
+      return Center(
+        child: Text(
+          'Комментариев нет',
+          style: TextStyle(color: Colors.grey[500]),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.only(top: 4),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) {
+        final comment = comments[index];
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                comment.sender.name,
+                style: const TextStyle(fontSize: 12, color: Colors.white),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _formatDateTime(comment.createdAt),
+                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+              ),
+              const SizedBox(height: 8),
+              Html(
+                data: _normalizeCommentHtml(comment.content),
+                extensions: const [TableHtmlExtension()],
+                style: {
+                  "body": Style(
+                    margin: Margins.zero,
+                    padding: HtmlPaddings.zero,
+                    fontSize: FontSize(13),
+                    color: Colors.white,
+                    lineHeight: LineHeight(1.4),
+                  ),
+                  "a": Style(
+                    color: widget.themeColor,
+                    textDecoration: TextDecoration.underline,
+                  ),
+                  "table": Style(color: Colors.white),
+                  "tr": Style(color: Colors.white),
+                  "td": Style(color: Colors.white),
+                  "div": Style(color: Colors.white),
+                  "span": Style(color: Colors.white),
+                },
+                onLinkTap: (url, context, attributes) async {
+                  if (url != null) {
+                    final uri = Uri.parse(url);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  }
+                },
+              ),
+              if (comment.attachments.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                ...comment.attachments.map(
+                  (attachment) => _buildTaskAttachmentCard(taskId, attachment),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
+      itemCount: comments.length,
+    );
+  }
+
+  Widget _buildInfoTab(
+    LongreadMaterial material,
+    List<TaskEvent> events,
+    bool isLoading,
+  ) {
+    if (isLoading && events.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      );
+    }
+
+    final TaskEventEstimation? eventEstimation = _latestEstimation(events);
+    final materialEstimation = material.estimation;
+    final deadline = eventEstimation?.deadline ?? materialEstimation?.deadline;
+    final activityName = eventEstimation?.activityName ?? materialEstimation?.activityName;
+    final scoreText = _formatScore(
+      events,
+      eventEstimation?.maxScore,
+      materialEstimation?.maxScore,
+    );
+    final status = _deriveStatus(events);
+
+    return Column(
+      children: [
+        _buildInfoRow('Дедлайн', _formatDateTime(deadline)),
+        _buildInfoRow('Статус', status),
+        _buildInfoRow('Тип активности', activityName ?? '-'),
+        _buildInfoRow('Название курса', widget.courseName ?? '-'),
+        _buildInfoRow('Тема', widget.themeName ?? '-'),
+        _buildInfoRow('Оценка', scoreText),
+        _buildInfoRow('Дополнительный балл', '-'),
+      ],
+    );
+  }
+
+  Widget _buildEventCard(int taskId, TaskEvent event) {
+    final authorName = _eventAuthorName(event);
+    final isSystem = _isSystemEvent(event);
+    final initials = isSystem ? 'СП' : _initials(authorName);
+    final scoreText = _eventScoreLabel(event);
+    final statusBadge = _eventStatusBadge(event);
+    final bodyText = _eventBodyText(event);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isSystem
+                  ? Colors.grey[800]
+                  : widget.themeColor.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                initials,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isSystem ? Colors.grey[300] : widget.themeColor,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        authorName,
+                        style: const TextStyle(fontSize: 13, color: Colors.white),
+                      ),
+                    ),
+                    if (scoreText.isNotEmpty || statusBadge != null) ...[
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (scoreText.isNotEmpty)
+                            Text(
+                              scoreText,
+                              style: TextStyle(fontSize: 12, color: Colors.grey[300]),
+                            ),
+                          if (statusBadge != null) ...[
+                            const SizedBox(height: 4),
+                            statusBadge,
+                          ],
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _formatDateTime(event.occurredOn),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                ),
+                if (bodyText.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    bodyText,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[300]),
+                  ),
+                ],
+                if (event.content.solutionUrl != null &&
+                    event.content.solutionUrl!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final uri = Uri.tryParse(event.content.solutionUrl!);
+                      if (uri != null && await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A2A),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.link, size: 14, color: widget.themeColor),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Ссылка на решение',
+                              style: TextStyle(fontSize: 12, color: widget.themeColor),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                if (event.content.attachments.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Прикрепленные файлы:',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  ),
+                  const SizedBox(height: 6),
+                  ...event.content.attachments.map(
+                    (attachment) => _buildTaskAttachmentCard(taskId, attachment),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _eventAuthorName(TaskEvent event) {
+    if (_isSystemEvent(event)) return 'Системный пользователь';
+    final actorName = event.actorName?.trim();
+    if (actorName != null && actorName.isNotEmpty && actorName != 'System') {
+      return actorName;
+    }
+    final reviewerName = event.content.reviewerName;
+    if (reviewerName != null && reviewerName.isNotEmpty) {
+      return reviewerName;
+    }
+    final reviewersNames = event.content.reviewersNames ?? const [];
+    if (reviewersNames.isNotEmpty) {
+      return reviewersNames.join(', ');
+    }
+    final actorEmail = event.actorEmail?.trim();
+    if (actorEmail != null && actorEmail.isNotEmpty) {
+      return actorEmail;
+    }
+    return 'Пользователь';
+  }
+
+  bool _isSystemEvent(TaskEvent event) {
+    final actorName = event.actorName?.trim();
+    if (actorName == 'System') return true;
+    final actorEmail = event.actorEmail?.trim();
+    return actorEmail == 'system@cu.ru';
+  }
+
+  String _eventScoreLabel(TaskEvent event) {
+    final value = event.content.score?.value;
+    final max = event.content.estimation?.maxScore;
+    if (value == null && max == null) return '';
+    final valueText = value?.toString() ?? '-';
+    return max != null ? '$valueText / $max' : valueText;
+  }
+
+  Widget? _eventStatusBadge(TaskEvent event) {
+    if (event.type == 'taskEvaluated') {
+      return _statusBadge('Сдано', const Color(0xFF00E676));
+    }
+    final state = event.content.taskState ?? event.content.state;
+    if (event.type == 'taskCreated' && state == 'backlog') {
+      return _statusBadge('Бэклог', Colors.grey);
+    }
+    return null;
+  }
+
+  Widget _statusBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _eventBodyText(TaskEvent event) {
+    switch (event.type) {
+      case 'taskEvaluated':
+        final value = event.content.score?.value;
+        return value != null ? 'Задание принято на $value баллов' : '';
+      case 'reviewerAssigned':
+        final reviewer = event.content.reviewerName;
+        return reviewer != null && reviewer.isNotEmpty
+            ? 'Назначен проверяющий $reviewer'
+            : 'Назначен проверяющий';
+      case 'exerciseReviewersAssigned':
+        final reviewers = event.content.reviewersNames ?? const [];
+        return reviewers.isNotEmpty
+            ? 'Назначены проверяющие: ${reviewers.join(', ')}'
+            : 'Назначены проверяющие';
+      case 'exerciseReviewersReleased':
+        final reviewers = event.content.reviewersNames ?? const [];
+        return reviewers.isNotEmpty
+            ? 'Проверяющий освобожден: ${reviewers.join(', ')}'
+            : 'Проверяющий освобожден';
+      case 'solutionAttached':
+        return '';
+      case 'taskStarted':
+        return 'Задание начато';
+      case 'taskCompleted':
+        return 'Задание отправлено на проверку';
+      case 'taskCreated':
+        final deadline = event.content.estimation?.deadline ?? event.content.taskDeadline;
+        return deadline != null
+            ? 'Задание выдано. Дедлайн ${_formatDateTime(deadline)}'
+            : 'Задание выдано';
+      case 'exerciseEstimated':
+        return 'Выставлены параметры';
+      case 'exerciseAttachmentsChanged':
+        return 'Файлы задания обновлены';
+      case 'exerciseChanged':
+        final name = event.content.exerciseName;
+        return name != null && name.isNotEmpty ? 'Задание обновлено: $name' : 'Задание обновлено';
+      default:
+        return '';
+    }
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return '';
+    if (parts.length == 1) {
+      return parts.first.characters.take(2).toString().toUpperCase();
+    }
+    final first = parts.first.characters.first.toString();
+    final second = parts[1].characters.first.toString();
+    return (first + second).toUpperCase();
+  }
+
+  List<TaskEvent> _sortEvents(List<TaskEvent> events) {
+    final sorted = [...events];
+    sorted.sort((a, b) {
+      final aTime = a.occurredOn;
+      final bTime = b.occurredOn;
+      if (aTime == null && bTime == null) return 0;
+      if (aTime == null) return 1;
+      if (bTime == null) return -1;
+      return bTime.compareTo(aTime);
+    });
+    return sorted;
+  }
+
+  Future<void> _reloadTaskDetails(int taskId) async {
+    if (_loadingTaskIds.contains(taskId)) return;
+    _loadingTaskIds.add(taskId);
+    try {
+      final results = await Future.wait([
+        apiService.fetchTaskEvents(taskId),
+        apiService.fetchTaskComments(taskId),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _eventsByTaskId[taskId] = results[0] as List<TaskEvent>;
+        _commentsByTaskId[taskId] = results[1] as List<TaskComment>;
+        _taskLoadErrors[taskId] = null;
+      });
+      await _refreshDownloadedTaskAttachments(taskId);
+    } catch (e, st) {
+      _log.warning('Error reloading task details', e, st);
+      if (mounted) {
+        setState(() => _taskLoadErrors[taskId] = 'Не удалось загрузить историю');
+      }
+    } finally {
+      _loadingTaskIds.remove(taskId);
+    }
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 12, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  TaskEventEstimation? _latestEstimation(List<TaskEvent> events) {
+    TaskEventEstimation? latest;
+    DateTime? latestTime;
+    for (final event in events) {
+      if (event.content.estimation == null) continue;
+      if (event.occurredOn == null) {
+        latest ??= event.content.estimation;
+        continue;
+      }
+      if (latestTime == null || event.occurredOn!.isAfter(latestTime)) {
+        latest = event.content.estimation;
+        latestTime = event.occurredOn;
+      }
+    }
+    return latest;
+  }
+
+  String _formatScore(List<TaskEvent> events, int? maxScore, int? fallbackMax) {
+    int? value;
+    DateTime? latest;
+    for (final event in events) {
+      final scoreValue = event.content.score?.value;
+      if (scoreValue == null) continue;
+      if (event.occurredOn == null) {
+        value ??= scoreValue;
+        continue;
+      }
+      if (latest == null || event.occurredOn!.isAfter(latest)) {
+        value = scoreValue;
+        latest = event.occurredOn;
+      }
+    }
+    if (value == null) return '-';
+    final max = maxScore ?? fallbackMax;
+    return max != null ? '$value/$max' : '$value';
+  }
+
+  String _deriveStatus(List<TaskEvent> events) {
+    final types = events.map((e) => e.type).toSet();
+    if (types.contains('taskEvaluated')) return 'Проверено';
+    if (types.contains('taskCompleted') || events.any((e) => e.content.state == 'review')) {
+      return 'На проверке';
+    }
+    if (types.contains('taskStarted')) return 'В работе';
+    return 'Не начато';
+  }
+
+  Widget _buildTaskAttachmentCard(int taskId, MaterialAttachment attachment) {
+    final key = _taskAttachmentKey(taskId, attachment);
+    final isDownloading = _downloadingKeys.contains(key);
+    final progress = _downloadProgress[key];
+    final speed = _downloadSpeed[key] ?? '';
+    final isDownloaded = _downloadedKeys.contains(key);
+    final extension = attachment.extension;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: isDownloading ? null : () => _downloadAttachment(attachment, key),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: widget.themeColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text(
+                    extension.length > 4 ? extension.substring(0, 4) : extension,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: widget.themeColor,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      attachment.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (attachment.formattedSize.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        attachment.formattedSize,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                    if (isDownloading) ...[
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 4,
+                        color: const Color(0xFF00E676),
+                        backgroundColor: const Color(0xFF2A2A2A),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Text(
+                            progress == null
+                                ? 'Загрузка...'
+                                : '${(progress * 100).toStringAsFixed(0)}%',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          ),
+                          const Spacer(),
+                          if (speed.isNotEmpty)
+                            Text(
+                              speed,
+                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              isDownloading
+                  ? const SizedBox(width: 24, height: 24)
+                  : Icon(
+                      isDownloaded ? Icons.check_circle : Icons.download,
+                      color: isDownloaded ? const Color(0xFF00E676) : Colors.grey[500],
+                      size: 24,
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
