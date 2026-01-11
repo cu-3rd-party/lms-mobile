@@ -248,9 +248,9 @@ class _CoursePageState extends State<CoursePage> {
               style: const TextStyle(fontSize: 12, color: Colors.white),
             ),
             const SizedBox(height: 6),
-            Row(
-              children: [
-                if (exercise.deadline != null) ...[
+            if (exercise.deadline != null)
+              Row(
+                children: [
                   Icon(
                     Icons.access_time,
                     size: 12,
@@ -264,29 +264,7 @@ class _CoursePageState extends State<CoursePage> {
                       color: exercise.isOverdue ? Colors.redAccent : Colors.grey[500],
                     ),
                   ),
-                  const SizedBox(width: 12),
                 ],
-                Icon(Icons.star, size: 12, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  'макс. ${exercise.maxScore}',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                ),
-                if (exercise.activity != null) ...[
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A2A),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      exercise.activity!.name,
-                      style: TextStyle(fontSize: 9, color: Colors.grey[500]),
-                    ),
-                  ),
-                ],
-              ],
             ),
           ],
         ),

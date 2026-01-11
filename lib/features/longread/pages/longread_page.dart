@@ -690,7 +690,6 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final key = _attachmentKey(material, index);
     final isDownloading = _downloadingKeys.contains(key);
     final progress = _downloadProgress[key];
-    final speed = _downloadSpeed[key] ?? '';
     final isDownloaded = _downloadedKeys.contains(key);
 
     return Container(
@@ -703,15 +702,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         onTap: isDownloading ? null : () => _downloadAttachment(attachment, key),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: widget.themeColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
                   child: Text(
@@ -726,66 +726,44 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      fileName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (attachment.formattedSize.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        attachment.formattedSize,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                    if (isDownloading) ...[
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 4,
-                        color: const Color(0xFF00E676),
-                        backgroundColor: const Color(0xFF2A2A2A),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Text(
-                            progress == null
-                                ? 'Загрузка...'
-                                : '${(progress * 100).toStringAsFixed(0)}%',
-                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                          ),
-                          const Spacer(),
-                          if (speed.isNotEmpty)
-                            Text(
-                              speed,
-                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
+                child: Text(
+                  fileName,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (isDownloading) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 50,
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 3,
+                    color: const Color(0xFF00E676),
+                    backgroundColor: const Color(0xFF3A3A3A),
+                  ),
+                ),
+              ] else if (attachment.formattedSize.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Text(
+                  attachment.formattedSize,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
               const SizedBox(width: 8),
-              isDownloading
-                  ? const SizedBox(width: 24, height: 24)
-                  : Icon(
-                      isDownloaded ? Icons.check_circle : Icons.download,
-                      color: isDownloaded ? const Color(0xFF00E676) : Colors.grey[500],
-                      size: 24,
-                    ),
+              Icon(
+                isDownloaded ? Icons.check_circle : Icons.download,
+                color: isDownloaded ? const Color(0xFF00E676) : Colors.grey[500],
+                size: 20,
+              ),
             ],
           ),
         ),
@@ -960,37 +938,39 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 _formatDateTime(comment.createdAt),
                 style: TextStyle(fontSize: 11, color: Colors.grey[500]),
               ),
-              const SizedBox(height: 8),
-              Html(
-                data: _normalizeCommentHtml(comment.content),
-                extensions: const [TableHtmlExtension()],
-                style: {
-                  "body": Style(
-                    margin: Margins.zero,
-                    padding: HtmlPaddings.zero,
-                    fontSize: FontSize(13),
-                    color: Colors.white,
-                    lineHeight: LineHeight(1.4),
-                  ),
-                  "a": Style(
-                    color: widget.themeColor,
-                    textDecoration: TextDecoration.underline,
-                  ),
-                  "table": Style(color: Colors.white),
-                  "tr": Style(color: Colors.white),
-                  "td": Style(color: Colors.white),
-                  "div": Style(color: Colors.white),
-                  "span": Style(color: Colors.white),
-                },
-                onLinkTap: (url, context, attributes) async {
-                  if (url != null) {
-                    final uri = Uri.parse(url);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+              if (comment.content.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Html(
+                  data: _normalizeCommentHtml(comment.content),
+                  extensions: const [TableHtmlExtension()],
+                  style: {
+                    "body": Style(
+                      margin: Margins.zero,
+                      padding: HtmlPaddings.zero,
+                      fontSize: FontSize(13),
+                      color: Colors.white,
+                      lineHeight: LineHeight(1.4),
+                    ),
+                    "a": Style(
+                      color: widget.themeColor,
+                      textDecoration: TextDecoration.underline,
+                    ),
+                    "table": Style(color: Colors.white),
+                    "tr": Style(color: Colors.white),
+                    "td": Style(color: Colors.white),
+                    "div": Style(color: Colors.white),
+                    "span": Style(color: Colors.white),
+                  },
+                  onLinkTap: (url, context, attributes) async {
+                    if (url != null) {
+                      final uri = Uri.parse(url);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
                     }
-                  }
-                },
-              ),
+                  },
+                ),
+              ],
               if (comment.attachments.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 ...comment.attachments.map(
@@ -1086,9 +1066,19 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Text(
-                        authorName,
-                        style: const TextStyle(fontSize: 13, color: Colors.white),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            authorName,
+                            style: const TextStyle(fontSize: 13, color: Colors.white),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _formatDateTime(event.occurredOn),
+                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          ),
+                        ],
                       ),
                     ),
                     if (scoreText.isNotEmpty || statusBadge != null) ...[
@@ -1101,18 +1091,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                               style: TextStyle(fontSize: 12, color: Colors.grey[300]),
                             ),
                           if (statusBadge != null) ...[
-                            const SizedBox(height: 4),
+                            if (scoreText.isNotEmpty) const SizedBox(height: 4),
                             statusBadge,
                           ],
                         ],
                       ),
                     ],
                   ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatDateTime(event.occurredOn),
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
                 if (bodyText.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -1303,9 +1288,18 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     return (first + second).toUpperCase();
   }
 
+  static const _hiddenEventTypes = {
+    'exerciseReviewersAssigned',
+    'exerciseEstimated',
+    'exerciseAttachmentsChanged',
+    'exerciseChanged',
+  };
+
   List<TaskEvent> _sortEvents(List<TaskEvent> events) {
-    final sorted = [...events];
-    sorted.sort((a, b) {
+    final filtered = events.where((e) {
+      return !_hiddenEventTypes.contains(e.type);
+    }).toList();
+    filtered.sort((a, b) {
       final aTime = a.occurredOn;
       final bTime = b.occurredOn;
       if (aTime == null && bTime == null) return 0;
@@ -1313,7 +1307,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       if (bTime == null) return -1;
       return bTime.compareTo(aTime);
     });
-    return sorted;
+    return filtered;
   }
 
   Future<void> _reloadTaskDetails(int taskId) async {
@@ -1421,24 +1415,25 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final extension = attachment.extension;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: InkWell(
         onTap: isDownloading ? null : () => _downloadAttachment(attachment, key),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(10),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: widget.themeColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Center(
                   child: Text(
@@ -1451,68 +1446,48 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      attachment.name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (attachment.formattedSize.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        attachment.formattedSize,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                    if (isDownloading) ...[
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 4,
-                        color: const Color(0xFF00E676),
-                        backgroundColor: const Color(0xFF2A2A2A),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Text(
-                            progress == null
-                                ? 'Загрузка...'
-                                : '${(progress * 100).toStringAsFixed(0)}%',
-                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                          ),
-                          const Spacer(),
-                          if (speed.isNotEmpty)
-                            Text(
-                              speed,
-                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
+                child: Text(
+                  attachment.name,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (isDownloading) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 50,
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 3,
+                    color: const Color(0xFF00E676),
+                    backgroundColor: const Color(0xFF3A3A3A),
+                  ),
+                ),
+              ] else if (attachment.formattedSize.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Text(
+                  attachment.formattedSize,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
               const SizedBox(width: 8),
-              isDownloading
-                  ? const SizedBox(width: 24, height: 24)
-                  : Icon(
-                      isDownloaded ? Icons.check_circle : Icons.download,
-                      color: isDownloaded ? const Color(0xFF00E676) : Colors.grey[500],
-                      size: 24,
-                    ),
+              Icon(
+                isDownloaded ? Icons.check_circle : Icons.download,
+                color: isDownloaded
+                    ? const Color(0xFF00E676)
+                    : Colors.grey[500],
+                size: 18,
+              ),
             ],
           ),
         ),
