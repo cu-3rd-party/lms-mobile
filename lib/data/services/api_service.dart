@@ -26,10 +26,11 @@ class ApiService {
   }
 
   Future<String?> getCookie() async {
-    if (_cookie != null) return _cookie;
+    if (_cookie != null) return 'bff.cookie=$_cookie';
     final prefs = await SharedPreferences.getInstance();
     _cookie = prefs.getString('cookie');
-    return _cookie;
+    if (_cookie == null) return null;
+    return 'bff.cookie=$_cookie';
   }
 
   Future<void> clearCookie() async {

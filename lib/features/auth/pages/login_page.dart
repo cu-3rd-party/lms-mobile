@@ -19,7 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _login() async {
     final cookie = _cookieController.text.trim();
     if (cookie.isEmpty) {
-      setState(() => _error = 'Введите Cookie');
+      setState(() => _error = 'Введите значение bff.cookie');
       return;
     }
 
@@ -78,7 +78,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 48),
               Text(
-                'Вставьте Cookie с сайта my.centraluniversity.ru',
+                'Вставьте значение bff.cookie с сайта my.centraluniversity.ru',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[500],
@@ -87,10 +87,10 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 12),
               TextField(
                 controller: _cookieController,
-                maxLines: 3,
+                maxLines: 1,
                 style: const TextStyle(fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Cookie...',
+                  hintText: 'Значение bff.cookie...',
                   hintStyle: TextStyle(color: Colors.grey[600]),
                   filled: true,
                   fillColor: const Color(0xFF1E1E1E),
@@ -143,7 +143,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 24),
               Text(
-                'Откройте DevTools в браузере (F12) → Application → Cookies → скопируйте значение всех cookies одной строкой',
+                'Откройте DevTools в браузере (F12) → Application → Cookies → скопируйте значение bff.cookie',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[600],
