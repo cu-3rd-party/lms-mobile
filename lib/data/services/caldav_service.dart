@@ -217,6 +217,8 @@ class CaldavService {
         DateTime? start;
         DateTime? end;
         String? link;
+        String? url;
+        String? description;
         for (final line in lines) {
           final idx = line.indexOf(':');
           if (idx == -1) continue;
@@ -225,15 +227,16 @@ class CaldavService {
           if (key.startsWith('SUMMARY')) {
             summary = _unescapeIcsText(value.trim());
           } else if (key.startsWith('URL')) {
-            link = value.trim();
-          } else if (key.startsWith('DESCRIPTION') && link == null) {
-            link = _extractUrl(_unescapeIcsText(value.trim()));
+            url = value.trim();
+          } else if (key.startsWith('DESCRIPTION')) {
+            description = _unescapeIcsText(value.trim());
           } else if (key.startsWith('DTSTART')) {
             start = _parseDateTime(value.trim());
           } else if (key.startsWith('DTEND')) {
             end = _parseDateTime(value.trim());
           }
         }
+        link = _extractKtalkUrl(url) ?? _extractKtalkUrl(description);
         if (summary == null || start == null) continue;
         end ??= start.add(const Duration(hours: 1));
         events.add(CalendarEvent(start: start, end: end, summary: summary, link: link));
@@ -242,8 +245,9 @@ class CaldavService {
     return events;
   }
 
-  String? _extractUrl(String text) {
-    final match = RegExp(r'https?://\\S+').firstMatch(text);
+  String? _extractKtalkUrl(String? text) {
+    if (text == null || text.isEmpty) return null;
+    final match = RegExp(r'https?://centraluniversity\.ktalk\.ru/\S*').firstMatch(text);
     return match?.group(0);
   }
 
