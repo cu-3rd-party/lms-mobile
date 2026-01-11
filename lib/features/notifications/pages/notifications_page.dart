@@ -77,6 +77,7 @@ class _NotificationsPageState extends State<NotificationsPage>
           indicatorWeight: 2,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.grey[500],
+          dividerColor: Colors.transparent,
           tabs: const [
             Tab(text: 'Учеба'),
             Tab(text: 'Другое'),
@@ -100,18 +101,34 @@ class _NotificationsPageState extends State<NotificationsPage>
   Widget _buildList(String category) {
     final items = category == 'Education' ? _educationItems : _otherItems;
     if (items.isEmpty) {
-      return Center(
-        child: Text(
-          'Нет уведомлений',
-          style: TextStyle(color: Colors.grey[500]),
+      return RefreshIndicator(
+        onRefresh: _loadNotifications,
+        color: const Color(0xFF00E676),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: Center(
+                child: Text(
+                  'Нет уведомлений',
+                  style: TextStyle(color: Colors.grey[500]),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemBuilder: (context, index) => _buildCard(items[index]),
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
-      itemCount: items.length,
+    return RefreshIndicator(
+      onRefresh: _loadNotifications,
+      color: const Color(0xFF00E676),
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemBuilder: (context, index) => _buildCard(items[index]),
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
+        itemCount: items.length,
+      ),
     );
   }
 
