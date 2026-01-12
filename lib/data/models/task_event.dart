@@ -144,14 +144,16 @@ String _fullName(String? last, String? first, String? middle) {
 
 class TaskEventScore {
   final String? level;
-  final int? value;
+  final double? value;
 
   TaskEventScore({this.level, this.value});
 
   factory TaskEventScore.fromJson(Map<String, dynamic> json) {
+    final rawValue = json['value'];
+    final parsedValue = rawValue is num ? rawValue.toDouble() : null;
     return TaskEventScore(
       level: json['level']?.toString(),
-      value: json['value'] is int ? json['value'] as int : null,
+      value: parsedValue,
     );
   }
 }

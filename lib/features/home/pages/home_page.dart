@@ -600,6 +600,8 @@ class _HomePageState extends State<HomePage> {
                         themeColor: themeColor,
                         courseName: courseName,
                         themeName: theme.name,
+                        courseId: task.course.id,
+                        themeId: theme.id,
                         selectedTaskId: task.id,
                       ),
                     )
@@ -609,6 +611,8 @@ class _HomePageState extends State<HomePage> {
                         themeColor: themeColor,
                         courseName: courseName,
                         themeName: theme.name,
+                        courseId: task.course.id,
+                        themeId: theme.id,
                         selectedTaskId: task.id,
                       ),
                     ),

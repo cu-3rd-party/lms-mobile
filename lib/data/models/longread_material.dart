@@ -68,6 +68,7 @@ class LongreadMaterial {
   bool get isMarkdown => discriminator == 'markdown';
   bool get isFile => discriminator == 'file';
   bool get isCoding => discriminator == 'coding';
+  bool get isQuestions => discriminator == 'questions';
 
   String get formattedSize {
     if (length == null) return '';

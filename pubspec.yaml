@@ -47,6 +47,7 @@ dependencies:
   url_launcher: ^6.2.4
   flutter_html: ^3.0.0-beta.2
   flutter_html_table: ^3.0.0
+  flutter_svg: ^2.0.10+1
   intl: ^0.20.2
   xml: ^6.5.0
   flutter_inappwebview: ^6.1.5
@@ -73,6 +74,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - assets/icons/level-basic.svg
+    - assets/icons/level-medium.svg
+    - assets/icons/level-advanced.svg
 
 flutter_launcher_icons:
   android: true

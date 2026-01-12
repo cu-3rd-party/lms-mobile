@@ -225,7 +225,7 @@ class _CoursePageState extends State<CoursePage> {
                       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
                       child: Column(
                         children: theme.longreads
-                            .map((lr) => _buildLongread(theme.name, lr))
+                            .map((lr) => _buildLongread(theme, lr))
                             .toList(),
                       ),
                     )
@@ -314,7 +314,7 @@ class _CoursePageState extends State<CoursePage> {
                     padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
                     child: Column(
                       children: theme.longreads
-                          .map((lr) => _buildLongread(theme.name, lr))
+                          .map((lr) => _buildLongread(theme, lr))
                           .toList(),
                     ),
                   )
@@ -325,10 +325,10 @@ class _CoursePageState extends State<CoursePage> {
     );
   }
 
-  Widget _buildLongread(String themeName, Longread longread) {
+  Widget _buildLongread(CourseTheme theme, Longread longread) {
     final isIos = Platform.isIOS;
     return GestureDetector(
-      onTap: () => _openLongread(themeName, longread),
+      onTap: () => _openLongread(theme, longread),
       child: Container(
         margin: const EdgeInsets.only(top: 8),
         padding: const EdgeInsets.all(12),
@@ -368,7 +368,7 @@ class _CoursePageState extends State<CoursePage> {
             ),
             if (longread.exercises.isNotEmpty) ...[
               const SizedBox(height: 8),
-              ...longread.exercises.map((ex) => _buildExercise(themeName, longread, ex)),
+              ...longread.exercises.map((ex) => _buildExercise(theme, longread, ex)),
             ],
           ],
         ),
@@ -376,7 +376,7 @@ class _CoursePageState extends State<CoursePage> {
     );
   }
 
-  void _openLongread(String themeName, Longread longread) {
+  void _openLongread(CourseTheme theme, Longread longread) {
     Navigator.push(
       context,
       Platform.isIOS
@@ -385,7 +385,9 @@ class _CoursePageState extends State<CoursePage> {
                 longread: longread,
                 themeColor: widget.course.categoryColor,
                 courseName: widget.course.cleanName,
-                themeName: themeName,
+                themeName: theme.name,
+                courseId: widget.course.id,
+                themeId: theme.id,
               ),
             )
           : MaterialPageRoute(
@@ -393,13 +395,15 @@ class _CoursePageState extends State<CoursePage> {
                 longread: longread,
                 themeColor: widget.course.categoryColor,
                 courseName: widget.course.cleanName,
-                themeName: themeName,
+                themeName: theme.name,
+                courseId: widget.course.id,
+                themeId: theme.id,
               ),
             ),
     );
   }
 
-  Widget _buildExercise(String themeName, Longread longread, ThemeExercise exercise) {
+  Widget _buildExercise(CourseTheme theme, Longread longread, ThemeExercise exercise) {
     final isIos = Platform.isIOS;
     final content = Container(
       margin: const EdgeInsets.only(top: 6),
@@ -442,11 +446,11 @@ class _CoursePageState extends State<CoursePage> {
     );
     return isIos
         ? GestureDetector(
-            onTap: () => _openExercise(themeName, longread, exercise),
+            onTap: () => _openExercise(theme, longread, exercise),
             child: content,
           )
         : InkWell(
-            onTap: () => _openExercise(themeName, longread, exercise),
+            onTap: () => _openExercise(theme, longread, exercise),
             borderRadius: BorderRadius.circular(6),
             child: content,
           );
@@ -462,7 +466,7 @@ class _CoursePageState extends State<CoursePage> {
     });
   }
 
-  void _openExercise(String themeName, Longread longread, ThemeExercise exercise) {
+  void _openExercise(CourseTheme theme, Longread longread, ThemeExercise exercise) {
     Navigator.push(
       context,
       Platform.isIOS
@@ -471,7 +475,9 @@ class _CoursePageState extends State<CoursePage> {
                 longread: longread,
                 themeColor: widget.course.categoryColor,
                 courseName: widget.course.cleanName,
-                themeName: themeName,
+                themeName: theme.name,
+                courseId: widget.course.id,
+                themeId: theme.id,
                 selectedExerciseName: exercise.name,
               ),
             )
@@ -480,7 +486,9 @@ class _CoursePageState extends State<CoursePage> {
                 longread: longread,
                 themeColor: widget.course.categoryColor,
                 courseName: widget.course.cleanName,
-                themeName: themeName,
+                themeName: theme.name,
+                courseId: widget.course.id,
+                themeId: theme.id,
                 selectedExerciseName: exercise.name,
               ),
             ),

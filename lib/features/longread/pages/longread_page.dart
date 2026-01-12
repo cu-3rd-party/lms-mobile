@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:logging/logging.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
@@ -16,6 +17,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/longread_material.dart';
 import 'package:cumobile/data/models/task_comment.dart';
+import 'package:cumobile/data/models/task_details.dart';
 import 'package:cumobile/data/models/task_event.dart';
 import 'package:cumobile/data/services/api_service.dart';
 import 'package:cumobile/features/longread/widgets/attachment_card.dart';
@@ -26,6 +28,8 @@ class LongreadPage extends StatefulWidget {
   final Color themeColor;
   final String? courseName;
   final String? themeName;
+  final int? courseId;
+  final int? themeId;
   final int? selectedTaskId;
   final String? selectedExerciseName;
 
@@ -35,6 +39,8 @@ class LongreadPage extends StatefulWidget {
     required this.themeColor,
     this.courseName,
     this.themeName,
+    this.courseId,
+    this.themeId,
     this.selectedTaskId,
     this.selectedExerciseName,
   });
@@ -52,6 +58,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   final Set<String> _downloadedKeys = {};
   final Map<int, List<TaskEvent>> _eventsByTaskId = {};
   final Map<int, List<TaskComment>> _commentsByTaskId = {};
+  final Map<int, TaskDetails> _taskDetailsById = {};
   final Set<int> _loadingTaskIds = {};
   final Map<int, String?> _taskLoadErrors = {};
   final Map<int, int> _taskTabIndex = {};
@@ -141,11 +148,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         final results = await Future.wait([
           apiService.fetchTaskEvents(taskId),
           apiService.fetchTaskComments(taskId),
+          apiService.fetchTaskDetails(taskId),
         ]);
         if (!mounted) return;
         setState(() {
           _eventsByTaskId[taskId] = results[0] as List<TaskEvent>;
           _commentsByTaskId[taskId] = results[1] as List<TaskComment>;
+          final details = results[2] as TaskDetails?;
+          if (details != null) {
+            _taskDetailsById[taskId] = details;
+          }
           _taskLoadErrors[taskId] = null;
         });
         await _refreshDownloadedTaskAttachments(taskId);
@@ -495,9 +507,67 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             return const SizedBox.shrink();
           }
           return _buildCodingCard(material, hasMarkdown: hasMarkdown);
+        } else if (material.isQuestions) {
+          return _buildQuestionsUnsupportedCard();
         }
         return const SizedBox.shrink();
       },
+    );
+  }
+
+  Widget _buildQuestionsUnsupportedCard() {
+    final courseId = widget.courseId;
+    final themeId = widget.themeId;
+    final longreadId = widget.longread.id;
+    final link = (courseId != null && themeId != null)
+        ? Uri.parse(
+            'https://my.centraluniversity.ru/learn/courses/view/actual/$courseId/themes/$themeId/longreads/$longreadId',
+          )
+        : null;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(Icons.info_outline, color: Colors.grey[400], size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Тесты пока не поддерживаются. '
+                  'Можно пройти тест на сайте.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[300]),
+                ),
+                if (link != null)
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () async {
+                      if (await canLaunchUrl(link)) {
+                        await launchUrl(link, mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    child: Text(
+                      'Открыть тест',
+                      style: TextStyle(fontSize: 12, color: widget.themeColor),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -622,7 +692,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 (entry) => _buildAttachmentCard(material, entry.key, entry.value),
               ),
         ],
-        if (material.taskId != null) _buildTaskTabs(material),
+        if (material.taskId != null) ...[
+          _buildTaskSummary(material),
+          _buildTaskTabs(material),
+        ],
       ],
     );
   }
@@ -1162,12 +1235,18 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final materialEstimation = material.estimation;
     final deadline = eventEstimation?.deadline ?? materialEstimation?.deadline;
     final activityName = eventEstimation?.activityName ?? materialEstimation?.activityName;
+    final taskDetails =
+        material.taskId != null ? _taskDetailsById[material.taskId!] : null;
     final scoreText = _formatScore(
       events,
       eventEstimation?.maxScore,
       materialEstimation?.maxScore,
+      taskDetails,
     );
-    final status = _deriveStatus(events);
+    final extraScoreText = taskDetails?.extraScore != null
+        ? _formatScoreValue(taskDetails!.extraScore!)
+        : '-';
+    final status = _deriveStatus(events, taskDetails);
 
     return Column(
       children: [
@@ -1177,9 +1256,134 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         _buildInfoRow('Название курса', widget.courseName ?? '-'),
         _buildInfoRow('Тема', widget.themeName ?? '-'),
         _buildInfoRow('Оценка', scoreText),
-        _buildInfoRow('Дополнительный балл', '-'),
+        _buildInfoRow('Дополнительный балл', extraScoreText),
       ],
     );
+  }
+
+  Widget _buildTaskSummary(LongreadMaterial material) {
+    final taskId = material.taskId!;
+    final events = _eventsByTaskId[taskId] ?? [];
+    final details = _taskDetailsById[taskId];
+    final isLoading = _loadingTaskIds.contains(taskId) && details == null && events.isEmpty;
+
+    final levelIndex = details?.scoreSkillLevel;
+    final levelText = _scoreLevelLabel(levelIndex);
+    final scoreText = isLoading
+        ? '-'
+        : _formatScore(
+            events,
+            details?.maxScore,
+            material.estimation?.maxScore,
+            details,
+          );
+    final extraScoreText = details?.extraScore != null
+        ? _formatScoreValue(details!.extraScore!)
+        : '-';
+    final statusText = _deriveStatus(events, details);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSummaryRow(
+            'Уровень',
+            Row(
+              children: [
+                _buildLevelIcon(1, levelIndex),
+                const SizedBox(width: 8),
+                _buildLevelIcon(2, levelIndex),
+                const SizedBox(width: 8),
+                _buildLevelIcon(3, levelIndex),
+                const SizedBox(width: 12),
+                Text(
+                  levelText,
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildSummaryRow('Оценка', Text(scoreText, style: _summaryValueStyle)),
+          const SizedBox(height: 8),
+          _buildSummaryRow(
+            'Доп. балл',
+            Text(extraScoreText, style: _summaryValueStyle),
+          ),
+          const SizedBox(height: 8),
+          _buildSummaryRow('Статус', Text(statusText, style: _summaryValueStyle)),
+        ],
+      ),
+    );
+  }
+
+  static const TextStyle _summaryValueStyle =
+      TextStyle(fontSize: 12, color: Colors.white);
+
+  Widget _buildSummaryRow(String label, Widget value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          ),
+        ),
+        Expanded(child: value),
+      ],
+    );
+  }
+
+  Widget _buildLevelIcon(int level, int? selectedLevel) {
+    final isSelected = selectedLevel == level;
+    final color = _scoreLevelColor(level);
+    const defaultColor = Colors.white;
+    final asset = switch (level) {
+      1 => 'assets/icons/level-basic.svg',
+      2 => 'assets/icons/level-medium.svg',
+      _ => 'assets/icons/level-advanced.svg',
+    };
+    return SvgPicture.asset(
+      asset,
+      width: 18,
+      height: 18,
+      colorFilter: ColorFilter.mode(
+        isSelected ? color : defaultColor,
+        BlendMode.srcIn,
+      ),
+    );
+  }
+
+  String _scoreLevelLabel(int? level) {
+    switch (level) {
+      case 1:
+        return 'Базовый';
+      case 2:
+        return 'Средний';
+      case 3:
+        return 'Продвинутый';
+      default:
+        return 'Без уровня';
+    }
+  }
+
+  Color _scoreLevelColor(int level) {
+    switch (level) {
+      case 1:
+        return const Color(0xFF3044FF);
+      case 2:
+        return const Color(0xFFE63F07);
+      default:
+        return const Color(0xFF141414);
+    }
   }
 
   Widget _buildEventCard(int taskId, TaskEvent event) {
@@ -1370,7 +1574,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final value = event.content.score?.value;
     final max = event.content.estimation?.maxScore;
     if (value == null && max == null) return '';
-    final valueText = value?.toString() ?? '-';
+    final valueText = value != null ? _formatScoreValue(value) : '-';
     return max != null ? '$valueText / $max' : valueText;
   }
 
@@ -1417,7 +1621,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     switch (event.type) {
       case 'taskEvaluated':
         final value = event.content.score?.value;
-        return value != null ? 'Задание принято на $value баллов' : '';
+        return value != null
+            ? 'Задание принято на ${_formatScoreValue(value)} баллов'
+            : '';
       case 'reviewerAssigned':
         final reviewer = event.content.reviewerName;
         return reviewer != null && reviewer.isNotEmpty
@@ -1496,11 +1702,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       final results = await Future.wait([
         apiService.fetchTaskEvents(taskId),
         apiService.fetchTaskComments(taskId),
+        apiService.fetchTaskDetails(taskId),
       ]);
       if (!mounted) return;
       setState(() {
         _eventsByTaskId[taskId] = results[0] as List<TaskEvent>;
         _commentsByTaskId[taskId] = results[1] as List<TaskComment>;
+        final details = results[2] as TaskDetails?;
+        if (details != null) {
+          _taskDetailsById[taskId] = details;
+        }
         _taskLoadErrors[taskId] = null;
       });
       await _refreshDownloadedTaskAttachments(taskId);
@@ -1555,34 +1766,70 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     return latest;
   }
 
-  String _formatScore(List<TaskEvent> events, int? maxScore, int? fallbackMax) {
-    int? value;
+  String _formatScore(
+    List<TaskEvent> events,
+    int? maxScore,
+    int? fallbackMax,
+    TaskDetails? details,
+  ) {
+    double? value = details?.score;
     DateTime? latest;
-    for (final event in events) {
-      final scoreValue = event.content.score?.value;
-      if (scoreValue == null) continue;
-      if (event.occurredOn == null) {
-        value ??= scoreValue;
-        continue;
-      }
-      if (latest == null || event.occurredOn!.isAfter(latest)) {
-        value = scoreValue;
-        latest = event.occurredOn;
+    if (value == null) {
+      for (final event in events) {
+        final scoreValue = event.content.score?.value;
+        if (scoreValue == null) continue;
+        if (event.occurredOn == null) {
+          value ??= scoreValue;
+          continue;
+        }
+        if (latest == null || event.occurredOn!.isAfter(latest)) {
+          value = scoreValue;
+          latest = event.occurredOn;
+        }
       }
     }
     if (value == null) return '-';
-    final max = maxScore ?? fallbackMax;
-    return max != null ? '$value/$max' : '$value';
+    final max = details?.maxScore ?? maxScore ?? fallbackMax;
+    final valueText = _formatScoreValue(value);
+    return max != null ? '$valueText/$max' : valueText;
   }
 
-  String _deriveStatus(List<TaskEvent> events) {
+  String _formatScoreValue(double value) {
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
+    return value.toString();
+  }
+
+  String _deriveStatus(List<TaskEvent> events, TaskDetails? details) {
+    final state = details?.state;
+    if (state != null) {
+      switch (state) {
+        case 'evaluated':
+          return 'Проверено';
+        case 'backlog':
+          return 'Бэклог';
+        case 'inProgress':
+          return 'В работе';
+        case 'review':
+          return 'На проверке';
+        case 'revision':
+        case 'rework':
+          return 'Дорешивание';
+        case 'failed':
+        case 'rejected':
+          return 'Не сдано';
+      }
+    }
+    if (details?.hasSolution == true) return 'Есть решение';
     final types = events.map((e) => e.type).toSet();
     if (types.contains('taskEvaluated')) return 'Проверено';
     if (types.contains('taskCompleted') || events.any((e) => e.content.state == 'review')) {
       return 'На проверке';
     }
+    if (types.contains('solutionAttached')) return 'Есть решение';
     if (types.contains('taskStarted')) return 'В работе';
-    return 'Не начато';
+    return 'Не сдано';
   }
 
   Widget _buildTaskAttachmentCard(int taskId, MaterialAttachment attachment) {

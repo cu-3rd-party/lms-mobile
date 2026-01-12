@@ -13,6 +13,7 @@ import 'package:cumobile/data/models/student_lms_profile.dart';
 import 'package:cumobile/data/models/student_profile.dart';
 import 'package:cumobile/data/models/student_task.dart';
 import 'package:cumobile/data/models/task_comment.dart';
+import 'package:cumobile/data/models/task_details.dart';
 import 'package:cumobile/data/models/task_event.dart';
 
 class ApiService {
@@ -264,6 +265,29 @@ class ApiService {
       _log.warning('Error fetching task comments', e, st);
     }
     return [];
+  }
+
+  Future<TaskDetails?> fetchTaskDetails(int taskId) async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/tasks/$taskId'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic>) {
+          return TaskDetails.fromJson(data);
+        }
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching task details', e, st);
+    }
+    return null;
   }
 
   Future<int?> createTaskComment({
