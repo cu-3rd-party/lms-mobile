@@ -266,6 +266,43 @@ class ApiService {
     return [];
   }
 
+  Future<int?> createTaskComment({
+    required int taskId,
+    required String content,
+    List<Map<String, dynamic>> attachments = const [],
+  }) async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/micro-lms/comments'),
+        headers: {
+          'Cookie': cookie,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'entityId': taskId,
+          'type': 'task',
+          'content': content,
+          'attachments': attachments,
+        }),
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic>) {
+          final commentId = data['commentId'];
+          if (commentId is int) return commentId;
+        }
+      }
+    } catch (e, st) {
+      _log.warning('Error creating task comment', e, st);
+    }
+    return null;
+  }
+
   Future<List<NotificationItem>> fetchNotifications({
     required int category,
     int limit = 100,

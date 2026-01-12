@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:logging/logging.dart';
@@ -53,6 +55,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   final Set<int> _loadingTaskIds = {};
   final Map<int, String?> _taskLoadErrors = {};
   final Map<int, int> _taskTabIndex = {};
+  final Map<int, TextEditingController> _commentControllers = {};
+  final Set<int> _sendingCommentTaskIds = {};
+  final Map<int, String?> _commentErrors = {};
   static final Logger _log = Logger('LongreadPage');
 
   @override
@@ -65,6 +70,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    for (final controller in _commentControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -825,95 +833,313 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     List<TaskComment> comments,
     bool isLoading,
   ) {
+    final composer = _buildCommentComposer(taskId);
     if (isLoading) {
-      return Center(
-        child: Platform.isIOS
-            ? const CupertinoActivityIndicator(
-                radius: 14,
-                color: Color(0xFF00E676),
-              )
-            : const CircularProgressIndicator(color: Color(0xFF00E676)),
-      );
-    }
-    if (comments.isEmpty) {
-      return Center(
-        child: Text(
-          'Комментариев нет',
-          style: TextStyle(color: Colors.grey[500]),
-        ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          composer,
+          const SizedBox(height: 12),
+          Center(
+            child: Platform.isIOS
+                ? const CupertinoActivityIndicator(
+                    radius: 14,
+                    color: Color(0xFF00E676),
+                  )
+                : const CircularProgressIndicator(color: Color(0xFF00E676)),
+          ),
+        ],
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.only(top: 4),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemBuilder: (context, index) {
-        final comment = comments[index];
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                comment.sender.name,
-                style: const TextStyle(fontSize: 12, color: Colors.white),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _formatDateTime(comment.createdAt),
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-              ),
-              if (comment.content.trim().isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Html(
-                  data: _normalizeCommentHtml(comment.content),
-                  extensions: const [TableHtmlExtension()],
-                  style: {
-                    "body": Style(
-                      margin: Margins.zero,
-                      padding: HtmlPaddings.zero,
-                      fontSize: FontSize(13),
-                      color: Colors.white,
-                      lineHeight: LineHeight(1.4),
-                    ),
-                    "a": Style(
-                      color: widget.themeColor,
-                      textDecoration: TextDecoration.underline,
-                    ),
-                    "table": Style(color: Colors.white),
-                    "tr": Style(color: Colors.white),
-                    "td": Style(color: Colors.white),
-                    "div": Style(color: Colors.white),
-                    "span": Style(color: Colors.white),
-                  },
-                  onLinkTap: (url, context, attributes) async {
-                    if (url != null) {
-                      final uri = Uri.parse(url);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      }
-                    }
-                  },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        composer,
+        const SizedBox(height: 12),
+        if (comments.isEmpty)
+          Text(
+            'Комментариев нет',
+            style: TextStyle(color: Colors.grey[500]),
+          )
+        else
+          ListView.separated(
+            padding: const EdgeInsets.only(top: 4),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemBuilder: (context, index) {
+              final comment = comments[index];
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ],
-              if (comment.attachments.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                ...comment.attachments.map(
-                  (attachment) => _buildTaskAttachmentCard(taskId, attachment),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      comment.sender.name,
+                      style: const TextStyle(fontSize: 12, color: Colors.white),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatDateTime(comment.createdAt),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    ),
+                    if (comment.content.trim().isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Html(
+                        data: _normalizeCommentHtml(comment.content),
+                        extensions: const [TableHtmlExtension()],
+                        style: {
+                          "body": Style(
+                            margin: Margins.zero,
+                            padding: HtmlPaddings.zero,
+                            fontSize: FontSize(13),
+                            color: Colors.white,
+                            lineHeight: LineHeight(1.4),
+                          ),
+                          "a": Style(
+                            color: widget.themeColor,
+                            textDecoration: TextDecoration.underline,
+                          ),
+                          "table": Style(color: Colors.white),
+                          "tr": Style(color: Colors.white),
+                          "td": Style(color: Colors.white),
+                          "div": Style(color: Colors.white),
+                          "span": Style(color: Colors.white),
+                        },
+                        onLinkTap: (url, context, attributes) async {
+                          if (url != null) {
+                            final uri = Uri.parse(url);
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                    if (comment.attachments.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      ...comment.attachments.map(
+                        (attachment) => _buildTaskAttachmentCard(taskId, attachment),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemCount: comments.length,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCommentComposer(int taskId) {
+    final controller = _commentControllerFor(taskId);
+    final error = _commentErrors[taskId];
+    final isIos = Platform.isIOS;
+    return Focus(
+      onFocusChange: (_) => setState(() {}),
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        final pressedKeys = HardwareKeyboard.instance.logicalKeysPressed;
+        final isShiftPressed = pressedKeys.contains(LogicalKeyboardKey.shiftLeft) ||
+            pressedKeys.contains(LogicalKeyboardKey.shiftRight);
+        if (event.logicalKey == LogicalKeyboardKey.enter && !isShiftPressed) {
+          final hasText = controller.text.trim().isNotEmpty;
+          final isSending = _sendingCommentTaskIds.contains(taskId);
+          if (hasText && !isSending) {
+            _submitComment(taskId);
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, child) {
+          final hasText = value.text.trim().isNotEmpty;
+          final isFocused = Focus.of(context).hasFocus;
+          final isSending = _sendingCommentTaskIds.contains(taskId);
+          final placeholder = isFocused ? '' : 'Напишите комментарий';
+          final borderColor = error != null
+              ? Colors.redAccent
+              : isFocused
+                  ? widget.themeColor.withValues(alpha: 0.8)
+                  : Colors.grey[700]!;
+          final fillColor = hasText ? const Color(0xFF242424) : const Color(0xFF1E1E1E);
+          final isEnabled = hasText && !isSending;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: fillColor,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: borderColor.withValues(alpha: 0.7)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: isIos
+                          ? CupertinoTextField(
+                              controller: controller,
+                              placeholder: placeholder,
+                              placeholderStyle:
+                                  TextStyle(color: Colors.grey[600], fontSize: 12),
+                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              cursorColor: widget.themeColor,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                              decoration: const BoxDecoration(),
+                              minLines: 1,
+                              maxLines: 4,
+                              textInputAction: TextInputAction.newline,
+                              onChanged: (text) => _clearCommentError(taskId, text),
+                            )
+                          : TextField(
+                              controller: controller,
+                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              minLines: 1,
+                              maxLines: 4,
+                              textInputAction: TextInputAction.newline,
+                              onChanged: (text) => _clearCommentError(taskId, text),
+                              cursorColor: widget.themeColor,
+                              decoration: InputDecoration.collapsed(
+                                hintText: placeholder,
+                                hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 6),
+                    isIos
+                        ? CupertinoButton(
+                            onPressed: isEnabled ? () => _submitComment(taskId) : null,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            color: isEnabled
+                                ? widget.themeColor
+                                : const Color(0xFF3A3A3A),
+                            minimumSize: Size.zero,
+                            child: isSending
+                                ? const CupertinoActivityIndicator(
+                                    radius: 9,
+                                    color: CupertinoColors.black,
+                                  )
+                                : const Text(
+                                    'Отправить',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                          )
+                        : ElevatedButton(
+                            onPressed: isEnabled ? () => _submitComment(taskId) : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isEnabled
+                                  ? widget.themeColor
+                                  : Colors.grey[700],
+                              foregroundColor: Colors.black,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              textStyle:
+                                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              minimumSize: const Size(0, 32),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: isSending
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.black,
+                                    ),
+                                  )
+                                : const Text('Отправить'),
+                          ),
+                  ],
+                ),
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  error,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 11),
                 ),
               ],
             ],
-          ),
-        );
-      },
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
-      itemCount: comments.length,
+          );
+        },
+      ),
     );
+  }
+
+  TextEditingController _commentControllerFor(int taskId) {
+    return _commentControllers.putIfAbsent(taskId, () => TextEditingController());
+  }
+
+  void _clearCommentError(int taskId, String value) {
+    if (_commentErrors[taskId] == null) return;
+    if (value.trim().isEmpty) return;
+    setState(() => _commentErrors[taskId] = null);
+  }
+
+  Future<void> _submitComment(int taskId) async {
+    final controller = _commentControllerFor(taskId);
+    final rawText = controller.text.trim();
+    if (rawText.isEmpty) {
+      setState(() => _commentErrors[taskId] = 'Введите текст комментария');
+      return;
+    }
+
+    setState(() {
+      _sendingCommentTaskIds.add(taskId);
+      _commentErrors[taskId] = null;
+    });
+
+    try {
+      final commentId = await apiService.createTaskComment(
+        taskId: taskId,
+        content: _commentTextToHtml(rawText),
+        attachments: const [],
+      );
+      if (!mounted) return;
+      if (commentId == null) {
+        setState(() => _commentErrors[taskId] = 'Не удалось отправить комментарий');
+        return;
+      }
+      controller.clear();
+      final updated = await apiService.fetchTaskComments(taskId);
+      if (!mounted) return;
+      setState(() {
+        _commentsByTaskId[taskId] = updated;
+      });
+      await _refreshDownloadedTaskAttachments(taskId);
+    } catch (e, st) {
+      _log.warning('Error sending comment', e, st);
+      if (mounted) {
+        setState(() => _commentErrors[taskId] = 'Не удалось отправить комментарий');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _sendingCommentTaskIds.remove(taskId));
+      } else {
+        _sendingCommentTaskIds.remove(taskId);
+      }
+    }
+  }
+
+  String _commentTextToHtml(String text) {
+    final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(text);
+    return '<p>${escaped.replaceAll('\n', '<br>')}</p>';
   }
 
   Widget _buildInfoTab(
