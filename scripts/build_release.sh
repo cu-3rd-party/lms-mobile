@@ -3,16 +3,26 @@ set -euo pipefail
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'EOF'
-Usage: scripts/build_release.sh [major|minor|patch]
+Usage: scripts/build_release.sh [major|minor|patch] [--push]
 
-Bumps pubspec.yaml version based on the latest git tag (vX.Y.Z) and builds:
+Bumps pubspec.yaml version based on the latest git tag (vX.Y.Z), commits,
+creates a tag, and builds:
   - Android APK (release)
   - iOS IPA (release, no codesign)
+
+Options:
+  --push   Push commit and tag to origin
 EOF
   exit 0
 fi
 
 bump="${1:-patch}"
+push_flag="false"
+for arg in "$@"; do
+  if [[ "$arg" == "--push" ]]; then
+    push_flag="true"
+  fi
+done
 if [[ "$bump" != "major" && "$bump" != "minor" && "$bump" != "patch" ]]; then
   echo "Unknown bump type: $bump (use major|minor|patch)" >&2
   exit 1
@@ -64,6 +74,18 @@ path.write_text(updated)
 PY
 
 echo "Updated version to ${new_full_version} (from ${latest_tag}, bump=${bump})"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  git add pubspec.yaml
+  git commit -m "chore: bump version to ${new_version}"
+fi
+
+git tag "v${new_version}"
+
+if [[ "$push_flag" == "true" ]]; then
+  git push origin HEAD
+  git push origin "v${new_version}"
+fi
 
 flutter pub get
 flutter build apk --release
