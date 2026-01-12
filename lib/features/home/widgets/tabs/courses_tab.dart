@@ -233,7 +233,11 @@ class _CourseListTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: (isIos
-          ? GestureDetector(onTap: onTap, child: _buildContent(isIos))
+          ? GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onTap,
+              child: _buildContent(isIos),
+            )
           : InkWell(
               onTap: onTap,
               borderRadius: BorderRadius.circular(12),

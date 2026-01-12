@@ -147,59 +147,91 @@ class _CoursePageState extends State<CoursePage> {
   }
 
   Widget _buildThemeCard(CourseTheme theme, int number) {
+    final isExpanded = _expandedThemes.contains(theme.id);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ClipRRect(
+      child: Material(
+        color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(12),
-        child: Material(
-          color: const Color(0xFF1E1E1E),
-          child: Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-          leading: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: widget.course.categoryColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Text(
-                '$number',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: widget.course.categoryColor,
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            InkWell(
+              onTap: () => _toggleTheme(theme.id),
+              child: SizedBox(
+                width: double.infinity,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: widget.course.categoryColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$number',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: widget.course.categoryColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            theme.name,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
+                          if (theme.hasExercises)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                '${theme.totalExercises} ${_pluralize(theme.totalExercises, 'задание', 'задания', 'заданий')}',
+                                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: Colors.grey[500],
+                      size: 24,
+                    ),
+                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-          title: Text(
-            theme.name,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: isExpanded
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                      child: Column(
+                        children: theme.longreads
+                            .map((lr) => _buildLongread(theme.name, lr))
+                            .toList(),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
-          ),
-          subtitle: theme.hasExercises
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    '${theme.totalExercises} ${_pluralize(theme.totalExercises, 'задание', 'задания', 'заданий')}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  ),
-                )
-              : null,
-          iconColor: Colors.grey[500],
-          collapsedIconColor: Colors.grey[600],
-              children: theme.longreads.map((lr) => _buildLongread(theme.name, lr)).toList(),
-            ),
-          ),
+          ],
         ),
       ),
     );
@@ -216,6 +248,7 @@ class _CoursePageState extends State<CoursePage> {
       child: Column(
         children: [
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => _toggleTheme(theme.id),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
