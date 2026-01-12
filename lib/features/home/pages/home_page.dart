@@ -91,12 +91,14 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadProfile() async {
     try {
       final profile = await apiService.fetchProfile();
+      if (!mounted) return;
       setState(() {
         _profile = profile;
         _isLoadingProfile = false;
       });
     } catch (e, st) {
       _log.warning('Error loading profile', e, st);
+      if (!mounted) return;
       setState(() => _isLoadingProfile = false);
     }
   }
@@ -114,12 +116,14 @@ class _HomePageState extends State<HomePage> {
         if (b.deadline == null) return -1;
         return a.deadline!.compareTo(b.deadline!);
       });
+      if (!mounted) return;
       setState(() {
         _tasks = tasks;
         _isLoadingTasks = false;
       });
     } catch (e, st) {
       _log.warning('Error loading tasks', e, st);
+      if (!mounted) return;
       setState(() => _isLoadingTasks = false);
     }
   }
@@ -144,6 +148,7 @@ class _HomePageState extends State<HomePage> {
           courses.where((c) => effectiveArchivedIds.contains(c.id)).toList();
       final orderedActive = _applyCourseOrder(activeCourses, savedActiveOrder);
       final orderedArchived = _applyCourseOrder(archivedCourses, savedArchivedOrder);
+      if (!mounted) return;
       setState(() {
         _activeCourses = orderedActive;
         _archivedCourses = orderedArchived;
@@ -151,6 +156,7 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e, st) {
       _log.warning('Error loading courses', e, st);
+      if (!mounted) return;
       setState(() {
         _isLoadingCourses = false;
       });
@@ -186,6 +192,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadLmsProfile() async {
     try {
       final profile = await apiService.fetchStudentLmsProfile();
+      if (!mounted) return;
       setState(() {
         _lmsProfile = profile;
       });
@@ -200,20 +207,22 @@ class _HomePageState extends State<HomePage> {
       final cacheKey = _scheduleCacheKey(targetDay);
       final cached = _scheduleCache[cacheKey];
       if (cached != null) {
-      setState(() {
-        _calendarClasses = cached;
-        _isLoadingSchedule = false;
-        _scheduleMessage = cached.isEmpty ? 'Нет занятий на этот день' : null;
-      });
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToFirstEvent());
-      return;
-    }
+        if (!mounted) return;
+        setState(() {
+          _calendarClasses = cached;
+          _isLoadingSchedule = false;
+          _scheduleMessage = cached.isEmpty ? 'Нет занятий на этот день' : null;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToFirstEvent());
+        return;
+      }
       if (_isFetchingSchedule) return;
       _isFetchingSchedule = true;
       final prefs = await SharedPreferences.getInstance();
       final email = prefs.getString(_prefsCaldavEmailKey);
       final password = prefs.getString(_prefsCaldavPasswordKey);
       if (email == null || password == null) {
+        if (!mounted) return;
         setState(() {
           _calendarClasses = [];
           _isLoadingSchedule = false;
@@ -230,21 +239,23 @@ class _HomePageState extends State<HomePage> {
       final classes = events.map(_eventToClassData).toList();
       classes.sort((a, b) => a.startTime.compareTo(b.startTime));
       _scheduleCache[cacheKey] = classes;
+      _isFetchingSchedule = false;
+      if (!mounted) return;
       setState(() {
         _calendarClasses = classes;
         _isLoadingSchedule = false;
         _scheduleMessage = classes.isEmpty ? 'Нет занятий на этот день' : null;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToFirstEvent());
-      _isFetchingSchedule = false;
     } catch (e, st) {
       _log.warning('Error loading schedule', e, st);
+      _isFetchingSchedule = false;
+      if (!mounted) return;
       setState(() {
         _calendarClasses = [];
         _isLoadingSchedule = false;
         _scheduleMessage = 'Не удалось загрузить расписание';
       });
-      _isFetchingSchedule = false;
     }
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cumobile/data/services/api_service.dart';
+import 'package:cumobile/features/auth/pages/webview_login_page.dart';
 
 class LoginPage extends StatefulWidget {
   final VoidCallback onLogin;
@@ -18,6 +19,18 @@ class _LoginPageState extends State<LoginPage> {
   final _cookieController = TextEditingController();
   bool _isLoading = false;
   String? _error;
+
+  void _openWebViewLogin() {
+    Navigator.of(context).push(
+      Platform.isIOS
+          ? CupertinoPageRoute(
+              builder: (_) => WebViewLoginPage(onLogin: widget.onLogin),
+            )
+          : MaterialPageRoute(
+              builder: (_) => WebViewLoginPage(onLogin: widget.onLogin),
+            ),
+    );
+  }
 
   Future<void> _login() async {
     final cookie = _cookieController.text.trim();
@@ -174,9 +187,58 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                     ),
             ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey[700])),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'или',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                  ),
+                ),
+                Expanded(child: Divider(color: Colors.grey[700])),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 50,
+              child: isIos
+                  ? CupertinoButton(
+                      onPressed: _openWebViewLogin,
+                      color: const Color(0xFF2D2D2D),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: const Text(
+                        'Войти через браузер',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  : OutlinedButton(
+                      onPressed: _openWebViewLogin,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF00E676)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Войти через браузер',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF00E676),
+                        ),
+                      ),
+                    ),
+            ),
             const SizedBox(height: 24),
             Text(
-              'Откройте DevTools в браузере (F12) → Application → Cookies → скопируйте значение bff.cookie',
+              'Или вставьте cookie вручную:\nDevTools (F12) → Application → Cookies → bff.cookie',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[600],

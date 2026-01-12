@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
@@ -17,11 +18,23 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
   bool _isLoggedIn = false;
+  StreamSubscription<void>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
     _checkAuth();
+    _authSubscription = apiService.onAuthRequired.listen((_) {
+      if (mounted) {
+        setState(() => _isLoggedIn = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkAuth() async {

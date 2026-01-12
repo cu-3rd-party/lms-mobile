@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -18,6 +19,28 @@ class ApiService {
   static const String baseUrl = 'https://my.centraluniversity.ru/api';
   String? _cookie;
   static final Logger _log = Logger('ApiService');
+
+  final _authRequiredController = StreamController<void>.broadcast();
+  Stream<void> get onAuthRequired => _authRequiredController.stream;
+
+  Future<void> _handleResponse(http.Response response) async {
+    if (response.statusCode == 401) {
+      _log.info('Received 401, auth required');
+      await clearCookie();
+      _authRequiredController.add(null);
+      return;
+    }
+
+    final setCookieHeader = response.headers['set-cookie'];
+    if (setCookieHeader != null && setCookieHeader.contains('bff.cookie=')) {
+      final match = RegExp(r'bff\.cookie=([^;]+)').firstMatch(setCookieHeader);
+      if (match != null) {
+        final newCookie = Uri.decodeComponent(match.group(1)!);
+        _log.info('Received new bff.cookie from Set-Cookie header');
+        await setCookie(newCookie);
+      }
+    }
+  }
 
   Future<void> setCookie(String cookie) async {
     _cookie = cookie;
@@ -49,6 +72,7 @@ class ApiService {
         headers: {'Cookie': cookie},
       );
 
+      await _handleResponse(response);
       if (response.statusCode == 200) {
         return StudentProfile.fromJson(jsonDecode(response.body));
       }
@@ -78,6 +102,7 @@ class ApiService {
         headers: {'Cookie': cookie},
       );
 
+      await _handleResponse(response);
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => StudentTask.fromJson(e)).toList();
@@ -98,6 +123,7 @@ class ApiService {
         headers: {'Cookie': cookie},
       );
 
+      await _handleResponse(response);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is List) {
@@ -124,6 +150,7 @@ class ApiService {
         headers: {'Cookie': cookie},
       );
 
+      await _handleResponse(response);
       if (response.statusCode == 200) {
         return CourseOverview.fromJson(jsonDecode(response.body));
       }
@@ -143,6 +170,7 @@ class ApiService {
         headers: {'Cookie': cookie},
       );
 
+      await _handleResponse(response);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final List<dynamic> items = data['items'] ?? [];
@@ -165,6 +193,7 @@ class ApiService {
         headers: {'Cookie': cookie},
       );
 
+      await _handleResponse(response);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['url'];
@@ -185,6 +214,7 @@ class ApiService {
         headers: {'Cookie': cookie},
       );
 
+      await _handleResponse(response);
       if (response.statusCode == 200) {
         return StudentLmsProfile.fromJson(jsonDecode(response.body));
       }
@@ -204,6 +234,7 @@ class ApiService {
         headers: {'Cookie': cookie},
       );
 
+      await _handleResponse(response);
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => TaskEvent.fromJson(e)).toList();
@@ -224,6 +255,7 @@ class ApiService {
         headers: {'Cookie': cookie},
       );
 
+      await _handleResponse(response);
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => TaskComment.fromJson(e)).toList();
@@ -261,6 +293,7 @@ class ApiService {
         }),
       );
 
+      await _handleResponse(response);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is List) {
