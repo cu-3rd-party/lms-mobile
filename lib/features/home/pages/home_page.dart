@@ -19,7 +19,7 @@ import 'package:cumobile/features/longread/pages/longread_page.dart';
 import 'package:cumobile/features/notifications/pages/notifications_page.dart';
 import 'package:cumobile/features/profile/pages/profile_page.dart';
 import 'package:cumobile/data/services/api_service.dart';
-import 'package:cumobile/data/services/caldav_service.dart';
+import 'package:cumobile/data/services/ical_service.dart';
 import 'package:cumobile/features/home/widgets/sections/deadlines_section.dart';
 import 'package:cumobile/features/home/widgets/sections/home_courses_section.dart';
 import 'package:cumobile/features/home/widgets/sections/home_top_navigation.dart';
@@ -51,16 +51,13 @@ class _HomePageState extends State<HomePage> {
   static final Logger _log = Logger('HomePage');
   static const String _prefsActiveCoursesKey = 'courses_active_order';
   static const String _prefsArchivedCoursesKey = 'courses_archived_order';
-  static const String _prefsCaldavEmailKey = 'caldav_email';
-  static const String _prefsCaldavPasswordKey = 'caldav_password';
+  static const String _prefsIcsUrlKey = 'ics_url';
   final DateFormat _scheduleTimeFormat = DateFormat('HH:mm');
-  final CaldavService _caldavService = CaldavService();
+  final IcalService _icalService = IcalService();
   List<ClassData> _calendarClasses = [];
   bool _isLoadingSchedule = true;
   String? _scheduleMessage;
   DateTime _scheduleDate = DateTime.now();
-  bool _isFetchingSchedule = false;
-  final Map<String, List<ClassData>> _scheduleCache = {};
   final ScrollController _scheduleScrollController = ScrollController();
   List<FileSystemEntity> _downloadedFiles = [];
   bool _isLoadingFiles = false;
@@ -204,42 +201,36 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadSchedule({DateTime? day}) async {
     try {
       final targetDay = day ?? _scheduleDate;
-      final cacheKey = _scheduleCacheKey(targetDay);
-      final cached = _scheduleCache[cacheKey];
-      if (cached != null) {
-        if (!mounted) return;
-        setState(() {
-          _calendarClasses = cached;
-          _isLoadingSchedule = false;
-          _scheduleMessage = cached.isEmpty ? 'Нет занятий на этот день' : null;
-        });
-        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToFirstEvent());
-        return;
-      }
-      if (_isFetchingSchedule) return;
-      _isFetchingSchedule = true;
       final prefs = await SharedPreferences.getInstance();
-      final email = prefs.getString(_prefsCaldavEmailKey);
-      final password = prefs.getString(_prefsCaldavPasswordKey);
-      if (email == null || password == null) {
+      final icsUrl = prefs.getString(_prefsIcsUrlKey);
+      if (icsUrl == null || icsUrl.isEmpty) {
         if (!mounted) return;
         setState(() {
           _calendarClasses = [];
           _isLoadingSchedule = false;
           _scheduleMessage = 'Подключите календарь в профиле';
         });
-        _isFetchingSchedule = false;
         return;
       }
-      final events = await _caldavService.fetchEventsForDay(
-        email: email,
-        password: password,
+      final events = await _icalService.fetchEventsForDay(
+        icsUrl: icsUrl,
         day: targetDay,
+        onUpdate: (updatedEvents) {
+          if (!mounted) return;
+          // Игнорируем обновление если пользователь уже переключил день
+          if (!_isSameDay(targetDay, _scheduleDate)) return;
+          final classes = updatedEvents.map(_eventToClassData).toList();
+          classes.sort((a, b) => a.startTime.compareTo(b.startTime));
+          setState(() {
+            _calendarClasses = classes;
+            _scheduleMessage = classes.isEmpty ? 'Нет занятий на этот день' : null;
+          });
+        },
       );
+      // Игнорируем результат если пользователь уже переключил день
+      if (!_isSameDay(targetDay, _scheduleDate)) return;
       final classes = events.map(_eventToClassData).toList();
       classes.sort((a, b) => a.startTime.compareTo(b.startTime));
-      _scheduleCache[cacheKey] = classes;
-      _isFetchingSchedule = false;
       if (!mounted) return;
       setState(() {
         _calendarClasses = classes;
@@ -249,7 +240,6 @@ class _HomePageState extends State<HomePage> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToFirstEvent());
     } catch (e, st) {
       _log.warning('Error loading schedule', e, st);
-      _isFetchingSchedule = false;
       if (!mounted) return;
       setState(() {
         _calendarClasses = [];
@@ -440,7 +430,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _openProfile() async {
     if (_profile == null) return;
-    await Navigator.push(
+    Navigator.push(
       context,
       Platform.isIOS
           ? CupertinoPageRoute(
@@ -458,11 +448,10 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
     );
-    await _refreshScheduleAfterCalendarChange();
   }
 
   Future<void> _refreshScheduleAfterCalendarChange() async {
-    _scheduleCache.clear();
+    await _icalService.clearCache();
     if (!mounted) return;
     setState(() {
       _isLoadingSchedule = true;
@@ -481,9 +470,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTabBody() {
-    switch (_selectedTab) {
-      case 0:
-        return SingleChildScrollView(
+    return IndexedStack(
+      index: _selectedTab,
+      children: [
+        SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -513,9 +503,8 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 24),
             ],
           ),
-        );
-      case 1:
-        return TasksTab(
+        ),
+        TasksTab(
           tasks: _tasks,
           isLoading: _isLoadingTasks,
           statusFilters: _taskStatusFilters,
@@ -527,9 +516,8 @@ class _HomePageState extends State<HomePage> {
             });
           },
           onOpenTask: _openTask,
-        );
-      case 2:
-        return CoursesTab(
+        ),
+        CoursesTab(
           activeCourses: _activeCourses,
           archivedCourses: _archivedCourses,
           isLoading: _isLoadingCourses,
@@ -537,9 +525,8 @@ class _HomePageState extends State<HomePage> {
           onReorderActive: _reorderActiveCourse,
           onArchive: _archiveCourse,
           onRestore: _restoreCourse,
-        );
-      case 3:
-        return FilesTab(
+        ),
+        FilesTab(
           files: _downloadedFiles,
           isLoading: _isLoadingFiles,
           selectedFiles: _selectedFiles,
@@ -556,10 +543,9 @@ class _HomePageState extends State<HomePage> {
               }
             });
           },
-        );
-      default:
-        return const SizedBox.shrink();
-    }
+        ),
+      ],
+    );
   }
 
   Future<void> _openTask(StudentTask task) async {
@@ -733,12 +719,6 @@ class _HomePageState extends State<HomePage> {
     await _loadSchedule(day: today);
   }
 
-  String _scheduleCacheKey(DateTime date) {
-    return '${date.year.toString().padLeft(4, '0')}-'
-        '${date.month.toString().padLeft(2, '0')}-'
-        '${date.day.toString().padLeft(2, '0')}';
-  }
-
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
@@ -801,6 +781,7 @@ class _HomePageState extends State<HomePage> {
       final files = dir
           .listSync()
           .whereType<File>()
+          .where((f) => !f.path.endsWith('calendar_cache.ics'))
           .toList()
         ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
       setState(() {

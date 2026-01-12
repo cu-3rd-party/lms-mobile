@@ -24,81 +24,100 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  static const String _caldavServer = 'caldav.yandex.ru';
   static const String _guideUrl =
-      'https://yandex.ru/support/yandex-360/customers/calendar/web/ru/sync/sync-desktop?ysclid=mfnvr3tyy654330747&tabs=defaultTabsGroup-ao4idw1j_macos';
-  static const String _prefsEmailKey = 'caldav_email';
-  static const String _prefsPasswordKey = 'caldav_password';
+      'https://yandex.ru/support/yandex-360/customers/calendar/web/ru/export';
+  static const String _prefsIcsUrlKey = 'ics_url';
 
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _icsUrlController = TextEditingController();
   bool _isSaving = false;
-  bool _isPasswordVisible = false;
-  String? _caldavEmail;
   bool _isConnected = false;
-  bool _hasSavedPassword = false;
+  String _savedUrl = '';
+  bool _hasChanges = false;
+  bool _isEditing = false;
 
   @override
   void initState() {
     super.initState();
-    _caldavEmail = widget.profile.universityEmail;
-    _loadCaldavState();
+    _icsUrlController.addListener(_onUrlChanged);
+    _loadIcsState();
   }
 
   @override
   void dispose() {
-    _passwordController.dispose();
+    _icsUrlController.removeListener(_onUrlChanged);
+    _icsUrlController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadCaldavState() async {
+  void _onUrlChanged() {
+    final hasChanges = _icsUrlController.text.trim() != _savedUrl;
+    if (hasChanges != _hasChanges) {
+      setState(() => _hasChanges = hasChanges);
+    }
+  }
+
+  Future<void> _loadIcsState() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedEmail = prefs.getString(_prefsEmailKey);
-    final savedPassword = prefs.getString(_prefsPasswordKey);
+    final savedUrl = prefs.getString(_prefsIcsUrlKey);
     if (!mounted) return;
     setState(() {
-      if (savedEmail != null && savedEmail.isNotEmpty) {
-        _caldavEmail = savedEmail;
+      _isConnected = savedUrl != null && savedUrl.isNotEmpty;
+      if (_isConnected) {
+        _savedUrl = savedUrl!;
+        _icsUrlController.text = savedUrl;
       }
-      _isConnected = savedEmail != null && savedPassword != null;
-      _hasSavedPassword = savedPassword != null && savedPassword.isNotEmpty;
     });
   }
 
-  Future<void> _saveCaldav() async {
-    final password = _passwordController.text.trim();
-    if (_caldavEmail == null || _caldavEmail!.isEmpty) {
-      _showSnackBar('Не удалось определить почту CU');
+  Future<void> _saveIcsUrl() async {
+    final url = _icsUrlController.text.trim();
+    if (url.isEmpty) {
+      _showSnackBar('Введите ссылку на iCal');
       return;
     }
-    if (password.isEmpty) {
-      _showSnackBar('Введите пароль от CalDAV');
+    if (!url.contains('.ics') && !url.contains('ics.xml')) {
+      _showSnackBar('Некорректная ссылка на iCal');
       return;
     }
     setState(() => _isSaving = true);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsEmailKey, _caldavEmail!);
-    await prefs.setString(_prefsPasswordKey, password);
+    await prefs.setString(_prefsIcsUrlKey, url);
     if (!mounted) return;
+    final wasConnected = _isConnected;
     setState(() {
       _isSaving = false;
       _isConnected = true;
-      _hasSavedPassword = true;
+      _savedUrl = url;
+      _hasChanges = false;
+      _isEditing = false;
     });
     widget.onCalendarChanged?.call();
-    _showSnackBar('Календарь подключен');
+    _showSnackBar(wasConnected ? 'Ссылка обновлена' : 'Календарь подключен');
   }
 
-  Future<void> _disconnectCaldav() async {
+  Future<void> _disconnectCalendar() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefsEmailKey);
-    await prefs.remove(_prefsPasswordKey);
+    await prefs.remove(_prefsIcsUrlKey);
     if (!mounted) return;
     setState(() {
       _isConnected = false;
-      _hasSavedPassword = false;
+      _savedUrl = '';
+      _hasChanges = false;
+      _isEditing = false;
+      _icsUrlController.clear();
     });
     widget.onCalendarChanged?.call();
     _showSnackBar('Интеграция отключена');
+  }
+
+  String _maskUrl(String url) {
+    final tokenMatch = RegExp(r'private_token=([^&]+)').firstMatch(url);
+    if (tokenMatch != null) {
+      final token = tokenMatch.group(1)!;
+      final masked = '${token.substring(0, 4)}${'•' * 8}';
+      return url.replaceFirst(token, masked);
+    }
+    return url;
   }
 
   void _showSnackBar(String message) {
@@ -328,6 +347,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildCalendarCard() {
     final isIos = Platform.isIOS;
+    final showInput = !_isConnected || _isEditing;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -341,7 +362,7 @@ class _ProfilePageState extends State<ProfilePage> {
             children: [
               const Expanded(
                 child: Text(
-                  'Календарь (CalDAV)',
+                  'Календарь (iCal)',
                   style: TextStyle(fontSize: 15, color: Colors.white),
                 ),
               ),
@@ -364,73 +385,51 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           const SizedBox(height: 12),
-          _buildRow('Сервер', _caldavServer),
-          _buildRow('Email', _caldavEmail ?? '-'),
-          const SizedBox(height: 8),
-          if (_hasSavedPassword)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                'Пароль календаря установлен',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-              ),
+          if (showInput) ...[
+            Text(
+              'Ссылка на iCal (ICS)',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
-          Text(
-            'Пароль CalDAV',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 6),
-          isIos
-              ? CupertinoTextField(
-                  controller: _passwordController,
-                  obscureText: !_isPasswordVisible,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A2A),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  suffix: CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
-                    child: Icon(
-                      _isPasswordVisible
-                          ? CupertinoIcons.eye_slash
-                          : CupertinoIcons.eye,
-                      color: Colors.grey[500],
-                      size: 18,
-                    ),
-                  ),
-                )
-              : TextField(
-                  controller: _passwordController,
-                  obscureText: !_isPasswordVisible,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFF2A2A2A),
-                    border: OutlineInputBorder(
+            const SizedBox(height: 6),
+            isIos
+                ? CupertinoTextField(
+                    controller: _icsUrlController,
+                    placeholder: 'https://calendar.yandex.ru/export/ics.xml?...',
+                    placeholderStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2A2A),
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
                     ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                        color: Colors.grey[500],
+                    maxLines: 2,
+                    keyboardType: TextInputType.url,
+                  )
+                : TextField(
+                    controller: _icsUrlController,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    maxLines: 2,
+                    keyboardType: TextInputType.url,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFF2A2A2A),
+                      hintText: 'https://calendar.yandex.ru/export/ics.xml?...',
+                      hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
                       ),
-                      onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
-                ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
+            if (!_isConnected || _hasChanges) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
                 child: isIos
                     ? CupertinoButton.filled(
-                        onPressed: _isSaving ? null : _saveCaldav,
+                        onPressed: _isSaving ? null : _saveIcsUrl,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: _isSaving
                             ? const CupertinoActivityIndicator(
@@ -438,7 +437,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 color: CupertinoColors.black,
                               )
                             : Text(
-                                _isConnected ? 'Обновить пароль' : 'Подключить',
+                                _isConnected ? 'Сохранить' : 'Подключить',
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -447,7 +446,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                       )
                     : ElevatedButton(
-                        onPressed: _isSaving ? null : _saveCaldav,
+                        onPressed: _isSaving ? null : _saveIcsUrl,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF00E676),
                           foregroundColor: const Color(0xFF121212),
@@ -466,7 +465,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                               )
                             : Text(
-                                _isConnected ? 'Обновить пароль' : 'Подключить',
+                                _isConnected ? 'Сохранить' : 'Подключить',
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -474,47 +473,76 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                       ),
               ),
-              if (_isConnected) ...[
-                const SizedBox(width: 10),
-                isIos
-                    ? CupertinoButton(
-                        onPressed: _disconnectCaldav,
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                        color: const Color(0xFF2A2A2A),
-                        child: const Text(
-                          'Отключить',
-                          style: TextStyle(fontSize: 12, color: Colors.redAccent),
-                        ),
-                      )
-                    : OutlinedButton(
-                        onPressed: _disconnectCaldav,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                          side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.6)),
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          'Отключить',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ),
-              ],
             ],
-          ),
-          const SizedBox(height: 8),
-          GestureDetector(
-            onTap: _openGuide,
-            child: const Text(
-              'Гайд: как получить пароль приложения',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF00E676),
-                decoration: TextDecoration.underline,
+            if (_isEditing && !_hasChanges) ...[
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => setState(() => _isEditing = false),
+                child: Text(
+                  'Отмена',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ),
+            ],
+          ] else ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                _maskUrl(_savedUrl),
+                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () => setState(() => _isEditing = true),
+              child: const Text(
+                'Изменить ссылку',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF00E676),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: _openGuide,
+                child: Text(
+                  'Как получить ссылку?',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                    decoration: TextDecoration.underline,
+                    decorationColor: Colors.grey[600],
+                  ),
+                ),
+              ),
+              if (_isConnected) ...[
+                const Spacer(),
+                GestureDetector(
+                  onTap: _disconnectCalendar,
+                  child: const Text(
+                    'Отключить',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.redAccent,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
