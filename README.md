@@ -12,7 +12,7 @@
 - Курсы и темы с деталями
 - Задания, фильтры и прогресс
 - Просмотр материалов и вложений
-- Календарь (CalDAV) и расписание
+- Расписание
 - Уведомления
 
 ## Скриншоты
@@ -21,14 +21,12 @@
   <img src="assets/screenshots/screenshot-01.png" width="240" />
   <img src="assets/screenshots/screenshot-02.png" width="240" />
   <img src="assets/screenshots/screenshot-03.png" width="240" />
-  <img src="assets/screenshots/screenshot-04.png" width="240" />
 </p>
 
 <p float="left">
+  <img src="assets/screenshots/screenshot-04.png" width="240" />
   <img src="assets/screenshots/screenshot-05.png" width="240" />
   <img src="assets/screenshots/screenshot-06.png" width="240" />
-  <img src="assets/screenshots/screenshot-07.png" width="240" />
-  <img src="assets/screenshots/screenshot-08.png" width="240" />
 </p>
 
 ## Требования
@@ -66,60 +64,17 @@
 ```
 lib/
 ├── app/                          # Запуск приложения, тема
-│   └── app.dart
 ├── core/                         # Общие сервисы и утилиты
-│   └── services/
-│       └── logging_service.dart
 ├── data/                         # Слой данных
 │   ├── models/                   # Модели данных
-│   │   ├── class_data.dart
-│   │   ├── course.dart
-│   │   ├── course_overview.dart
-│   │   ├── longread_material.dart
-│   │   ├── notification_item.dart
-│   │   ├── student_lms_profile.dart
-│   │   ├── student_profile.dart
-│   │   ├── student_task.dart
-│   │   ├── task_comment.dart
-│   │   └── task_event.dart
 │   └── services/                 # Сервисы API и интеграций
-│       ├── api_service.dart
-│       └── caldav_service.dart
 ├── features/                     # Фичи приложения
 │   ├── auth/                     # Авторизация
-│   │   └── pages/
-│   │       ├── auth_wrapper.dart
-│   │       └── login_page.dart
 │   ├── course/                   # Курс
-│   │   └── pages/
-│   │       └── course_page.dart
 │   ├── home/                     # Главный экран
-│   │   ├── pages/
-│   │   │   └── home_page.dart
-│   │   └── widgets/
-│   │       ├── cards/
-│   │       │   └── course_card.dart
-│   │       ├── sections/
-│   │       │   ├── deadlines_section.dart
-│   │       │   ├── home_courses_section.dart
-│   │       │   ├── home_top_navigation.dart
-│   │       │   └── schedule_section.dart
-│   │       └── tabs/
-│   │           ├── courses_tab.dart
-│   │           ├── files_tab.dart
-│   │           └── tasks_tab.dart
 │   ├── longread/                 # Материалы и задания
-│   │   ├── pages/
-│   │   │   └── longread_page.dart
-│   │   └── widgets/
-│   │       ├── attachment_card.dart
-│   │       └── longread_file_card.dart
 │   ├── notifications/            # Уведомления
-│   │   └── pages/
-│   │       └── notifications_page.dart
 │   └── profile/                  # Профиль
-│       └── pages/
-│           └── profile_page.dart
 └── main.dart
 ```
 
