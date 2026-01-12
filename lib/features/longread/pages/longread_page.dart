@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
@@ -16,6 +17,7 @@ import 'package:cumobile/data/models/task_comment.dart';
 import 'package:cumobile/data/models/task_event.dart';
 import 'package:cumobile/data/services/api_service.dart';
 import 'package:cumobile/features/longread/widgets/attachment_card.dart';
+import 'package:cumobile/features/longread/widgets/longread_file_card.dart';
 
 class LongreadPage extends StatefulWidget {
   final Longread longread;
@@ -50,6 +52,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   final Map<int, List<TaskComment>> _commentsByTaskId = {};
   final Set<int> _loadingTaskIds = {};
   final Map<int, String?> _taskLoadErrors = {};
+  final Map<int, int> _taskTabIndex = {};
   static final Logger _log = Logger('LongreadPage');
 
   @override
@@ -399,6 +402,46 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
+    final body = _isLoading
+        ? Center(
+            child: isIos
+                ? const CupertinoActivityIndicator(
+                    radius: 14,
+                    color: Color(0xFF00E676),
+                  )
+                : const CircularProgressIndicator(color: Color(0xFF00E676)),
+          )
+        : _materials.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isIos ? CupertinoIcons.folder : Icons.folder_open,
+                      color: Colors.grey[600],
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Нет материалов',
+                      style: TextStyle(color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              )
+            : _buildMaterialsList();
+
+    if (isIos) {
+      return CupertinoPageScaffold(
+        navigationBar: CupertinoNavigationBar(
+          middle: Text(widget.longread.name),
+        ),
+        backgroundColor: const Color(0xFF121212),
+        child: SafeArea(top: false, child: body),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF121212),
@@ -413,25 +456,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           overflow: TextOverflow.ellipsis,
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF00E676)),
-            )
-          : _materials.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.folder_open, color: Colors.grey[600], size: 48),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Нет материалов',
-                        style: TextStyle(color: Colors.grey[500]),
-                      ),
-                    ],
-                  ),
-                )
-              : _buildMaterialsList(),
+      body: body,
     );
   }
 
@@ -557,103 +582,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final speed = _downloadSpeed[key] ?? '';
     final isDownloaded = _downloadedKeys.contains(key);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: isDownloading ? null : () => _downloadFile(material),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: widget.themeColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: Text(
-                    extension.length > 4 ? extension.substring(0, 4) : extension,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: widget.themeColor,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      fileName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (material.formattedSize.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        material.formattedSize,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                    if (isDownloading) ...[
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 4,
-                        color: const Color(0xFF00E676),
-                        backgroundColor: const Color(0xFF2A2A2A),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Text(
-                            progress == null
-                                ? 'Загрузка...'
-                                : '${(progress * 100).toStringAsFixed(0)}%',
-                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                          ),
-                          const Spacer(),
-                          if (speed.isNotEmpty)
-                            Text(
-                              speed,
-                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              isDownloading
-                  ? const SizedBox(width: 24, height: 24)
-                  : Icon(
-                      isDownloaded ? Icons.check_circle : Icons.download,
-                      color: isDownloaded ? const Color(0xFF00E676) : Colors.grey[500],
-                      size: 24,
-                    ),
-            ],
-          ),
-        ),
-      ),
+    return LongreadFileCard(
+      fileName: fileName,
+      extension: extension,
+      formattedSize: material.formattedSize,
+      isDownloading: isDownloading,
+      progress: progress,
+      speed: speed,
+      isDownloaded: isDownloaded,
+      themeColor: widget.themeColor,
+      onTap: isDownloading ? null : () => _downloadFile(material),
     );
   }
 
@@ -704,6 +642,55 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final events = _eventsByTaskId[taskId] ?? [];
     final comments = _commentsByTaskId[taskId] ?? [];
     final isLoading = _loadingTaskIds.contains(taskId) && events.isEmpty && comments.isEmpty;
+    final isIos = Platform.isIOS;
+
+    if (isIos) {
+      final selectedIndex = _taskTabIndex[taskId] ?? 0;
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CupertinoSlidingSegmentedControl<int>(
+              groupValue: selectedIndex,
+              thumbColor: const Color(0xFF1E1E1E),
+              backgroundColor: const Color(0xFF121212),
+              children: const {
+                0: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                  child: Text('Решение'),
+                ),
+                1: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                  child: Text('Комментарии'),
+                ),
+                2: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                  child: Text('Информация'),
+                ),
+              },
+              onValueChanged: (value) {
+                if (value == null) return;
+                setState(() => _taskTabIndex[taskId] = value);
+              },
+            ),
+            const SizedBox(height: 8),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                key: ValueKey(selectedIndex),
+                color: const Color(0xFF121212),
+                child: selectedIndex == 1
+                    ? _buildCommentsTab(taskId, comments, isLoading)
+                    : selectedIndex == 2
+                        ? _buildInfoTab(material, events, isLoading)
+                        : _buildSolutionTab(taskId, material, events, isLoading),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -775,8 +762,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     bool isLoading,
   ) {
     if (isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      return Center(
+        child: Platform.isIOS
+            ? const CupertinoActivityIndicator(
+                radius: 14,
+                color: Color(0xFF00E676),
+              )
+            : const CircularProgressIndicator(color: Color(0xFF00E676)),
       );
     }
 
@@ -791,10 +783,15 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               style: TextStyle(color: Colors.grey[500]),
             ),
             const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => _reloadTaskDetails(taskId),
-              child: const Text('Повторить'),
-            ),
+            Platform.isIOS
+                ? CupertinoButton(
+                    onPressed: () => _reloadTaskDetails(taskId),
+                    child: const Text('Повторить'),
+                  )
+                : TextButton(
+                    onPressed: () => _reloadTaskDetails(taskId),
+                    child: const Text('Повторить'),
+                  ),
           ],
         ),
       );
@@ -829,8 +826,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     bool isLoading,
   ) {
     if (isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      return Center(
+        child: Platform.isIOS
+            ? const CupertinoActivityIndicator(
+                radius: 14,
+                color: Color(0xFF00E676),
+              )
+            : const CircularProgressIndicator(color: Color(0xFF00E676)),
       );
     }
     if (comments.isEmpty) {
@@ -920,8 +922,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     bool isLoading,
   ) {
     if (isLoading && events.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      return Center(
+        child: Platform.isIOS
+            ? const CupertinoActivityIndicator(
+                radius: 14,
+                color: Color(0xFF00E676),
+              )
+            : const CircularProgressIndicator(color: Color(0xFF00E676)),
       );
     }
 
@@ -1037,36 +1044,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 if (event.content.solutionUrl != null &&
                     event.content.solutionUrl!.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () async {
-                      final uri = Uri.tryParse(event.content.solutionUrl!);
-                      if (uri != null && await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2A),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.link, size: 14, color: widget.themeColor),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              'Ссылка на решение',
-                              style: TextStyle(fontSize: 12, color: widget.themeColor),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _buildSolutionLink(event),
                 ],
                 if (event.content.attachments.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -1085,6 +1063,53 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         ],
       ),
     );
+  }
+
+  Widget _buildSolutionLink(TaskEvent event) {
+    final isIos = Platform.isIOS;
+    final content = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isIos ? CupertinoIcons.link : Icons.link,
+            size: 14,
+            color: widget.themeColor,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'Ссылка на решение',
+              style: TextStyle(fontSize: 12, color: widget.themeColor),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Future<void> onTap() async {
+      final uri = Uri.tryParse(event.content.solutionUrl ?? '');
+      if (uri != null && await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    }
+
+    return isIos
+        ? GestureDetector(
+            onTap: onTap,
+            child: content,
+          )
+        : InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(6),
+            child: content,
+          );
   }
 
   String _eventAuthorName(TaskEvent event) {

@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'dart:math' as math;
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
@@ -17,7 +21,8 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+  TabController? _tabController;
+  int _selectedSegment = 0;
   bool _isLoading = true;
   List<NotificationItem> _educationItems = [];
   List<NotificationItem> _otherItems = [];
@@ -27,13 +32,15 @@ class _NotificationsPageState extends State<NotificationsPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    if (!Platform.isIOS) {
+      _tabController = TabController(length: 2, vsync: this);
+    }
     _loadNotifications();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
@@ -60,6 +67,36 @@ class _NotificationsPageState extends State<NotificationsPage>
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
+    final body = _isLoading
+        ? Center(
+            child: isIos
+                ? const CupertinoActivityIndicator(
+                    radius: 14,
+                    color: Color(0xFF00E676),
+                  )
+                : const CircularProgressIndicator(color: Color(0xFF00E676)),
+          )
+        : (isIos
+            ? _buildCupertinoBody()
+            : TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildList('Education'),
+                  _buildList('Others'),
+                ],
+              ));
+
+    if (isIos) {
+      return CupertinoPageScaffold(
+        navigationBar: const CupertinoNavigationBar(
+          middle: Text('Уведомления'),
+        ),
+        backgroundColor: const Color(0xFF121212),
+        child: SafeArea(top: false, child: body),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF121212),
@@ -84,23 +121,62 @@ class _NotificationsPageState extends State<NotificationsPage>
           ],
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF00E676)),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildList('Education'),
-                _buildList('Others'),
-              ],
-            ),
+      body: body,
+    );
+  }
+
+  Widget _buildCupertinoBody() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: CupertinoSlidingSegmentedControl<int>(
+            groupValue: _selectedSegment,
+            thumbColor: const Color(0xFF1E1E1E),
+            backgroundColor: const Color(0xFF121212),
+            children: const {
+              0: Padding(
+                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                child: Text('Учеба'),
+              ),
+              1: Padding(
+                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                child: Text('Другое'),
+              ),
+            },
+            onValueChanged: (value) {
+              if (value == null) return;
+              setState(() => _selectedSegment = value);
+            },
+          ),
+        ),
+        Expanded(
+          child: _selectedSegment == 0 ? _buildList('Education') : _buildList('Others'),
+        ),
+      ],
     );
   }
 
   Widget _buildList(String category) {
     final items = category == 'Education' ? _educationItems : _otherItems;
     if (items.isEmpty) {
+      if (Platform.isIOS) {
+        return CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            CupertinoSliverRefreshControl(onRefresh: _loadNotifications),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Text(
+                  'Нет уведомлений',
+                  style: TextStyle(color: Colors.grey[500]),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
       return RefreshIndicator(
         onRefresh: _loadNotifications,
         color: const Color(0xFF00E676),
@@ -120,6 +196,29 @@ class _NotificationsPageState extends State<NotificationsPage>
         ),
       );
     }
+    if (Platform.isIOS) {
+      return CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          CupertinoSliverRefreshControl(onRefresh: _loadNotifications),
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (index.isOdd) {
+                    return const SizedBox(height: 8);
+                  }
+                  final itemIndex = index ~/ 2;
+                  return _buildCard(items[itemIndex]);
+                },
+                childCount: math.max(0, items.length * 2 - 1),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return RefreshIndicator(
       onRefresh: _loadNotifications,
       color: const Color(0xFF00E676),
@@ -133,6 +232,7 @@ class _NotificationsPageState extends State<NotificationsPage>
   }
 
   Widget _buildCard(NotificationItem item) {
+    final isIos = Platform.isIOS;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -186,7 +286,11 @@ class _NotificationsPageState extends State<NotificationsPage>
                     onTap: () => _openLink(item.link!.uri),
                     child: Row(
                       children: [
-                        Icon(Icons.link, size: 14, color: Colors.grey[400]),
+                        Icon(
+                          isIos ? CupertinoIcons.link : Icons.link,
+                          size: 14,
+                          color: Colors.grey[400],
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -215,13 +319,15 @@ class _NotificationsPageState extends State<NotificationsPage>
   IconData _iconFor(String icon, String category) {
     switch (icon) {
       case 'ServiceDesk':
-        return Icons.support_agent;
+        return Platform.isIOS ? CupertinoIcons.headphones : Icons.support_agent;
       case 'News':
-        return Icons.campaign;
+        return Platform.isIOS ? CupertinoIcons.news : Icons.campaign;
       case 'Education':
-        return Icons.school;
+        return Platform.isIOS ? CupertinoIcons.book : Icons.school;
       default:
-        return category == 'Education' ? Icons.school : Icons.notifications;
+        return category == 'Education'
+            ? (Platform.isIOS ? CupertinoIcons.book : Icons.school)
+            : (Platform.isIOS ? CupertinoIcons.bell : Icons.notifications);
     }
   }
 
@@ -255,12 +361,19 @@ class _NotificationsPageState extends State<NotificationsPage>
     );
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => LongreadPage(
-          longread: longread,
-          themeColor: const Color(0xFF00E676),
-        ),
-      ),
+      Platform.isIOS
+          ? CupertinoPageRoute(
+              builder: (context) => LongreadPage(
+                longread: longread,
+                themeColor: const Color(0xFF00E676),
+              ),
+            )
+          : MaterialPageRoute(
+              builder: (context) => LongreadPage(
+                longread: longread,
+                themeColor: const Color(0xFF00E676),
+              ),
+            ),
     );
   }
 }

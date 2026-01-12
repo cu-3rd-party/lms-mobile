@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -34,11 +37,17 @@ class ScheduleSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
     if (isLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Center(
-          child: CircularProgressIndicator(color: Color(0xFF00E676)),
+          child: isIos
+              ? const CupertinoActivityIndicator(
+                  radius: 14,
+                  color: Color(0xFF00E676),
+                )
+              : const CircularProgressIndicator(color: Color(0xFF00E676)),
         ),
       );
     }
@@ -59,7 +68,11 @@ class ScheduleSection extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.event_available, color: Colors.grey[600], size: 20),
+                  Icon(
+                    isIos ? CupertinoIcons.calendar : Icons.event_available,
+                    color: Colors.grey[600],
+                    size: 20,
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     emptyMessage ?? 'Нет занятий на сегодня',
@@ -110,6 +123,7 @@ class ScheduleSection extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final isIos = Platform.isIOS;
     final now = DateTime.now();
     final isToday = _isSameDay(date, now);
     return Row(
@@ -138,35 +152,45 @@ class ScheduleSection extends StatelessWidget {
           ),
         ),
         if (!isToday) ...[
-          TextButton(
-            onPressed: onGoToToday,
-            style: TextButton.styleFrom(
-              backgroundColor: const Color(0xFF1E1E1E),
-              foregroundColor: const Color(0xFF00E676),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text(
-              'Сегодня',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ),
+          isIos
+              ? CupertinoButton(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  color: const Color(0xFF1E1E1E),
+                  onPressed: onGoToToday,
+                  child: const Text(
+                    'Сегодня',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                )
+              : TextButton(
+                  onPressed: onGoToToday,
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E1E1E),
+                    foregroundColor: const Color(0xFF00E676),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text(
+                    'Сегодня',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
           const SizedBox(width: 6),
         ],
         _navIconButton(
-          icon: Icons.chevron_left,
+          icon: isIos ? CupertinoIcons.chevron_left : Icons.chevron_left,
           tooltip: 'Предыдущий день',
           onTap: onPreviousDay,
         ),
         const SizedBox(width: 4),
         _navIconButton(
-          icon: Icons.calendar_today,
+          icon: isIos ? CupertinoIcons.calendar : Icons.calendar_today,
           tooltip: 'Выбрать дату',
           onTap: onSelectDate,
         ),
         const SizedBox(width: 4),
         _navIconButton(
-          icon: Icons.chevron_right,
+          icon: isIos ? CupertinoIcons.chevron_right : Icons.chevron_right,
           tooltip: 'Следующий день',
           onTap: onNextDay,
         ),
@@ -180,6 +204,14 @@ class ScheduleSection extends StatelessWidget {
     required VoidCallback onTap,
     double size = 22,
   }) {
+    if (Platform.isIOS) {
+      return CupertinoButton(
+        padding: const EdgeInsets.all(6),
+        onPressed: onTap,
+        color: const Color(0xFF1E1E1E),
+        child: Icon(icon, color: Colors.grey[400], size: size),
+      );
+    }
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -306,123 +338,146 @@ class _ClassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
     final timeRange = '${classData.startTime} - ${classData.endTime}';
-    return Padding(
-      padding: const EdgeInsets.only(right: 8, bottom: 4),
-      child: InkWell(
-        onTap: classData.link != null && classData.link!.isNotEmpty
-            ? () => onOpenLink(classData.link!)
-            : null,
+    final content = Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Icon(Icons.wifi, size: 13, color: Colors.grey[500]),
-                  const SizedBox(width: 3),
-                  Flexible(
-                    child: Text(
-                      classData.room,
-                      style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      timeRange,
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (classData.link != null && classData.link!.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    const Icon(Icons.link, size: 14, color: Color(0xFF00E676)),
-                  ],
-                ],
+              Icon(
+                isIos ? CupertinoIcons.wifi : Icons.wifi,
+                size: 13,
+                color: Colors.grey[500],
               ),
-              const SizedBox(height: 4),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[800],
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Center(
-                      child: Icon(Icons.star, size: 12, color: Colors.grey[400]),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              final title = classData.type.isNotEmpty
-                                  ? '(${classData.type}) ${classData.title}'
-                                  : classData.title;
-                              final fontSize = _fitTitleFontSize(context, title, constraints.maxWidth);
-                              return Text(
-                                title,
-                                style: TextStyle(
-                                  fontSize: fontSize - 1,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              );
-                            },
-                          ),
-                        ),
-                        if (classData.professor != null &&
-                            classData.professor!.trim().isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            classData.professor!,
-                            style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (classData.badge != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Text(
-                        classData.badge!,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ),
-                ],
+              const SizedBox(width: 3),
+              Flexible(
+                child: Text(
+                  classData.room,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  timeRange,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (classData.link != null && classData.link!.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Icon(
+                  isIos ? CupertinoIcons.link : Icons.link,
+                  size: 14,
+                  color: const Color(0xFF00E676),
+                ),
+              ],
             ],
           ),
-        ),
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.grey[800],
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Center(
+                  child: Icon(
+                    isIos ? CupertinoIcons.star : Icons.star,
+                    size: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final title = classData.type.isNotEmpty
+                              ? '(${classData.type}) ${classData.title}'
+                              : classData.title;
+                          final fontSize =
+                              _fitTitleFontSize(context, title, constraints.maxWidth);
+                          return Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: fontSize - 1,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          );
+                        },
+                      ),
+                    ),
+                    if (classData.professor != null &&
+                        classData.professor!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        classData.professor!,
+                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (classData.badge != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Text(
+                    classData.badge!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8, bottom: 4),
+      child: isIos
+          ? GestureDetector(
+              onTap: classData.link != null && classData.link!.isNotEmpty
+                  ? () => onOpenLink(classData.link!)
+                  : null,
+              child: content,
+            )
+          : InkWell(
+              onTap: classData.link != null && classData.link!.isNotEmpty
+                  ? () => onOpenLink(classData.link!)
+                  : null,
+              borderRadius: BorderRadius.circular(12),
+              child: content,
+            ),
     );
   }
 

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cumobile/data/models/course.dart';
@@ -31,9 +34,15 @@ class _CoursesTabState extends State<CoursesTab> {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
     if (widget.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      return Center(
+        child: isIos
+            ? const CupertinoActivityIndicator(
+                radius: 14,
+                color: Color(0xFF00E676),
+              )
+            : const CircularProgressIndicator(color: Color(0xFF00E676)),
       );
     }
 
@@ -47,18 +56,37 @@ class _CoursesTabState extends State<CoursesTab> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const Spacer(),
-            TextButton.icon(
-              onPressed: () => setState(() => _isEditing = !_isEditing),
-              icon: Icon(
-                _isEditing ? Icons.check : Icons.edit,
-                size: 16,
-                color: const Color(0xFF00E676),
-              ),
-              label: Text(
-                _isEditing ? 'Готово' : 'Редактировать',
-                style: const TextStyle(color: Color(0xFF00E676), fontSize: 12),
-              ),
-            ),
+            isIos
+                ? CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => setState(() => _isEditing = !_isEditing),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _isEditing ? CupertinoIcons.check_mark : CupertinoIcons.pencil,
+                          size: 16,
+                          color: const Color(0xFF00E676),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _isEditing ? 'Готово' : 'Редактировать',
+                          style: const TextStyle(color: Color(0xFF00E676), fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  )
+                : TextButton.icon(
+                    onPressed: () => setState(() => _isEditing = !_isEditing),
+                    icon: Icon(
+                      _isEditing ? Icons.check : Icons.edit,
+                      size: 16,
+                      color: const Color(0xFF00E676),
+                    ),
+                    label: Text(
+                      _isEditing ? 'Готово' : 'Редактировать',
+                      style: const TextStyle(color: Color(0xFF00E676), fontSize: 12),
+                    ),
+                  ),
           ],
         ),
         const SizedBox(height: 8),
@@ -85,12 +113,19 @@ class _CoursesTabState extends State<CoursesTab> {
                   children: [
                     IconButton(
                       tooltip: 'В архив',
-                      icon: Icon(Icons.archive, color: Colors.grey[500], size: 20),
+                      icon: Icon(
+                        isIos ? CupertinoIcons.archivebox : Icons.archive,
+                        color: Colors.grey[500],
+                        size: 20,
+                      ),
                       onPressed: () => widget.onArchive(course),
                     ),
                     ReorderableDragStartListener(
                       index: index,
-                      child: Icon(Icons.drag_handle, color: Colors.grey[600]),
+                      child: Icon(
+                        isIos ? CupertinoIcons.line_horizontal_3 : Icons.drag_handle,
+                        color: Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),
@@ -103,7 +138,10 @@ class _CoursesTabState extends State<CoursesTab> {
               key: ValueKey('active-${course.id}'),
               course: course,
               onTap: () => widget.onOpenCourse(course),
-              trailing: Icon(Icons.chevron_right, color: Colors.grey[600]),
+              trailing: Icon(
+                isIos ? CupertinoIcons.chevron_forward : Icons.chevron_right,
+                color: Colors.grey[600],
+              ),
             ),
           ),
         const SizedBox(height: 16),
@@ -135,10 +173,17 @@ class _CoursesTabState extends State<CoursesTab> {
               trailing: _isEditing
                   ? IconButton(
                       tooltip: 'Вернуть',
-                      icon: Icon(Icons.unarchive, color: Colors.grey[500], size: 20),
+                      icon: Icon(
+                        isIos ? CupertinoIcons.archivebox_fill : Icons.unarchive,
+                        color: Colors.grey[500],
+                        size: 20,
+                      ),
                       onPressed: () => widget.onRestore(course),
                     )
-                  : Icon(Icons.chevron_right, color: Colors.grey[600]),
+                  : Icon(
+                      isIos ? CupertinoIcons.chevron_forward : Icons.chevron_right,
+                      color: Colors.grey[600],
+                    ),
             ),
           ),
       ],
@@ -180,56 +225,79 @@ class _CourseListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: course.categoryColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  course.categoryIcon,
-                  size: 16,
-                  color: course.categoryColor,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      course.cleanName,
-                      style: const TextStyle(fontSize: 14, color: Colors.white),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _getCategoryName(course.category),
-                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                    ),
-                  ],
-                ),
-              ),
-              trailing,
-            ],
+      child: (isIos
+          ? GestureDetector(onTap: onTap, child: _buildContent(isIos))
+          : InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: _buildContent(isIos),
+            )),
+    );
+  }
+
+  Widget _buildContent(bool isIos) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: course.categoryColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _categoryIcon(course.category, isIos),
+              size: 16,
+              color: course.categoryColor,
+            ),
           ),
-        ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  course.cleanName,
+                  style: const TextStyle(fontSize: 14, color: Colors.white),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _getCategoryName(course.category),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          ),
+          trailing,
+        ],
       ),
     );
+  }
+
+  IconData _categoryIcon(String category, bool isIos) {
+    switch (category) {
+      case 'mathematics':
+        return isIos ? CupertinoIcons.function : Icons.functions;
+      case 'development':
+        return isIos ? CupertinoIcons.chevron_left_slash_chevron_right : Icons.code;
+      case 'stem':
+        return isIos ? CupertinoIcons.lab_flask : Icons.science;
+      case 'general':
+        return isIos ? CupertinoIcons.book : Icons.school;
+      case 'withoutCategory':
+      default:
+        return isIos ? CupertinoIcons.tag : Icons.category;
+    }
   }
 
   String _getCategoryName(String category) {

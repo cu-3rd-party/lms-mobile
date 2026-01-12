@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -99,6 +102,21 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showSnackBar(String message) {
+    if (Platform.isIOS) {
+      showCupertinoDialog(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          content: Text(message),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message, style: const TextStyle(color: Colors.white)),
@@ -119,6 +137,78 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
+    final content = SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          const SizedBox(height: 16),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: const Color(0xFF00E676).withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '${widget.profile.firstName[0]}${widget.profile.lastName[0]}',
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF00E676),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            widget.profile.fullName,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${widget.profile.course} курс • ${_translateEducationLevel(widget.profile.educationLevel)}',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[400],
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildInfoCard(),
+          const SizedBox(height: 16),
+          _buildCalendarCard(),
+        ],
+      ),
+    );
+
+    if (isIos) {
+      return CupertinoPageScaffold(
+        navigationBar: CupertinoNavigationBar(
+          middle: const Text('Профиль'),
+          trailing: CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: () {
+              Navigator.pop(context);
+              widget.onLogout();
+            },
+            child: Icon(
+              CupertinoIcons.square_arrow_right,
+              color: Colors.grey[500],
+              size: 22,
+            ),
+          ),
+        ),
+        backgroundColor: const Color(0xFF121212),
+        child: SafeArea(top: false, child: content),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF121212),
@@ -140,54 +230,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFF00E676).withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  '${widget.profile.firstName[0]}${widget.profile.lastName[0]}',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF00E676),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              widget.profile.fullName,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${widget.profile.course} курс • ${_translateEducationLevel(widget.profile.educationLevel)}',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[400],
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildInfoCard(),
-            const SizedBox(height: 16),
-            _buildCalendarCard(),
-          ],
-        ),
-      ),
+      body: content,
     );
   }
 
@@ -284,6 +327,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildCalendarCard() {
+    final isIos = Platform.isIOS;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -336,74 +380,127 @@ class _ProfilePageState extends State<ProfilePage> {
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
           const SizedBox(height: 6),
-          TextField(
-            controller: _passwordController,
-            obscureText: !_isPasswordVisible,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: const Color(0xFF2A2A2A),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.grey[500],
+          isIos
+              ? CupertinoTextField(
+                  controller: _passwordController,
+                  obscureText: !_isPasswordVisible,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A2A2A),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  suffix: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                    child: Icon(
+                      _isPasswordVisible
+                          ? CupertinoIcons.eye_slash
+                          : CupertinoIcons.eye,
+                      color: Colors.grey[500],
+                      size: 18,
+                    ),
+                  ),
+                )
+              : TextField(
+                  controller: _passwordController,
+                  obscureText: !_isPasswordVisible,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: const Color(0xFF2A2A2A),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey[500],
+                      ),
+                      onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
                 ),
-                onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
-              ),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            ),
-          ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: ElevatedButton(
-                  onPressed: _isSaving ? null : _saveCaldav,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00E676),
-                    foregroundColor: const Color(0xFF121212),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: _isSaving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Color(0xFF121212),
+                child: isIos
+                    ? CupertinoButton.filled(
+                        onPressed: _isSaving ? null : _saveCaldav,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: _isSaving
+                            ? const CupertinoActivityIndicator(
+                                radius: 10,
+                                color: CupertinoColors.black,
+                              )
+                            : Text(
+                                _isConnected ? 'Обновить пароль' : 'Подключить',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
+                                ),
+                              ),
+                      )
+                    : ElevatedButton(
+                        onPressed: _isSaving ? null : _saveCaldav,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00E676),
+                          foregroundColor: const Color(0xFF121212),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        )
-                      : Text(
-                          _isConnected ? 'Обновить пароль' : 'Подключить',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                         ),
-                ),
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF121212),
+                                ),
+                              )
+                            : Text(
+                                _isConnected ? 'Обновить пароль' : 'Подключить',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
               ),
               if (_isConnected) ...[
                 const SizedBox(width: 10),
-                OutlinedButton(
-                  onPressed: _disconnectCaldav,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                    side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.6)),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    'Отключить',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                ),
+                isIos
+                    ? CupertinoButton(
+                        onPressed: _disconnectCaldav,
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                        color: const Color(0xFF2A2A2A),
+                        child: const Text(
+                          'Отключить',
+                          style: TextStyle(fontSize: 12, color: Colors.redAccent),
+                        ),
+                      )
+                    : OutlinedButton(
+                        onPressed: _disconnectCaldav,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                          side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.6)),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Отключить',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
               ],
             ],
           ),

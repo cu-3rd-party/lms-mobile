@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cumobile/features/home/pages/home_page.dart';
@@ -43,12 +46,23 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF00E676)),
-        ),
+      final loader = Center(
+        child: isIos
+            ? const CupertinoActivityIndicator(
+                radius: 14,
+                color: Color(0xFF00E676),
+              )
+            : const CircularProgressIndicator(color: Color(0xFF00E676)),
       );
+      return isIos
+          ? CupertinoPageScaffold(
+              child: SafeArea(
+                child: loader,
+              ),
+            )
+          : Scaffold(body: loader);
     }
     return _isLoggedIn
         ? HomePage(onLogout: _onLogout)

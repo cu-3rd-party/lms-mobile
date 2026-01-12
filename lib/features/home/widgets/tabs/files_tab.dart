@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
@@ -28,9 +29,15 @@ class FilesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
     if (isLoading && files.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF00E676)),
+      return Center(
+        child: isIos
+            ? const CupertinoActivityIndicator(
+                radius: 14,
+                color: Color(0xFF00E676),
+              )
+            : const CircularProgressIndicator(color: Color(0xFF00E676)),
       );
     }
 
@@ -39,17 +46,29 @@ class FilesTab extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.folder_open, size: 64, color: Colors.grey[700]),
+            Icon(
+              isIos ? CupertinoIcons.folder : Icons.folder_open,
+              size: 64,
+              color: Colors.grey[700],
+            ),
             const SizedBox(height: 16),
             Text(
               'Нет скачанных файлов',
               style: TextStyle(color: Colors.grey[500], fontSize: 16),
             ),
             const SizedBox(height: 8),
-            TextButton(
-              onPressed: onRefresh,
-              child: const Text('Обновить', style: TextStyle(color: Color(0xFF00E676))),
-            ),
+            isIos
+                ? CupertinoButton(
+                    onPressed: onRefresh,
+                    child: const Text(
+                      'Обновить',
+                      style: TextStyle(color: Color(0xFF00E676)),
+                    ),
+                  )
+                : TextButton(
+                    onPressed: onRefresh,
+                    child: const Text('Обновить', style: TextStyle(color: Color(0xFF00E676))),
+                  ),
           ],
         ),
       );
@@ -72,45 +91,104 @@ class FilesTab extends StatelessWidget {
               ),
               const Spacer(),
               if (selectedFiles.isNotEmpty)
-                TextButton.icon(
-                  onPressed: onDeleteSelected,
-                  icon: const Icon(Icons.delete, size: 18, color: Colors.redAccent),
-                  label: Text(
-                    'Удалить (${selectedFiles.length})',
-                    style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-                  ),
-                )
+                isIos
+                    ? CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: onDeleteSelected,
+                        child: Row(
+                          children: [
+                            const Icon(CupertinoIcons.delete, size: 18, color: Colors.redAccent),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Удалить (${selectedFiles.length})',
+                              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      )
+                    : TextButton.icon(
+                        onPressed: onDeleteSelected,
+                        icon: const Icon(Icons.delete, size: 18, color: Colors.redAccent),
+                        label: Text(
+                          'Удалить (${selectedFiles.length})',
+                          style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                        ),
+                      )
               else
-                TextButton.icon(
-                  onPressed: onDeleteAll,
-                  icon: Icon(Icons.delete_sweep, size: 18, color: Colors.grey[500]),
-                  label: Text(
-                    'Удалить все',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                  ),
-                ),
+                isIos
+                    ? CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: onDeleteAll,
+                        child: Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.delete_solid,
+                              size: 18,
+                              color: Colors.grey[500],
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Удалить все',
+                              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      )
+                    : TextButton.icon(
+                        onPressed: onDeleteAll,
+                        icon: Icon(Icons.delete_sweep, size: 18, color: Colors.grey[500]),
+                        label: Text(
+                          'Удалить все',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        ),
+                      ),
             ],
           ),
         ),
         Expanded(
-          child: RefreshIndicator(
-            onRefresh: () async => onRefresh(),
-            color: const Color(0xFF00E676),
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: files.length,
-              itemBuilder: (context, index) {
-                final file = files[index] as File;
-                return _FileListItem(
-                  file: file,
-                  isSelected: selectedFiles.contains(file.path),
-                  onTap: () => OpenFilex.open(file.path),
-                  onLongPress: () => onToggleSelection(file.path),
-                  onDelete: () => onDelete(file),
-                );
-              },
-            ),
-          ),
+          child: isIos
+              ? CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    CupertinoSliverRefreshControl(onRefresh: () async => onRefresh()),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final file = files[index] as File;
+                            return _FileListItem(
+                              file: file,
+                              isSelected: selectedFiles.contains(file.path),
+                              onTap: () => OpenFilex.open(file.path),
+                              onLongPress: () => onToggleSelection(file.path),
+                              onDelete: () => onDelete(file),
+                            );
+                          },
+                          childCount: files.length,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : RefreshIndicator(
+                  onRefresh: () async => onRefresh(),
+                  color: const Color(0xFF00E676),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: files.length,
+                    itemBuilder: (context, index) {
+                      final file = files[index] as File;
+                      return _FileListItem(
+                        file: file,
+                        isSelected: selectedFiles.contains(file.path),
+                        onTap: () => OpenFilex.open(file.path),
+                        onLongPress: () => onToggleSelection(file.path),
+                        onDelete: () => onDelete(file),
+                      );
+                    },
+                  ),
+                ),
         ),
       ],
     );
@@ -143,11 +221,12 @@ class _FileListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
     final stat = file.statSync();
     final name = file.path.split('/').last;
     final ext = _getFileExtension(name);
 
-    return Container(
+    final content = Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: isSelected
@@ -158,71 +237,97 @@ class _FileListItem extends StatelessWidget {
             ? Border.all(color: const Color(0xFF00E676), width: 1)
             : null,
       ),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00E676).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    ext.length > 4 ? ext.substring(0, 4) : ext,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF00E676),
-                    ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  ext.length > 4 ? ext.substring(0, 4) : ext,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF00E676),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${_formatFileSize(stat.size)} • ${DateFormat('dd.MM.yyyy').format(stat.modified)}',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                    ),
-                  ],
-                ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${_formatFileSize(stat.size)} • ${DateFormat('dd.MM.yyyy').format(stat.modified)}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              if (isSelected)
-                IconButton(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                )
-              else
-                Icon(Icons.open_in_new, size: 18, color: Colors.grey[600]),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            if (isSelected)
+              isIos
+                  ? CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: onDelete,
+                      child: const Icon(
+                        CupertinoIcons.delete,
+                        color: Colors.redAccent,
+                        size: 20,
+                      ),
+                    )
+                  : IconButton(
+                      onPressed: onDelete,
+                      icon: Icon(
+                        isIos ? CupertinoIcons.delete : Icons.delete,
+                        color: Colors.redAccent,
+                        size: 20,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    )
+            else
+              Icon(
+                isIos ? CupertinoIcons.arrow_up_right_square : Icons.open_in_new,
+                size: 18,
+                color: Colors.grey[600],
+              ),
+          ],
         ),
       ),
     );
+
+    return isIos
+        ? GestureDetector(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            child: content,
+          )
+        : InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            borderRadius: BorderRadius.circular(12),
+            child: content,
+          );
   }
 
   String _formatFileSize(int bytes) {

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cumobile/data/models/student_task.dart';
@@ -14,6 +17,7 @@ class DeadlinesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
     final deadlineTasks = tasks.where((task) => task.state != 'review').toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,10 +57,15 @@ class DeadlinesSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Center(
-              child: CircularProgressIndicator(color: Color(0xFF00E676)),
+              child: isIos
+                  ? const CupertinoActivityIndicator(
+                      radius: 14,
+                      color: Color(0xFF00E676),
+                    )
+                  : const CircularProgressIndicator(color: Color(0xFF00E676)),
             ),
           )
         else if (deadlineTasks.isEmpty)
@@ -70,7 +79,11 @@ class DeadlinesSection extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.grey[600], size: 20),
+                  Icon(
+                    isIos ? CupertinoIcons.check_mark_circled : Icons.check_circle,
+                    color: Colors.grey[600],
+                    size: 20,
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     'Нет активных заданий',
@@ -126,7 +139,11 @@ class _TaskCard extends StatelessWidget {
               color: task.stateColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(task.typeIcon, color: task.stateColor, size: 18),
+            child: Icon(
+              _taskTypeIcon(task.exercise.type),
+              color: task.stateColor,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -158,7 +175,7 @@ class _TaskCard extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.access_time,
+                        Platform.isIOS ? CupertinoIcons.time : Icons.access_time,
                         size: 11,
                         color: task.isOverdue ? Colors.redAccent : Colors.grey[400],
                       ),
@@ -223,6 +240,22 @@ class _TaskCard extends StatelessWidget {
         return 'Не начато';
       default:
         return state;
+    }
+  }
+
+  IconData _taskTypeIcon(String type) {
+    final isIos = Platform.isIOS;
+    switch (type) {
+      case 'coding':
+        return isIos
+            ? CupertinoIcons.chevron_left_slash_chevron_right
+            : Icons.code;
+      case 'quiz':
+        return isIos ? CupertinoIcons.question_circle : Icons.quiz;
+      case 'essay':
+        return isIos ? CupertinoIcons.doc_text : Icons.description;
+      default:
+        return isIos ? CupertinoIcons.square_list : Icons.assignment;
     }
   }
 }

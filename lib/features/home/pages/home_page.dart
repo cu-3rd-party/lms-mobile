@@ -21,6 +21,8 @@ import 'package:cumobile/features/profile/pages/profile_page.dart';
 import 'package:cumobile/data/services/api_service.dart';
 import 'package:cumobile/data/services/caldav_service.dart';
 import 'package:cumobile/features/home/widgets/sections/deadlines_section.dart';
+import 'package:cumobile/features/home/widgets/sections/home_courses_section.dart';
+import 'package:cumobile/features/home/widgets/sections/home_top_navigation.dart';
 import 'package:cumobile/features/home/widgets/sections/schedule_section.dart';
 import 'package:cumobile/features/home/widgets/tabs/courses_tab.dart';
 import 'package:cumobile/features/home/widgets/tabs/files_tab.dart';
@@ -247,29 +249,75 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _selectScheduleDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _scheduleDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      locale: const Locale('ru', 'RU'),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF00E676),
-            surface: Color(0xFF1E1E1E),
+    DateTime? picked;
+    if (Platform.isIOS) {
+      picked = await showCupertinoModalPopup<DateTime>(
+        context: context,
+        builder: (context) {
+          var tempDate = _scheduleDate;
+          return CupertinoPopupSurface(
+            child: Container(
+              height: 320,
+              color: const Color(0xFF121212),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        CupertinoButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Отмена'),
+                        ),
+                        CupertinoButton(
+                          onPressed: () => Navigator.pop(context, tempDate),
+                          child: const Text('Готово'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.date,
+                      initialDateTime: _scheduleDate,
+                      minimumDate: DateTime.now().subtract(const Duration(days: 365)),
+                      maximumDate: DateTime.now().add(const Duration(days: 365)),
+                      onDateTimeChanged: (value) => tempDate = value,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } else {
+      picked = await showDatePicker(
+        context: context,
+        initialDate: _scheduleDate,
+        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+        locale: const Locale('ru', 'RU'),
+        builder: (context, child) => Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF00E676),
+              surface: Color(0xFF1E1E1E),
+            ),
           ),
+          child: child!,
         ),
-        child: child!,
-      ),
-    );
+      );
+    }
     if (picked == null) return;
-    if (_isSameDay(picked, _scheduleDate)) return;
+    final selectedDate = picked;
+    if (_isSameDay(selectedDate, _scheduleDate)) return;
     setState(() {
-      _scheduleDate = picked;
+      _scheduleDate = selectedDate;
       _isLoadingSchedule = true;
     });
-    await _loadSchedule(day: picked);
+    await _loadSchedule(day: selectedDate);
   }
 
   Future<void> _logout() async {
@@ -279,63 +327,81 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final isIos = Theme.of(context).platform == TargetPlatform.iOS;
-    final navItems = const [
+    final isIos = Platform.isIOS;
+    final navItems = [
       BottomNavigationBarItem(
-        icon: Icon(Icons.home),
+        icon: Icon(isIos ? CupertinoIcons.house : Icons.home),
         label: 'Главная',
       ),
       BottomNavigationBarItem(
-        icon: Icon(Icons.assignment),
+        icon: Icon(isIos ? CupertinoIcons.square_list : Icons.assignment),
         label: 'Задания',
       ),
       BottomNavigationBarItem(
-        icon: Icon(Icons.school),
+        icon: Icon(isIos ? CupertinoIcons.book : Icons.school),
         label: 'Курсы',
       ),
       BottomNavigationBarItem(
-        icon: Icon(Icons.folder),
+        icon: Icon(isIos ? CupertinoIcons.folder : Icons.folder),
         label: 'Файлы',
       ),
     ];
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTopNavigation(),
-            const SizedBox(height: 12),
-            Expanded(child: _buildTabBody()),
-          ],
+    final bodyContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        HomeTopNavigation(
+          title: _currentTabTitle(),
+          lmsProfile: _lmsProfile,
+          profile: _profile,
+          isLoadingProfile: _isLoadingProfile,
+          onOpenNotifications: _openNotifications,
+          onOpenProfile: _openProfile,
         ),
-      ),
-      bottomNavigationBar: isIos
-          ? MediaQuery.removePadding(
-              context: context,
-              removeBottom: true,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  top: 6,
-                  bottom: math.max(0, MediaQuery.of(context).padding.bottom - 6),
-                ),
-                child: CupertinoTabBar(
-                  currentIndex: _selectedTab,
-                  backgroundColor: const Color(0xFF121212),
-                  activeColor: const Color(0xFF00E676),
-                  inactiveColor: Colors.grey[500]!,
-                  onTap: _onTabChanged,
-                  items: navItems,
+        const SizedBox(height: 12),
+        Expanded(child: _buildTabBody()),
+      ],
+    );
+    if (isIos) {
+      return CupertinoPageScaffold(
+        backgroundColor: const Color(0xFF121212),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Expanded(child: bodyContent),
+              MediaQuery.removePadding(
+                context: context,
+                removeBottom: true,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    top: 6,
+                    bottom: math.max(0, MediaQuery.of(context).padding.bottom - 6),
+                  ),
+                  child: CupertinoTabBar(
+                    currentIndex: _selectedTab,
+                    backgroundColor: const Color(0xFF121212),
+                    activeColor: const Color(0xFF00E676),
+                    inactiveColor: Colors.grey[500]!,
+                    onTap: _onTabChanged,
+                    items: navItems,
+                  ),
                 ),
               ),
-            )
-          : BottomNavigationBar(
-              currentIndex: _selectedTab,
-              backgroundColor: const Color(0xFF121212),
-              selectedItemColor: const Color(0xFF00E676),
-              unselectedItemColor: Colors.grey[500],
-              onTap: _onTabChanged,
-              items: navItems,
-            ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Scaffold(
+      body: SafeArea(child: bodyContent),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedTab,
+        backgroundColor: const Color(0xFF121212),
+        selectedItemColor: const Color(0xFF00E676),
+        unselectedItemColor: Colors.grey[500],
+        onTap: _onTabChanged,
+        items: navItems,
+      ),
     );
   }
 
@@ -344,73 +410,6 @@ class _HomePageState extends State<HomePage> {
     if (index == 3 && _downloadedFiles.isEmpty) {
       _loadFiles();
     }
-  }
-
-  Widget _buildTopNavigation() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              _currentTabTitle(),
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          if (_lmsProfile != null) ...[
-            Text(
-              'Late Days: ${_lmsProfile!.lateDaysBalance}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-            ),
-            const SizedBox(width: 12),
-          ],
-          IconButton(
-            onPressed: _openNotifications,
-            icon: const Icon(Icons.notifications_none, color: Colors.white),
-            tooltip: 'Уведомления',
-          ),
-          GestureDetector(
-            onTap: _openProfile,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _profile != null
-                    ? const Color(0xFF00E676).withValues(alpha: 0.2)
-                    : const Color(0xFF1E1E1E),
-                border: Border.all(color: const Color(0xFF00E676), width: 2),
-              ),
-              child: Center(
-                child: _isLoadingProfile
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFF00E676),
-                        ),
-                      )
-                    : _profile != null
-                        ? Text(
-                            '${_profile!.firstName[0]}${_profile!.lastName[0]}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF00E676),
-                            ),
-                          )
-                        : Icon(Icons.person, color: Colors.grey[500], size: 20),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   String _currentTabTitle() {
@@ -432,13 +431,21 @@ class _HomePageState extends State<HomePage> {
     if (_profile == null) return;
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => ProfilePage(
-          profile: _profile!,
-          onLogout: _logout,
-          onCalendarChanged: _refreshScheduleAfterCalendarChange,
-        ),
-      ),
+      Platform.isIOS
+          ? CupertinoPageRoute(
+              builder: (context) => ProfilePage(
+                profile: _profile!,
+                onLogout: _logout,
+                onCalendarChanged: _refreshScheduleAfterCalendarChange,
+              ),
+            )
+          : MaterialPageRoute(
+              builder: (context) => ProfilePage(
+                profile: _profile!,
+                onLogout: _logout,
+                onCalendarChanged: _refreshScheduleAfterCalendarChange,
+              ),
+            ),
     );
     await _refreshScheduleAfterCalendarChange();
   }
@@ -456,9 +463,9 @@ class _HomePageState extends State<HomePage> {
   void _openNotifications() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const NotificationsPage(),
-      ),
+      Platform.isIOS
+          ? CupertinoPageRoute(builder: (context) => const NotificationsPage())
+          : MaterialPageRoute(builder: (context) => const NotificationsPage()),
     );
   }
 
@@ -487,7 +494,11 @@ class _HomePageState extends State<HomePage> {
                 onOpenLink: _openCalendarLink,
               ),
               const SizedBox(height: 24),
-              _buildCoursesSection(),
+              HomeCoursesSection(
+                courses: _activeCourses,
+                isLoading: _isLoadingCourses,
+                onOpenCourse: _openCourse,
+              ),
               const SizedBox(height: 24),
             ],
           ),
@@ -542,13 +553,29 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _openTask(StudentTask task) async {
     if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(color: Color(0xFF00E676)),
-      ),
-    );
+    if (Platform.isIOS) {
+      showCupertinoDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const CupertinoAlertDialog(
+          content: Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: CupertinoActivityIndicator(
+              radius: 14,
+              color: Color(0xFF00E676),
+            ),
+          ),
+        ),
+      );
+    } else {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF00E676)),
+        ),
+      );
+    }
 
     try {
       final overview = await apiService.fetchCourseOverview(task.course.id);
@@ -569,15 +596,25 @@ class _HomePageState extends State<HomePage> {
             final courseName = course?.cleanName ?? task.course.cleanName;
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => LongreadPage(
-                  longread: longread,
-                  themeColor: themeColor,
-                  courseName: courseName,
-                  themeName: theme.name,
-                  selectedTaskId: task.id,
-                ),
-              ),
+              Platform.isIOS
+                  ? CupertinoPageRoute(
+                      builder: (context) => LongreadPage(
+                        longread: longread,
+                        themeColor: themeColor,
+                        courseName: courseName,
+                        themeName: theme.name,
+                        selectedTaskId: task.id,
+                      ),
+                    )
+                  : MaterialPageRoute(
+                      builder: (context) => LongreadPage(
+                        longread: longread,
+                        themeColor: themeColor,
+                        courseName: courseName,
+                        themeName: theme.name,
+                        selectedTaskId: task.id,
+                      ),
+                    ),
             );
             return;
           }
@@ -604,6 +641,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showSnack(String message) {
+    if (Platform.isIOS) {
+      showCupertinoDialog(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          content: Text(message),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -721,168 +773,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildCoursesSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                'Курсы',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              if (_activeCourses.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00E676).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${_activeCourses.length}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF00E676),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (_isLoadingCourses)
-            const Center(
-              child: CircularProgressIndicator(color: Color(0xFF00E676)),
-            )
-          else if (_activeCourses.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.school, color: Colors.grey[600], size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Нет активных курсов',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                  ),
-                ],
-              ),
-            )
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.4,
-              ),
-              itemCount: _activeCourses.length,
-              itemBuilder: (context, index) => _buildCourseCard(_activeCourses[index]),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCourseCard(Course course) {
-    return GestureDetector(
-      onTap: () => _openCourse(course),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    course.cleanName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _getCategoryName(course.category),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: course.categoryColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(
-                    course.categoryIcon,
-                    size: 14,
-                    color: course.categoryColor,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   void _openCourse(Course course) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => CoursePage(course: course),
-      ),
+      Platform.isIOS
+          ? CupertinoPageRoute(builder: (context) => CoursePage(course: course))
+          : MaterialPageRoute(builder: (context) => CoursePage(course: course)),
     );
-  }
-
-  String _getCategoryName(String category) {
-    switch (category) {
-      case 'mathematics':
-        return 'Математика';
-      case 'development':
-        return 'Разработка';
-      case 'stem':
-        return 'Наука';
-      case 'general':
-        return 'Общее';
-      case 'withoutCategory':
-      default:
-        return 'Без категории';
-    }
   }
 
   Future<void> _loadFiles() async {
@@ -928,27 +826,48 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _deleteAllFiles() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Удалить все файлы?', style: TextStyle(color: Colors.white)),
-        content: Text(
-          'Будет удалено ${_downloadedFiles.length} файлов. Это действие нельзя отменить.',
-          style: TextStyle(color: Colors.grey[400]),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Отмена', style: TextStyle(color: Colors.grey[400])),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Удалить', style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
-    );
+    final confirmed = await (Platform.isIOS
+        ? showCupertinoDialog<bool>(
+            context: context,
+            builder: (context) => CupertinoAlertDialog(
+              title: const Text('Удалить все файлы?'),
+              content: Text(
+                'Будет удалено ${_downloadedFiles.length} файлов. Это действие нельзя отменить.',
+              ),
+              actions: [
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Отмена'),
+                ),
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.pop(context, true),
+                  isDestructiveAction: true,
+                  child: const Text('Удалить'),
+                ),
+              ],
+            ),
+          )
+        : showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: const Color(0xFF1E1E1E),
+              title: const Text('Удалить все файлы?', style: TextStyle(color: Colors.white)),
+              content: Text(
+                'Будет удалено ${_downloadedFiles.length} файлов. Это действие нельзя отменить.',
+                style: TextStyle(color: Colors.grey[400]),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text('Отмена', style: TextStyle(color: Colors.grey[400])),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Удалить', style: TextStyle(color: Colors.redAccent)),
+                ),
+              ],
+            ),
+          ));
     if (confirmed != true) return;
 
     for (final file in _downloadedFiles) {

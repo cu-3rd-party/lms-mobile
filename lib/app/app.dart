@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -9,6 +12,32 @@ class CUMobileApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Platform.isIOS) {
+      return CupertinoApp(
+        title: 'ЦУ',
+        debugShowCheckedModeBanner: false,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('ru', 'RU'),
+          Locale('en', 'US'),
+        ],
+        theme: CupertinoThemeData(
+          brightness: Brightness.dark,
+          primaryColor: const Color(0xFF00E676),
+          scaffoldBackgroundColor: const Color(0xFF121212),
+          barBackgroundColor: const Color(0xFF121212),
+          textTheme: CupertinoTextThemeData(
+            textStyle: GoogleFonts.ubuntu(color: CupertinoColors.white),
+          ),
+        ),
+        home: const AuthWrapper(),
+      );
+    }
+
     return MaterialApp(
       title: 'ЦУ',
       debugShowCheckedModeBanner: false,

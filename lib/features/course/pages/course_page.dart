@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 
@@ -19,6 +22,7 @@ class _CoursePageState extends State<CoursePage> {
   CourseOverview? _overview;
   bool _isLoading = true;
   static final Logger _log = Logger('CoursePage');
+  final Set<int> _expandedThemes = {};
 
   @override
   void initState() {
@@ -41,6 +45,46 @@ class _CoursePageState extends State<CoursePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Platform.isIOS;
+    final body = _isLoading
+        ? Center(
+            child: isIos
+                ? const CupertinoActivityIndicator(
+                    radius: 14,
+                    color: Color(0xFF00E676),
+                  )
+                : const CircularProgressIndicator(color: Color(0xFF00E676)),
+          )
+        : _overview == null
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isIos ? CupertinoIcons.exclamationmark_triangle : Icons.error_outline,
+                      color: Colors.grey[600],
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Не удалось загрузить курс',
+                      style: TextStyle(color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              )
+            : _buildThemesList();
+
+    if (isIos) {
+      return CupertinoPageScaffold(
+        navigationBar: CupertinoNavigationBar(
+          middle: Text(widget.course.cleanName),
+        ),
+        backgroundColor: const Color(0xFF121212),
+        child: SafeArea(top: false, child: body),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF121212),
@@ -55,25 +99,7 @@ class _CoursePageState extends State<CoursePage> {
           overflow: TextOverflow.ellipsis,
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF00E676)),
-            )
-          : _overview == null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, color: Colors.grey[600], size: 48),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Не удалось загрузить курс',
-                        style: TextStyle(color: Colors.grey[500]),
-                      ),
-                    ],
-                  ),
-                )
-              : _buildThemesList(),
+      body: body,
     );
   }
 
@@ -84,7 +110,11 @@ class _CoursePageState extends State<CoursePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.folder_open, color: Colors.grey[600], size: 48),
+            Icon(
+              Platform.isIOS ? CupertinoIcons.folder : Icons.folder_open,
+              color: Colors.grey[600],
+              size: 48,
+            ),
             const SizedBox(height: 16),
             Text(
               'Нет доступных тем',
@@ -92,6 +122,17 @@ class _CoursePageState extends State<CoursePage> {
             ),
           ],
         ),
+      );
+    }
+
+    if (Platform.isIOS) {
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: themes.length,
+        itemBuilder: (context, index) {
+          final theme = themes[index];
+          return _buildThemeCardCupertino(theme, index + 1);
+        },
       );
     }
 
@@ -164,7 +205,95 @@ class _CoursePageState extends State<CoursePage> {
     );
   }
 
+  Widget _buildThemeCardCupertino(CourseTheme theme, int number) {
+    final isExpanded = _expandedThemes.contains(theme.id);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: () => _toggleTheme(theme.id),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: widget.course.categoryColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$number',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: widget.course.categoryColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          theme.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if (theme.hasExercises)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              '${theme.totalExercises} ${_pluralize(theme.totalExercises, 'задание', 'задания', 'заданий')}',
+                              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isExpanded ? CupertinoIcons.chevron_up : CupertinoIcons.chevron_down,
+                    color: Colors.grey[500],
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: isExpanded
+                ? Padding(
+                    padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                    child: Column(
+                      children: theme.longreads
+                          .map((lr) => _buildLongread(theme.name, lr))
+                          .toList(),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLongread(String themeName, Longread longread) {
+    final isIos = Platform.isIOS;
     return GestureDetector(
       onTap: () => _openLongread(themeName, longread),
       child: Container(
@@ -180,7 +309,9 @@ class _CoursePageState extends State<CoursePage> {
             Row(
               children: [
                 Icon(
-                  longread.exercises.isEmpty ? Icons.description : Icons.assignment,
+                  longread.exercises.isEmpty
+                      ? (isIos ? CupertinoIcons.doc_plaintext : Icons.description)
+                      : (isIos ? CupertinoIcons.square_list : Icons.assignment),
                   size: 16,
                   color: widget.course.categoryColor,
                 ),
@@ -196,7 +327,7 @@ class _CoursePageState extends State<CoursePage> {
                   ),
                 ),
                 Icon(
-                  Icons.chevron_right,
+                  isIos ? CupertinoIcons.chevron_forward : Icons.chevron_right,
                   size: 18,
                   color: Colors.grey[600],
                 ),
@@ -215,75 +346,111 @@ class _CoursePageState extends State<CoursePage> {
   void _openLongread(String themeName, Longread longread) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => LongreadPage(
-          longread: longread,
-          themeColor: widget.course.categoryColor,
-          courseName: widget.course.cleanName,
-          themeName: themeName,
-        ),
-      ),
+      Platform.isIOS
+          ? CupertinoPageRoute(
+              builder: (context) => LongreadPage(
+                longread: longread,
+                themeColor: widget.course.categoryColor,
+                courseName: widget.course.cleanName,
+                themeName: themeName,
+              ),
+            )
+          : MaterialPageRoute(
+              builder: (context) => LongreadPage(
+                longread: longread,
+                themeColor: widget.course.categoryColor,
+                courseName: widget.course.cleanName,
+                themeName: themeName,
+              ),
+            ),
     );
   }
 
   Widget _buildExercise(String themeName, Longread longread, ThemeExercise exercise) {
-    return InkWell(
-      onTap: () => _openExercise(themeName, longread, exercise),
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        margin: const EdgeInsets.only(top: 6),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
-          borderRadius: BorderRadius.circular(6),
-          border: exercise.isOverdue
-              ? Border.all(color: Colors.redAccent.withValues(alpha: 0.5))
-              : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              exercise.name,
-              style: const TextStyle(fontSize: 12, color: Colors.white),
-            ),
-            const SizedBox(height: 6),
-            if (exercise.deadline != null)
-              Row(
-                children: [
-                  Icon(
-                    Icons.access_time,
-                    size: 12,
+    final isIos = Platform.isIOS;
+    final content = Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(6),
+        border: exercise.isOverdue
+            ? Border.all(color: Colors.redAccent.withValues(alpha: 0.5))
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            exercise.name,
+            style: const TextStyle(fontSize: 12, color: Colors.white),
+          ),
+          const SizedBox(height: 6),
+          if (exercise.deadline != null)
+            Row(
+              children: [
+                Icon(
+                  isIos ? CupertinoIcons.time : Icons.access_time,
+                  size: 12,
+                  color: exercise.isOverdue ? Colors.redAccent : Colors.grey[500],
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  exercise.formattedDeadline,
+                  style: TextStyle(
+                    fontSize: 11,
                     color: exercise.isOverdue ? Colors.redAccent : Colors.grey[500],
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    exercise.formattedDeadline,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: exercise.isOverdue ? Colors.redAccent : Colors.grey[500],
-                    ),
-                  ),
-                ],
+                ),
+              ],
             ),
-          ],
-        ),
+        ],
       ),
     );
+    return isIos
+        ? GestureDetector(
+            onTap: () => _openExercise(themeName, longread, exercise),
+            child: content,
+          )
+        : InkWell(
+            onTap: () => _openExercise(themeName, longread, exercise),
+            borderRadius: BorderRadius.circular(6),
+            child: content,
+          );
+  }
+
+  void _toggleTheme(int themeId) {
+    setState(() {
+      if (_expandedThemes.contains(themeId)) {
+        _expandedThemes.remove(themeId);
+      } else {
+        _expandedThemes.add(themeId);
+      }
+    });
   }
 
   void _openExercise(String themeName, Longread longread, ThemeExercise exercise) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => LongreadPage(
-          longread: longread,
-          themeColor: widget.course.categoryColor,
-          courseName: widget.course.cleanName,
-          themeName: themeName,
-          selectedExerciseName: exercise.name,
-        ),
-      ),
+      Platform.isIOS
+          ? CupertinoPageRoute(
+              builder: (context) => LongreadPage(
+                longread: longread,
+                themeColor: widget.course.categoryColor,
+                courseName: widget.course.cleanName,
+                themeName: themeName,
+                selectedExerciseName: exercise.name,
+              ),
+            )
+          : MaterialPageRoute(
+              builder: (context) => LongreadPage(
+                longread: longread,
+                themeColor: widget.course.categoryColor,
+                courseName: widget.course.cleanName,
+                themeName: themeName,
+                selectedExerciseName: exercise.name,
+              ),
+            ),
     );
   }
 

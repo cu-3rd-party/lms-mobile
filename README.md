@@ -17,14 +17,19 @@
 
 ## Скриншоты
 
-![Screenshot 01](assets/screenshots/screenshot-01.png)
-![Screenshot 02](assets/screenshots/screenshot-02.png)
-![Screenshot 03](assets/screenshots/screenshot-03.png)
-![Screenshot 04](assets/screenshots/screenshot-04.png)
-![Screenshot 05](assets/screenshots/screenshot-05.png)
-![Screenshot 06](assets/screenshots/screenshot-06.png)
-![Screenshot 07](assets/screenshots/screenshot-07.png)
-![Screenshot 08](assets/screenshots/screenshot-08.png)
+<p float="left">
+  <img src="assets/screenshots/screenshot-01.png" width="240" />
+  <img src="assets/screenshots/screenshot-02.png" width="240" />
+  <img src="assets/screenshots/screenshot-03.png" width="240" />
+  <img src="assets/screenshots/screenshot-04.png" width="240" />
+</p>
+
+<p float="left">
+  <img src="assets/screenshots/screenshot-05.png" width="240" />
+  <img src="assets/screenshots/screenshot-06.png" width="240" />
+  <img src="assets/screenshots/screenshot-07.png" width="240" />
+  <img src="assets/screenshots/screenshot-08.png" width="240" />
+</p>
 
 ## Требования
 
@@ -92,8 +97,12 @@ lib/
 │   │   ├── pages/
 │   │   │   └── home_page.dart
 │   │   └── widgets/
+│   │       ├── cards/
+│   │       │   └── course_card.dart
 │   │       ├── sections/
 │   │       │   ├── deadlines_section.dart
+│   │       │   ├── home_courses_section.dart
+│   │       │   ├── home_top_navigation.dart
 │   │       │   └── schedule_section.dart
 │   │       └── tabs/
 │   │           ├── courses_tab.dart
@@ -103,7 +112,8 @@ lib/
 │   │   ├── pages/
 │   │   │   └── longread_page.dart
 │   │   └── widgets/
-│   │       └── attachment_card.dart
+│   │       ├── attachment_card.dart
+│   │       └── longread_file_card.dart
 │   ├── notifications/            # Уведомления
 │   │   └── pages/
 │   │       └── notifications_page.dart
