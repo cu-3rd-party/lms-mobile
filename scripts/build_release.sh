@@ -90,3 +90,14 @@ fi
 flutter pub get
 flutter build apk --release
 flutter build ipa --release --no-codesign
+
+rm -rf Payload
+mkdir -p Payload
+cp -R build/ios/iphoneos/Runner.app Payload/
+
+(cd Payload/.. && zip -r Runner-unsigned.ipa Payload)
+
+release_dir="release"
+mkdir -p "$release_dir"
+cp -f build/app/outputs/flutter-apk/app-release.apk "$release_dir/app-release.apk"
+cp -f Runner-unsigned.ipa "$release_dir/app-release.ipa"
