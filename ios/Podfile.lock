@@ -10,6 +10,8 @@ PODS:
   - open_filex (0.0.2):
     - Flutter
   - OrderedSet (6.0.3)
+  - package_info_plus (0.4.5):
+    - Flutter
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -23,6 +25,7 @@ DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_inappwebview_ios (from `.symlinks/plugins/flutter_inappwebview_ios/ios`)
   - open_filex (from `.symlinks/plugins/open_filex/ios`)
+  - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
@@ -38,6 +41,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_inappwebview_ios/ios"
   open_filex:
     :path: ".symlinks/plugins/open_filex/ios"
+  package_info_plus:
+    :path: ".symlinks/plugins/package_info_plus/ios"
   path_provider_foundation:
     :path: ".symlinks/plugins/path_provider_foundation/darwin"
   shared_preferences_foundation:
@@ -50,6 +55,7 @@ SPEC CHECKSUMS:
   flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
   open_filex: 432f3cd11432da3e39f47fcc0df2b1603854eff1
   OrderedSet: e539b66b644ff081c73a262d24ad552a69be3a94
+  package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
