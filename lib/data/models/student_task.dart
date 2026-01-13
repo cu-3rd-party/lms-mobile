@@ -1,9 +1,29 @@
 import 'package:flutter/material.dart';
 
 class StudentTask {
+  static const Color backlogColor = Color(0xFF9E9E9E);
+  static const Color inProgressColor = Color(0xFF00E676);
+  static const Color reviewColor = Color(0xFFFF9800);
+  static const Color hasSolutionColor = Color(0xFF28A745);
+  static const Color revisionColor = Color(0xFFFE456A);
+  static const Color failedColor = Color(0xFFEF5350);
+  static const Color evaluatedColor = Color(0xFF00E676);
+
+  static const Map<String, Color> statusColors = {
+    'backlog': backlogColor,
+    'inProgress': inProgressColor,
+    'review': reviewColor,
+    'hasSolution': hasSolutionColor,
+    'revision': revisionColor,
+    'rework': revisionColor,
+    'failed': failedColor,
+    'rejected': failedColor,
+    'evaluated': evaluatedColor,
+  };
+
   final int id;
   final String state;
-  final int? score;
+  final double? score;
   final DateTime? deadline;
   final DateTime? submitAt;
   final TaskExercise exercise;
@@ -23,7 +43,7 @@ class StudentTask {
     return StudentTask(
       id: json['id'] ?? 0,
       state: json['state'] ?? '',
-      score: json['score'],
+      score: (json['score'] as num?)?.toDouble(),
       deadline: json['deadline'] != null ? DateTime.parse(json['deadline']) : null,
       submitAt: json['submitAt'] != null ? DateTime.parse(json['submitAt']) : null,
       exercise: TaskExercise.fromJson(json['exercise'] ?? {}),
@@ -56,16 +76,16 @@ class StudentTask {
   }
 
   Color get stateColor {
-    switch (state) {
-      case 'inProgress':
-        return const Color(0xFF00E676);
-      case 'review':
-        return const Color(0xFFFF9800);
-      case 'backlog':
-        return Colors.grey;
-      default:
-        return Colors.grey;
-    }
+    return statusColors[state] ?? backlogColor;
+  }
+
+  Color get stateBorderColor => stateColor.withValues(alpha: 0.5);
+
+  String? get formattedScore {
+    final value = score;
+    if (value == null) return null;
+    if (value % 1 == 0) return value.toInt().toString();
+    return value.toString();
   }
 }
 

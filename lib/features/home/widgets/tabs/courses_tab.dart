@@ -17,6 +17,8 @@ class CoursesTab extends StatefulWidget {
   final List<StudentPerformanceCourse> performanceCourses;
   final bool isLoadingPerformance;
   final void Function(StudentPerformanceCourse) onOpenPerformanceCourse;
+  final GradebookResponse? gradebook;
+  final bool isLoadingGradebook;
 
   const CoursesTab({
     super.key,
@@ -30,6 +32,8 @@ class CoursesTab extends StatefulWidget {
     required this.performanceCourses,
     required this.isLoadingPerformance,
     required this.onOpenPerformanceCourse,
+    required this.gradebook,
+    required this.isLoadingGradebook,
   });
 
   @override
@@ -38,7 +42,8 @@ class CoursesTab extends StatefulWidget {
 
 class _CoursesTabState extends State<CoursesTab> {
   bool _isEditing = false;
-  int _selectedSegment = 0; // 0 = Курсы, 1 = Ведомость
+  int _selectedSegment = 0; // 0 = Курсы, 1 = Ведомость, 2 = Зачетка
+  final Set<String> _expandedSemesters = {};
 
   @override
   Widget build(BuildContext context) {
@@ -48,12 +53,23 @@ class _CoursesTabState extends State<CoursesTab> {
       children: [
         _buildSegmentedControl(isIos),
         Expanded(
-          child: _selectedSegment == 0
-              ? _buildCoursesContent(isIos)
-              : _buildGradeSheetContent(isIos),
+          child: _buildSelectedContent(isIos),
         ),
       ],
     );
+  }
+
+  Widget _buildSelectedContent(bool isIos) {
+    switch (_selectedSegment) {
+      case 0:
+        return _buildCoursesContent(isIos);
+      case 1:
+        return _buildGradeSheetContent(isIos);
+      case 2:
+        return _buildRecordBookContent(isIos);
+      default:
+        return _buildCoursesContent(isIos);
+    }
   }
 
   Widget _buildSegmentedControl(bool isIos) {
@@ -66,12 +82,16 @@ class _CoursesTabState extends State<CoursesTab> {
               thumbColor: const Color(0xFF00E676).withValues(alpha: 0.3),
               children: const {
                 0: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('Курсы', style: TextStyle(fontSize: 14)),
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Text('Курсы', style: TextStyle(fontSize: 13)),
                 ),
                 1: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('Ведомость', style: TextStyle(fontSize: 14)),
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Text('Ведомость', style: TextStyle(fontSize: 13)),
+                ),
+                2: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Text('Зачетка', style: TextStyle(fontSize: 13)),
                 ),
               },
               onValueChanged: (value) {
@@ -87,63 +107,39 @@ class _CoursesTabState extends State<CoursesTab> {
               ),
               child: Row(
                 children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedSegment = 0),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _selectedSegment == 0
-                              ? const Color(0xFF00E676).withValues(alpha: 0.2)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Курсы',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: _selectedSegment == 0
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            color: _selectedSegment == 0
-                                ? const Color(0xFF00E676)
-                                : Colors.grey[500],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedSegment = 1),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _selectedSegment == 1
-                              ? const Color(0xFF00E676).withValues(alpha: 0.2)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Ведомость',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: _selectedSegment == 1
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            color: _selectedSegment == 1
-                                ? const Color(0xFF00E676)
-                                : Colors.grey[500],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildSegmentButton(0, 'Курсы'),
+                  _buildSegmentButton(1, 'Ведомость'),
+                  _buildSegmentButton(2, 'Зачетка'),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildSegmentButton(int index, String label) {
+    final isSelected = _selectedSegment == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedSegment = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF00E676).withValues(alpha: 0.2)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? const Color(0xFF00E676) : Colors.grey[500],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -353,6 +349,225 @@ class _CoursesTabState extends State<CoursesTab> {
           onTap: () => widget.onOpenPerformanceCourse(course),
         );
       },
+    );
+  }
+
+  Widget _buildSemesterCard(GradebookSemester semester, bool isIos) {
+    final key = '${semester.year}-${semester.semesterNumber}';
+    final isExpanded = _expandedSemesters.contains(key);
+    final regularGrades = semester.regularGrades;
+    final electiveGrades = semester.electiveGrades;
+
+    if (regularGrades.isEmpty && electiveGrades.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() {
+                if (isExpanded) {
+                  _expandedSemesters.remove(key);
+                } else {
+                  _expandedSemesters.add(key);
+                }
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      isIos ? CupertinoIcons.calendar : Icons.calendar_today,
+                      size: 16,
+                      color: const Color(0xFF00E676),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          semester.title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${regularGrades.length} предметов',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isExpanded
+                        ? (isIos ? CupertinoIcons.chevron_up : Icons.expand_less)
+                        : (isIos ? CupertinoIcons.chevron_down : Icons.expand_more),
+                    color: Colors.grey[500],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(color: Color(0xFF2E2E2E), height: 1),
+            ...regularGrades.map((grade) => _buildGradeRow(grade)),
+            if (electiveGrades.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'Факультативы',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              ...electiveGrades.map((grade) => _buildGradeRow(grade)),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGradeRow(GradebookGrade grade) {
+    final gradeColor = _getGradeColor(grade);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  grade.subject,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  grade.assessmentTypeDisplay,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: gradeColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              grade.gradeDisplay,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: gradeColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getGradeColor(GradebookGrade grade) {
+    if (grade.grade != null) {
+      if (grade.grade! >= 8) return const Color(0xFF00E676);
+      if (grade.grade! >= 6) return const Color(0xFFFFCA28);
+      if (grade.grade! >= 4) return const Color(0xFFFF9800);
+      return const Color(0xFFEF5350);
+    }
+    switch (grade.normalizedGrade) {
+      case 'excellent':
+        return const Color(0xFF00E676);
+      case 'good':
+        return const Color(0xFFFFCA28);
+      case 'satisfactory':
+        return const Color(0xFFFF9800);
+      case 'passed':
+        return const Color(0xFF00E676);
+      case 'failed':
+        return const Color(0xFFEF5350);
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget _buildRecordBookContent(bool isIos) {
+    if (widget.isLoadingGradebook) {
+      return Center(
+        child: isIos
+            ? const CupertinoActivityIndicator(
+                radius: 14,
+                color: Color(0xFF00E676),
+              )
+            : const CircularProgressIndicator(color: Color(0xFF00E676)),
+      );
+    }
+
+    final gradebook = widget.gradebook;
+    if (gradebook == null || gradebook.semesters.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isIos ? CupertinoIcons.book_solid : Icons.menu_book,
+              size: 48,
+              color: Colors.grey[600],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Нет данных о зачетке',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      children: [
+        ...gradebook.semesters.map((semester) => _buildSemesterCard(semester, isIos)),
+      ],
     );
   }
 

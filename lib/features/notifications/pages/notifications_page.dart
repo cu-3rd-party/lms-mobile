@@ -93,7 +93,7 @@ class _NotificationsPageState extends State<NotificationsPage>
           middle: Text('Уведомления'),
         ),
         backgroundColor: const Color(0xFF121212),
-        child: SafeArea(top: false, child: body),
+        child: SafeArea(top: false, bottom: false, child: body),
       );
     }
 
@@ -159,6 +159,7 @@ class _NotificationsPageState extends State<NotificationsPage>
 
   Widget _buildList(String category) {
     final items = category == 'Education' ? _educationItems : _otherItems;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     if (items.isEmpty) {
       if (Platform.isIOS) {
         return CustomScrollView(
@@ -202,7 +203,7 @@ class _NotificationsPageState extends State<NotificationsPage>
         slivers: [
           CupertinoSliverRefreshControl(onRefresh: _loadNotifications),
           SliverPadding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
@@ -223,7 +224,7 @@ class _NotificationsPageState extends State<NotificationsPage>
       onRefresh: _loadNotifications,
       color: const Color(0xFF00E676),
       child: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
         itemBuilder: (context, index) => _buildCard(items[index]),
         separatorBuilder: (context, index) => const SizedBox(height: 8),
         itemCount: items.length,

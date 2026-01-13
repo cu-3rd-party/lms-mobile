@@ -23,11 +23,20 @@ class _CoursePageState extends State<CoursePage> {
   bool _isLoading = true;
   static final Logger _log = Logger('CoursePage');
   final Set<int> _expandedThemes = {};
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadOverview();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadOverview() async {
@@ -78,10 +87,56 @@ class _CoursePageState extends State<CoursePage> {
     if (isIos) {
       return CupertinoPageScaffold(
         navigationBar: CupertinoNavigationBar(
-          middle: Text(widget.course.cleanName),
+          middle: _isSearching
+              ? CupertinoTextField(
+                  controller: _searchController,
+                  placeholder: 'Поиск...',
+                  placeholderStyle: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    height: 1.2,
+                  ),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    height: 1.2,
+                  ),
+                  autofocus: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A2A2A),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                )
+              : Text(
+                  widget.course.cleanName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 16),
+                ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_isSearching)
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: _closeSearch,
+                  child: const Text('Отмена', style: TextStyle(fontSize: 14)),
+                )
+              else
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () => setState(() => _isSearching = true),
+                  child: const Icon(CupertinoIcons.search, size: 22),
+                ),
+            ],
+          ),
         ),
         backgroundColor: const Color(0xFF121212),
-        child: SafeArea(top: false, child: body),
+        child: SafeArea(top: false, bottom: false, child: body),
       );
     }
 
@@ -89,15 +144,47 @@ class _CoursePageState extends State<CoursePage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF121212),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          icon: Icon(_isSearching ? Icons.close : Icons.arrow_back, color: Colors.white),
+          onPressed: _isSearching ? _closeSearch : () => Navigator.pop(context),
         ),
-        title: Text(
-          widget.course.cleanName,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  height: 1.2,
+                ),
+                textAlignVertical: TextAlignVertical.center,
+                decoration: InputDecoration(
+                  hintText: 'Поиск...',
+                  hintStyle: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    height: 1.2,
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+              )
+            : Text(
+                widget.course.cleanName,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+        actions: [
+          if (!_isSearching)
+            IconButton(
+              icon: const Icon(Icons.search, color: Colors.white),
+              onPressed: () => setState(() => _isSearching = true),
+            ),
+        ],
       ),
       body: body,
     );
@@ -125,25 +212,81 @@ class _CoursePageState extends State<CoursePage> {
       );
     }
 
+    final query = _searchQuery.trim().toLowerCase();
+    final filteredThemes = query.isEmpty
+        ? themes
+        : themes
+            .map((theme) {
+              if (theme.name.toLowerCase().contains(query)) {
+                return theme;
+              }
+              final matchingLongreads = theme.longreads
+                  .where((lr) => lr.name.toLowerCase().contains(query))
+                  .toList();
+              if (matchingLongreads.isEmpty) {
+                return null;
+              }
+              return CourseTheme(
+                id: theme.id,
+                name: theme.name,
+                order: theme.order,
+                state: theme.state,
+                longreads: matchingLongreads,
+              );
+            })
+            .whereType<CourseTheme>()
+            .toList();
+
+    if (filteredThemes.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Platform.isIOS ? CupertinoIcons.search : Icons.search,
+              color: Colors.grey[600],
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Ничего не найдено',
+              style: TextStyle(color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final listPadding = EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset);
+
     if (Platform.isIOS) {
       return ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: themes.length,
+        padding: listPadding,
+        itemCount: filteredThemes.length,
         itemBuilder: (context, index) {
-          final theme = themes[index];
+          final theme = filteredThemes[index];
           return _buildThemeCardCupertino(theme, index + 1);
         },
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: themes.length,
+      padding: listPadding,
+      itemCount: filteredThemes.length,
       itemBuilder: (context, index) {
-        final theme = themes[index];
+        final theme = filteredThemes[index];
         return _buildThemeCard(theme, index + 1);
       },
     );
+  }
+
+  void _closeSearch() {
+    setState(() {
+      _isSearching = false;
+      _searchQuery = '';
+      _searchController.clear();
+    });
   }
 
   Widget _buildThemeCard(CourseTheme theme, int number) {
@@ -411,9 +554,6 @@ class _CoursePageState extends State<CoursePage> {
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(6),
-        border: exercise.isOverdue
-            ? Border.all(color: Colors.redAccent.withValues(alpha: 0.5))
-            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -8,17 +8,27 @@ import 'package:cumobile/data/models/student_task.dart';
 class DeadlinesSection extends StatelessWidget {
   final List<StudentTask> tasks;
   final bool isLoading;
+  final void Function(StudentTask task) onOpenTask;
 
   const DeadlinesSection({
     super.key,
     required this.tasks,
     required this.isLoading,
+    required this.onOpenTask,
   });
 
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
-    final deadlineTasks = tasks.where((task) => task.state != 'review').toList();
+    final deadlineTasks = tasks
+        .where(
+          (task) =>
+              task.state == 'backlog' ||
+              task.state == 'inProgress' ||
+              task.state == 'revision' ||
+              task.state == 'rework',
+        )
+        .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -95,7 +105,7 @@ class DeadlinesSection extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 100,
+            height: 76,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -103,7 +113,10 @@ class DeadlinesSection extends StatelessWidget {
               separatorBuilder: (context, index) => const SizedBox(width: 12),
               itemBuilder: (context, index) {
                 final task = deadlineTasks[index];
-                return _TaskCard(task: task);
+                return _TaskCard(
+                  task: task,
+                  onTap: () => onOpenTask(task),
+                );
               },
             ),
           ),
@@ -114,38 +127,26 @@ class DeadlinesSection extends StatelessWidget {
 
 class _TaskCard extends StatelessWidget {
   final StudentTask task;
+  final VoidCallback onTap;
 
-  const _TaskCard({required this.task});
+  const _TaskCard({
+    required this.task,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final card = Container(
       width: 200,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(12),
-        border: task.isOverdue
-            ? Border.all(color: Colors.redAccent.withValues(alpha: 0.5), width: 1)
-            : null,
+        border: Border.all(color: task.stateBorderColor, width: 1),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: task.stateColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              _taskTypeIcon(task.exercise.type),
-              color: task.stateColor,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,12 +199,13 @@ class _TaskCard extends StatelessWidget {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: task.stateColor.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          _getStateLabel(task.state),
+                          _getStateLabel(task),
                           style: TextStyle(
                             fontSize: 9,
                             color: task.stateColor,
@@ -228,18 +230,43 @@ class _TaskCard extends StatelessWidget {
         ],
       ),
     );
+    if (Platform.isIOS) {
+      return GestureDetector(onTap: onTap, child: card);
+    }
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: card,
+      ),
+    );
   }
 
-  String _getStateLabel(String state) {
-    switch (state) {
+  String _getStateLabel(StudentTask task) {
+    switch (task.state) {
       case 'inProgress':
         return 'В работе';
       case 'review':
         return 'На проверке';
       case 'backlog':
         return 'Не начато';
+      case 'hasSolution':
+        return 'Есть решение';
+      case 'revision':
+      case 'rework':
+        return 'Доработка';
+      case 'failed':
+      case 'rejected':
+        return 'Не сдано';
+      case 'evaluated':
+        final score = task.formattedScore;
+        if (score != null) {
+          return '$score/${task.exercise.maxScore}';
+        }
+        return 'Проверено';
       default:
-        return state;
+        return task.state;
     }
   }
 

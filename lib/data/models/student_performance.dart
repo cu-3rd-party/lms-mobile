@@ -235,3 +235,112 @@ class ActivitySummary {
 
   double get totalContribution => averageScore * weight;
 }
+
+class GradebookGrade {
+  final String subject;
+  final num? grade;
+  final String normalizedGrade;
+  final String assessmentType;
+  final String subjectType;
+
+  GradebookGrade({
+    required this.subject,
+    this.grade,
+    required this.normalizedGrade,
+    required this.assessmentType,
+    required this.subjectType,
+  });
+
+  factory GradebookGrade.fromJson(Map<String, dynamic> json) {
+    return GradebookGrade(
+      subject: json['subject'] as String,
+      grade: json['grade'] as num?,
+      normalizedGrade: json['normalizedGrade'] as String? ?? 'unknown',
+      assessmentType: json['assessmentType'] as String? ?? '',
+      subjectType: json['subjectType'] as String? ?? '',
+    );
+  }
+
+  String get assessmentTypeDisplay {
+    switch (assessmentType) {
+      case 'exam':
+        return 'Экзамен';
+      case 'credit':
+        return 'Зачет';
+      case 'difCredit':
+        return 'Дифф. зачет';
+      default:
+        return assessmentType;
+    }
+  }
+
+  String get gradeDisplay {
+    if (grade != null) {
+      final value = grade!;
+      if (value % 1 == 0) return value.toInt().toString();
+      return value.toString();
+    }
+    switch (normalizedGrade) {
+      case 'passed':
+        return 'Зачтено';
+      case 'excellent':
+        return 'Отлично';
+      case 'good':
+        return 'Хорошо';
+      case 'satisfactory':
+        return 'Удовл.';
+      case 'failed':
+        return 'Не сдано';
+      default:
+        return '—';
+    }
+  }
+
+  bool get isElective => subjectType == 'elective';
+}
+
+class GradebookSemester {
+  final int year;
+  final int semesterNumber;
+  final List<GradebookGrade> grades;
+
+  GradebookSemester({
+    required this.year,
+    required this.semesterNumber,
+    required this.grades,
+  });
+
+  factory GradebookSemester.fromJson(Map<String, dynamic> json) {
+    final gradesList = (json['grades'] as List<dynamic>?)
+            ?.map((e) => GradebookGrade.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+    return GradebookSemester(
+      year: json['year'] as int,
+      semesterNumber: json['semesterNumber'] as int,
+      grades: gradesList,
+    );
+  }
+
+  String get title => '$year, $semesterNumber семестр';
+
+  List<GradebookGrade> get regularGrades =>
+      grades.where((g) => !g.isElective).toList();
+
+  List<GradebookGrade> get electiveGrades =>
+      grades.where((g) => g.isElective).toList();
+}
+
+class GradebookResponse {
+  final List<GradebookSemester> semesters;
+
+  GradebookResponse({required this.semesters});
+
+  factory GradebookResponse.fromJson(Map<String, dynamic> json) {
+    final semestersList = (json['semesters'] as List<dynamic>?)
+            ?.map((e) => GradebookSemester.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+    return GradebookResponse(semesters: semestersList);
+  }
+}

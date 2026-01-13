@@ -49,11 +49,24 @@ class _HomePageState extends State<HomePage> {
   List<Course> _activeCourses = [];
   List<Course> _archivedCourses = [];
   bool _isLoadingCourses = true;
-  final Set<String> _taskStatusFilters = {'inProgress', 'review', 'backlog'};
+  final Set<String> _taskStatusFilters = {
+    'backlog',
+    'inProgress',
+    'hasSolution',
+    'revision',
+    'review',
+    'failed',
+    'evaluated',
+  };
+  final Set<int> _taskCourseFilters = {};
+  String _taskSearchQuery = '';
   static final Logger _log = Logger('HomePage');
   static const String _prefsActiveCoursesKey = 'courses_active_order';
   static const String _prefsArchivedCoursesKey = 'courses_archived_order';
   static const String _prefsIcsUrlKey = 'ics_url';
+  static const String _prefsTaskStatusFiltersKey = 'tasks_status_filters';
+  static const String _prefsTaskCourseFiltersKey = 'tasks_course_filters';
+  static const String _prefsTaskSearchKey = 'tasks_search_query';
   final DateFormat _scheduleTimeFormat = DateFormat('HH:mm');
   final IcalService _icalService = IcalService();
   List<ClassData> _calendarClasses = [];
@@ -66,17 +79,24 @@ class _HomePageState extends State<HomePage> {
   final Set<String> _selectedFiles = {};
   List<StudentPerformanceCourse> _performanceCourses = [];
   bool _isLoadingPerformance = true;
+  GradebookResponse? _gradebook;
+  bool _isLoadingGradebook = true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _initHome();
   }
 
   @override
   void dispose() {
     _scheduleScrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initHome() async {
+    await _loadTaskFilters();
+    await _loadData();
   }
 
   Future<void> _loadData() async {
@@ -87,7 +107,46 @@ class _HomePageState extends State<HomePage> {
       _loadLmsProfile(),
       _loadSchedule(),
       _loadPerformance(),
+      _loadGradebook(),
     ]);
+  }
+
+  Future<void> _loadTaskFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedStatuses = prefs.getStringList(_prefsTaskStatusFiltersKey);
+    final savedCourses = prefs.getStringList(_prefsTaskCourseFiltersKey);
+    final savedSearch = prefs.getString(_prefsTaskSearchKey);
+    if (savedStatuses == null && savedCourses == null) return;
+    setState(() {
+      if (savedStatuses != null && savedStatuses.isNotEmpty) {
+        _taskStatusFilters
+          ..clear()
+          ..addAll(savedStatuses);
+      }
+      if (savedCourses != null) {
+        _taskCourseFilters
+          ..clear()
+          ..addAll(
+            savedCourses.map(int.tryParse).whereType<int>(),
+          );
+      }
+      if (savedSearch != null) {
+        _taskSearchQuery = savedSearch;
+      }
+    });
+  }
+
+  Future<void> _saveTaskFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _prefsTaskStatusFiltersKey,
+      _taskStatusFilters.toList(),
+    );
+    await prefs.setStringList(
+      _prefsTaskCourseFiltersKey,
+      _taskCourseFilters.map((id) => id.toString()).toList(),
+    );
+    await prefs.setString(_prefsTaskSearchKey, _taskSearchQuery);
   }
 
   Future<void> _loadProfile() async {
@@ -111,6 +170,8 @@ class _HomePageState extends State<HomePage> {
         inProgress: true,
         review: true,
         backlog: true,
+        failed: true,
+        evaluated: true,
       );
       tasks.sort((a, b) {
         if (a.deadline == null && b.deadline == null) return 0;
@@ -215,6 +276,21 @@ class _HomePageState extends State<HomePage> {
       _log.warning('Error loading performance', e, st);
       if (!mounted) return;
       setState(() => _isLoadingPerformance = false);
+    }
+  }
+
+  Future<void> _loadGradebook() async {
+    try {
+      final response = await apiService.fetchGradebook();
+      if (!mounted) return;
+      setState(() {
+        _gradebook = response;
+        _isLoadingGradebook = false;
+      });
+    } catch (e, st) {
+      _log.warning('Error loading gradebook', e, st);
+      if (!mounted) return;
+      setState(() => _isLoadingGradebook = false);
     }
   }
 
@@ -360,7 +436,7 @@ class _HomePageState extends State<HomePage> {
       ),
       BottomNavigationBarItem(
         icon: Icon(isIos ? CupertinoIcons.book : Icons.school),
-        label: 'Курсы',
+        label: 'Обучение',
       ),
       BottomNavigationBarItem(
         icon: Icon(isIos ? CupertinoIcons.folder : Icons.folder),
@@ -440,7 +516,7 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return 'Задания';
       case 2:
-        return 'Курсы';
+        return 'Обучение';
       case 3:
         return 'Файлы';
       default:
@@ -498,8 +574,9 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DeadlinesSection(
-                tasks: _tasks,
+                tasks: _filteredTasksForHome(),
                 isLoading: _isLoadingTasks,
+                onOpenTask: _openTask,
               ),
               const SizedBox(height: 24),
               ScheduleSection(
@@ -534,6 +611,21 @@ class _HomePageState extends State<HomePage> {
                 ..clear()
                 ..addAll(filters);
             });
+            _saveTaskFilters();
+          },
+          courseFilters: _taskCourseFilters,
+          onCourseFiltersChanged: (filters) {
+            setState(() {
+              _taskCourseFilters
+                ..clear()
+                ..addAll(filters);
+            });
+            _saveTaskFilters();
+          },
+          searchQuery: _taskSearchQuery,
+          onSearchQueryChanged: (value) {
+            setState(() => _taskSearchQuery = value);
+            _saveTaskFilters();
           },
           onOpenTask: _openTask,
         ),
@@ -548,6 +640,8 @@ class _HomePageState extends State<HomePage> {
           performanceCourses: _performanceCourses,
           isLoadingPerformance: _isLoadingPerformance,
           onOpenPerformanceCourse: _openPerformanceCourse,
+          gradebook: _gradebook,
+          isLoadingGradebook: _isLoadingGradebook,
         ),
         FilesTab(
           files: _downloadedFiles,
@@ -569,6 +663,18 @@ class _HomePageState extends State<HomePage> {
         ),
       ],
     );
+  }
+
+  List<StudentTask> _filteredTasksForHome() {
+    final query = _taskSearchQuery.trim().toLowerCase();
+    return _tasks.where((task) {
+      if (_taskCourseFilters.isNotEmpty &&
+          !_taskCourseFilters.contains(task.course.id)) {
+        return false;
+      }
+      if (query.isEmpty) return true;
+      return task.exercise.name.toLowerCase().contains(query);
+    }).toList();
   }
 
   Future<void> _openTask(StudentTask task) async {

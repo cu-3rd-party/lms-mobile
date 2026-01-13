@@ -157,8 +157,9 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     final content = SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
       child: Column(
         children: [
           const SizedBox(height: 16),
@@ -224,7 +225,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
         backgroundColor: const Color(0xFF121212),
-        child: SafeArea(top: false, child: content),
+        child: SafeArea(top: false, bottom: false, child: content),
       );
     }
 

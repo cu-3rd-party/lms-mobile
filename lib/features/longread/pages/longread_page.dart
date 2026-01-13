@@ -1,18 +1,25 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_highlight/flutter_highlight.dart';
+import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html_parser;
 import 'package:logging/logging.dart';
+import 'package:mime/mime.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/longread_material.dart';
@@ -65,7 +72,18 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   final Map<int, TextEditingController> _commentControllers = {};
   final Set<int> _sendingCommentTaskIds = {};
   final Map<int, String?> _commentErrors = {};
+  final Map<int, List<_PendingCommentAttachment>> _pendingCommentAttachments = {};
   static final Logger _log = Logger('LongreadPage');
+
+  // Search
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  final Map<int, String> _highlightedHtmlByMaterialId = {};
+  List<GlobalKey> _searchMatchKeys = [];
+  int _searchMatchCount = 0;
+  int _activeMatchIndex = 0;
+  final ScrollController _materialsScrollController = ScrollController();
 
   @override
   void initState() {
@@ -77,6 +95,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _searchController.dispose();
+    _materialsScrollController.dispose();
     for (final controller in _commentControllers.values) {
       controller.dispose();
     }
@@ -98,6 +118,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         _materials = materials;
         _isLoading = false;
       });
+      _updateSearchResults(scrollToFirst: false);
       await _refreshDownloadedFlags();
       await _loadTaskDetails();
     } catch (e, st) {
@@ -455,10 +476,82 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     if (isIos) {
       return CupertinoPageScaffold(
         navigationBar: CupertinoNavigationBar(
-          middle: Text(widget.longread.name),
+          middle: _isSearching
+              ? CupertinoTextField(
+                  controller: _searchController,
+                  placeholder: 'Поиск...',
+                  placeholderStyle: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    height: 1.2,
+                  ),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    height: 1.2,
+                  ),
+                  autofocus: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A2A2A),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  onChanged: _onSearchChanged,
+                )
+              : Text(
+                  widget.longread.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 16),
+                ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_isSearching)
+                ...[
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: _searchMatchCount > 0 ? _goToPreviousMatch : null,
+                    child: Icon(
+                      CupertinoIcons.chevron_up,
+                      size: 18,
+                      color: _searchMatchCount > 0 ? Colors.white : Colors.grey[600],
+                    ),
+                  ),
+                  Text(
+                    _searchMatchCount == 0
+                        ? '0/0'
+                        : '${_activeMatchIndex + 1}/$_searchMatchCount',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: _searchMatchCount > 0 ? _goToNextMatch : null,
+                    child: Icon(
+                      CupertinoIcons.chevron_down,
+                      size: 18,
+                      color: _searchMatchCount > 0 ? Colors.white : Colors.grey[600],
+                    ),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: _closeSearch,
+                    child: const Text('Отмена', style: TextStyle(fontSize: 14)),
+                  ),
+                ]
+              else
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () => setState(() => _isSearching = true),
+                  child: const Icon(CupertinoIcons.search, size: 22),
+                ),
+            ],
+          ),
         ),
         backgroundColor: const Color(0xFF121212),
-        child: SafeArea(top: false, child: body),
+        child: SafeArea(top: false, bottom: false, child: body),
       );
     }
 
@@ -466,52 +559,281 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       appBar: AppBar(
         backgroundColor: const Color(0xFF121212),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          icon: Icon(_isSearching ? Icons.close : Icons.arrow_back, color: Colors.white),
+          onPressed: _isSearching ? _closeSearch : () => Navigator.pop(context),
         ),
-        title: Text(
-          widget.longread.name,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  height: 1.2,
+                ),
+                textAlignVertical: TextAlignVertical.center,
+                decoration: InputDecoration(
+                  hintText: 'Поиск...',
+                  hintStyle: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    height: 1.2,
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onChanged: _onSearchChanged,
+              )
+            : Text(
+                widget.longread.name,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+        toolbarHeight: _isSearching ? kToolbarHeight : kToolbarHeight + 20,
+        centerTitle: false,
+        actions: [
+          if (_isSearching) ...[
+            IconButton(
+              icon: const Icon(Icons.keyboard_arrow_up, color: Colors.white),
+              onPressed: _searchMatchCount > 0 ? _goToPreviousMatch : null,
+              tooltip: 'Предыдущее совпадение',
+            ),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  _searchMatchCount == 0
+                      ? '0/0'
+                      : '${_activeMatchIndex + 1}/$_searchMatchCount',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+              onPressed: _searchMatchCount > 0 ? _goToNextMatch : null,
+              tooltip: 'Следующее совпадение',
+            ),
+          ] else
+            IconButton(
+              icon: const Icon(Icons.search, color: Colors.white),
+              onPressed: () => setState(() => _isSearching = true),
+            ),
+        ],
       ),
       body: body,
     );
   }
 
+  void _closeSearch() {
+    setState(() {
+      _isSearching = false;
+      _searchQuery = '';
+      _searchController.clear();
+    });
+    _updateSearchResults(scrollToFirst: false);
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value);
+    _updateSearchResults(scrollToFirst: true);
+  }
+
+  void _updateSearchResults({required bool scrollToFirst}) {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) {
+      setState(() {
+        _highlightedHtmlByMaterialId.clear();
+        _searchMatchKeys = [];
+        _searchMatchCount = 0;
+        _activeMatchIndex = 0;
+      });
+      return;
+    }
+
+    final highlighted = <int, String>{};
+    var nextIndex = 0;
+    for (final material in _getFilteredMaterials()) {
+      if (!material.isMarkdown) continue;
+      final raw = _normalizeHtmlColors(material.viewContent ?? '');
+      final startIndex = nextIndex;
+      final updated = _highlightHtml(raw, query, () => nextIndex++);
+      if (nextIndex != startIndex) {
+        highlighted[material.id] = updated;
+      }
+    }
+
+    final matchCount = nextIndex;
+    setState(() {
+      _highlightedHtmlByMaterialId
+        ..clear()
+        ..addAll(highlighted);
+      _searchMatchCount = matchCount;
+      _searchMatchKeys = List.generate(matchCount, (_) => GlobalKey());
+      _activeMatchIndex = matchCount > 0 ? 0 : 0;
+    });
+
+    if (scrollToFirst && matchCount > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToMatch(0));
+    }
+  }
+
+  String _highlightHtml(
+    String html,
+    String query,
+    int Function() nextIndex,
+  ) {
+    final document = html_parser.parse(html);
+
+    bool isWithinTag(dom.Node node, Set<String> tagNames) {
+      dom.Node? current = node.parentNode;
+      while (current != null) {
+        if (current is dom.Element) {
+          final name = current.localName;
+          if (name != null && tagNames.contains(name)) {
+            return true;
+          }
+        }
+        current = current.parentNode;
+      }
+      return false;
+    }
+
+    void highlightNode(dom.Node node) {
+      if (node.nodeType == dom.Node.TEXT_NODE) {
+        if (isWithinTag(node, {'pre', 'code'})) {
+          return;
+        }
+        final text = node.text ?? '';
+        if (text.isEmpty) return;
+        final lower = text.toLowerCase();
+        final matchIndex = lower.indexOf(query);
+        if (matchIndex == -1) return;
+
+        final parent = node.parentNode;
+        if (parent == null) return;
+
+        final newNodes = <dom.Node>[];
+        var start = 0;
+        var index = matchIndex;
+        while (index != -1) {
+          if (index > start) {
+            newNodes.add(dom.Text(text.substring(start, index)));
+          }
+          final mark = dom.Element.tag('mark');
+          mark.attributes['data-search-index'] = nextIndex().toString();
+          mark.text = text.substring(index, index + query.length);
+          newNodes.add(mark);
+          start = index + query.length;
+          index = lower.indexOf(query, start);
+        }
+        if (start < text.length) {
+          newNodes.add(dom.Text(text.substring(start)));
+        }
+
+        final insertIndex = parent.nodes.indexOf(node);
+        if (insertIndex != -1) {
+          parent.nodes.removeAt(insertIndex);
+          parent.nodes.insertAll(insertIndex, newNodes);
+        }
+        return;
+      }
+
+      final children = node.nodes.toList();
+      for (final child in children) {
+        highlightNode(child);
+      }
+    }
+
+    highlightNode(document.body ?? document.documentElement!);
+    return document.body?.innerHtml ?? html;
+  }
+
+  void _goToNextMatch() {
+    if (_searchMatchCount == 0) return;
+    final next = (_activeMatchIndex + 1) % _searchMatchCount;
+    _setActiveMatch(next);
+  }
+
+  void _goToPreviousMatch() {
+    if (_searchMatchCount == 0) return;
+    final prev = (_activeMatchIndex - 1 + _searchMatchCount) % _searchMatchCount;
+    _setActiveMatch(prev);
+  }
+
+  void _setActiveMatch(int index) {
+    setState(() => _activeMatchIndex = index);
+    _scrollToMatch(index);
+  }
+
+  void _scrollToMatch(int index) {
+    if (index < 0 || index >= _searchMatchKeys.length) return;
+    final context = _searchMatchKeys[index].currentContext;
+    if (context == null) return;
+    Scrollable.ensureVisible(
+      context,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      alignment: 0.2,
+    );
+  }
+
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    HapticFeedback.selectionClick();
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(
+      const SnackBar(
+        content: Text('Код скопирован'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  List<LongreadMaterial> _getFilteredMaterials() {
+    if (widget.selectedTaskId != null) {
+      return _materials
+          .where((m) => m.isCoding && m.taskId == widget.selectedTaskId)
+          .toList();
+    }
+    if (widget.selectedExerciseName != null) {
+      return _materials
+          .where((m) => m.isCoding && m.name == widget.selectedExerciseName)
+          .toList();
+    }
+    return _materials;
+  }
+
   Widget _buildMaterialsList() {
-    final filteredMaterials = widget.selectedTaskId != null
-        ? _materials
-            .where((m) => m.isCoding && m.taskId == widget.selectedTaskId)
-            .toList()
-        : widget.selectedExerciseName != null
-            ? _materials
-                .where((m) => m.isCoding && m.name == widget.selectedExerciseName)
-                .toList()
-            : _materials;
+    final filteredMaterials = _getFilteredMaterials();
     final hasMarkdown = filteredMaterials.any((m) => m.isMarkdown);
     final seenTaskIds = <int>{};
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: filteredMaterials.length,
-      itemBuilder: (context, index) {
-        final material = filteredMaterials[index];
-        if (material.isMarkdown) {
-          return _buildMarkdownCard(material);
-        } else if (material.isFile) {
-          return _buildFileCard(material);
-        } else if (material.isCoding) {
-          final taskId = material.taskId;
-          if (taskId != null && !seenTaskIds.add(taskId)) {
-            return const SizedBox.shrink();
-          }
-          return _buildCodingCard(material, hasMarkdown: hasMarkdown);
-        } else if (material.isQuestions) {
-          return _buildQuestionsUnsupportedCard();
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final items = <Widget>[];
+    for (final material in filteredMaterials) {
+      if (material.isMarkdown) {
+        items.add(_buildMarkdownCard(material));
+      } else if (material.isFile) {
+        items.add(_buildFileCard(material));
+      } else if (material.isCoding) {
+        final taskId = material.taskId;
+        if (taskId != null && !seenTaskIds.add(taskId)) {
+          continue;
         }
-        return const SizedBox.shrink();
-      },
+        items.add(_buildCodingCard(material, hasMarkdown: hasMarkdown));
+      } else if (material.isQuestions) {
+        items.add(_buildQuestionsUnsupportedCard());
+      }
+    }
+    return ListView(
+      controller: _materialsScrollController,
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
+      children: items,
     );
   }
 
@@ -572,51 +894,384 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget _buildMarkdownCard(LongreadMaterial material) {
-    final content = _normalizeHtmlColors(material.viewContent ?? '');
+    final content = _highlightedHtmlByMaterialId[material.id] ??
+        _normalizeHtmlColors(material.viewContent ?? '');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Html(
-        data: content,
-        style: {
-          "body": Style(
-            margin: Margins.zero,
-            padding: HtmlPaddings.zero,
-            fontSize: FontSize(14),
-            color: Colors.white,
-            lineHeight: LineHeight(1.5),
+      child: SelectionArea(
+        child: Html(
+          data: content,
+          extensions: [
+          TagExtension(
+            tagsToExtend: {"mark"},
+            builder: (extensionContext) {
+              final indexAttr = extensionContext.element?.attributes['data-search-index'];
+              final matchIndex = int.tryParse(indexAttr ?? '');
+              final text = extensionContext.element?.text ?? '';
+              final isActive = matchIndex != null && matchIndex == _activeMatchIndex;
+              final background = (isActive
+                      ? const Color(0xFF00E676)
+                      : const Color(0xFF00E676))
+                  .withValues(alpha: isActive ? 0.35 : 0.2);
+              final key = matchIndex != null && matchIndex < _searchMatchKeys.length
+                  ? _searchMatchKeys[matchIndex]
+                  : null;
+              return Builder(
+                builder: (context) {
+                  final baseStyle = DefaultTextStyle.of(context).style;
+                  return SelectableText(
+                    text,
+                    key: key,
+                    style: baseStyle.copyWith(
+                      backgroundColor: background,
+                      color: baseStyle.color ?? Colors.white,
+                    ),
+                  );
+                },
+              );
+            },
           ),
-          "a": Style(
-            color: widget.themeColor,
-            textDecoration: TextDecoration.underline,
+          TagExtension(
+            tagsToExtend: {"pre"},
+            builder: (extensionContext) {
+              final codeElement = extensionContext.element?.children
+                  .where((e) => e.localName == 'code')
+                  .firstOrNull;
+
+              final code = codeElement?.text ?? extensionContext.element?.text ?? '';
+
+              String? language;
+              final classAttr = codeElement?.attributes['class'] ??
+                  extensionContext.element?.attributes['class'] ?? '';
+              final langMatch = RegExp(r'language-(\w+)').firstMatch(classAttr);
+              if (langMatch != null) {
+                language = langMatch.group(1);
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12, top: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF272822),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      color: const Color(0xFF1E1E1E),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            (language ?? 'code').toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[500],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                            onPressed: () => _copyToClipboard(code.trimRight()),
+                            icon: Icon(
+                              Platform.isIOS
+                                  ? CupertinoIcons.doc_on_doc
+                                  : Icons.copy,
+                              size: 12,
+                              color: Colors.grey[500],
+                            ),
+                            tooltip: 'Копировать код',
+                          ),
+                        ],
+                      ),
+                    ),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minWidth: constraints.maxWidth,
+                            ),
+                            child: HighlightView(
+                              code.trim(),
+                              language: language ?? 'plaintext',
+                              theme: monokaiSublimeTheme,
+                              padding: const EdgeInsets.all(12),
+                              textStyle: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 13,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
-          "p": Style(
-            margin: Margins.only(bottom: 8),
-          ),
-          "hr": Style(
-            margin: Margins.symmetric(vertical: 8),
-            height: Height(1),
-            border: Border(bottom: BorderSide(color: Colors.white, width: 1)),
-          ),
-        },
-        onLinkTap: (url, context, attributes) async {
-          if (url != null) {
-            final uri = Uri.parse(url);
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
+          ],
+          style: {
+            "body": Style(
+              margin: Margins.zero,
+              padding: HtmlPaddings.zero,
+              fontSize: FontSize(14),
+              color: Colors.white,
+              lineHeight: LineHeight(1.5),
+            ),
+            "mark": Style(
+              backgroundColor: const Color(0xFF00E676).withValues(alpha: 0.2),
+            ),
+            "a": Style(
+              color: widget.themeColor,
+              textDecoration: TextDecoration.underline,
+            ),
+            "p": Style(
+              margin: Margins.only(bottom: 8),
+            ),
+            "hr": Style(
+              margin: Margins.symmetric(vertical: 8),
+              height: Height(1),
+              border: Border(bottom: BorderSide(color: Colors.white, width: 1)),
+            ),
+            "code": Style(
+              backgroundColor: const Color(0xFF2A2A2A),
+              color: const Color(0xFFE6DB74),
+              fontFamily: 'monospace',
+              fontSize: FontSize(13),
+              padding: HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
+            ),
+            "blockquote": Style(
+              backgroundColor: const Color(0xFF1A1A2E),
+              border: const Border(left: BorderSide(color: Color(0xFF00E676), width: 3)),
+              padding: HtmlPaddings.only(left: 12, top: 8, bottom: 8, right: 8),
+              margin: Margins.only(bottom: 12, top: 8),
+            ),
+            "strong": Style(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+            "em": Style(
+              fontStyle: FontStyle.italic,
+            ),
+            "ul": Style(
+              padding: HtmlPaddings.only(left: 16),
+              margin: Margins.only(bottom: 8),
+            ),
+            "ol": Style(
+              padding: HtmlPaddings.only(left: 16),
+              margin: Margins.only(bottom: 8),
+            ),
+            "li": Style(
+              padding: HtmlPaddings.only(left: 4),
+              margin: Margins.only(bottom: 4),
+            ),
+            "br": Style(
+              display: Display.block,
+              margin: Margins.zero,
+              padding: HtmlPaddings.zero,
+            ),
+            "h3": Style(
+              margin: Margins.only(bottom: 8, top: 12),
+            ),
+            "h4": Style(
+              margin: Margins.only(bottom: 6, top: 10),
+            ),
+          },
+          onLinkTap: (url, context, attributes) async {
+            if (url != null) {
+              final uri = Uri.parse(url);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
             }
-          }
-        },
+          },
+        ),
       ),
     );
   }
 
   String _normalizeHtmlColors(String html) {
-    final colorStyle = RegExp("color\\s*:\\s*[^;\"']+;?", caseSensitive: false);
-    final cleaned = html.replaceAll(colorStyle, '');
-    final emptyDoubleStyle = RegExp(r'style=\"\\s*;*\\s*\"', caseSensitive: false);
-    final emptySingleStyle = RegExp(r"style='\\s*;*\\s*'", caseSensitive: false);
-    return cleaned.replaceAll(emptyDoubleStyle, '').replaceAll(emptySingleStyle, '');
+    // Process style attributes to handle colors properly for dark theme
+    final stylePattern = RegExp(r'style\s*=\s*"([^"]*)"', caseSensitive: false);
+
+    var result = html.replaceAllMapped(stylePattern, (match) {
+      final styleContent = match.group(1) ?? '';
+      final processedStyle = _processStyleForDarkTheme(styleContent);
+      if (processedStyle.isEmpty) {
+        return '';
+      }
+      return 'style="$processedStyle"';
+    });
+
+    // Also handle single-quoted styles
+    final singleQuotePattern = RegExp(r"style\s*=\s*'([^']*)'", caseSensitive: false);
+    result = result.replaceAllMapped(singleQuotePattern, (match) {
+      final styleContent = match.group(1) ?? '';
+      final processedStyle = _processStyleForDarkTheme(styleContent);
+      if (processedStyle.isEmpty) {
+        return '';
+      }
+      return "style='$processedStyle'";
+    });
+
+    return result;
+  }
+
+  String _processStyleForDarkTheme(String styleContent) {
+    final styles = <String, String>{};
+
+    // Parse style properties
+    final props = styleContent.split(';');
+    for (final prop in props) {
+      final colonIndex = prop.indexOf(':');
+      if (colonIndex == -1) continue;
+      final key = prop.substring(0, colonIndex).trim().toLowerCase();
+      final value = prop.substring(colonIndex + 1).trim();
+      if (key.isNotEmpty && value.isNotEmpty) {
+        styles[key] = value;
+      }
+    }
+
+    final bgColor = styles['background-color'] ?? styles['background'];
+    final resultStyles = <String>[];
+
+    // Check if background is light and should be inverted/removed
+    final bgBrightness = bgColor != null ? _getColorBrightness(bgColor) : null;
+    final isLightBackground = bgBrightness != null && bgBrightness > 180;
+
+    for (final entry in styles.entries) {
+      final key = entry.key;
+      final value = entry.value;
+
+      if (key == 'color') {
+        if (isLightBackground) {
+          // Light background will be removed, so invert dark text to light
+          final textBrightness = _getColorBrightness(value);
+          if (textBrightness != null && textBrightness < 128) {
+            // Dark text on light bg -> make it white for dark theme
+            // Skip - let default white text show
+          } else {
+            resultStyles.add('$key: $value');
+          }
+        } else if (bgColor != null) {
+          // Has non-light background, keep original color
+          resultStyles.add('$key: $value');
+        } else {
+          // No background - check if it's a dark color
+          final isDark = _isDarkColor(value);
+          if (!isDark) {
+            resultStyles.add('$key: $value');
+          }
+        }
+      } else if (key == 'background-color' || key == 'background') {
+        if (isLightBackground) {
+          // Skip light backgrounds - they look bad on dark theme
+          // Don't add to result
+        } else {
+          // Keep dark/colored backgrounds
+          resultStyles.add('$key: $value');
+        }
+      } else if (key == 'font-size' || key == 'font-weight' || key == 'font-style' ||
+                 key == 'text-decoration' || key == 'text-align') {
+        // Keep text formatting styles
+        resultStyles.add('$key: $value');
+      }
+    }
+
+    return resultStyles.join('; ');
+  }
+
+  double? _getColorBrightness(String colorValue) {
+    final rgbMatch = RegExp(r'rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)').firstMatch(colorValue);
+    if (rgbMatch != null) {
+      final r = int.tryParse(rgbMatch.group(1) ?? '') ?? 0;
+      final g = int.tryParse(rgbMatch.group(2) ?? '') ?? 0;
+      final b = int.tryParse(rgbMatch.group(3) ?? '') ?? 0;
+      return (r * 299 + g * 587 + b * 114) / 1000;
+    }
+
+    final rgbaMatch = RegExp(r'rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)').firstMatch(colorValue);
+    if (rgbaMatch != null) {
+      final r = int.tryParse(rgbaMatch.group(1) ?? '') ?? 0;
+      final g = int.tryParse(rgbaMatch.group(2) ?? '') ?? 0;
+      final b = int.tryParse(rgbaMatch.group(3) ?? '') ?? 0;
+      return (r * 299 + g * 587 + b * 114) / 1000;
+    }
+
+    final hexMatch = RegExp(r'#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})').firstMatch(colorValue);
+    if (hexMatch != null) {
+      final hex = hexMatch.group(1)!;
+      int r, g, b;
+      if (hex.length == 3) {
+        r = int.parse('${hex[0]}${hex[0]}', radix: 16);
+        g = int.parse('${hex[1]}${hex[1]}', radix: 16);
+        b = int.parse('${hex[2]}${hex[2]}', radix: 16);
+      } else {
+        r = int.parse(hex.substring(0, 2), radix: 16);
+        g = int.parse(hex.substring(2, 4), radix: 16);
+        b = int.parse(hex.substring(4, 6), radix: 16);
+      }
+      return (r * 299 + g * 587 + b * 114) / 1000;
+    }
+
+    // Named colors
+    const namedBrightness = {
+      'white': 255.0, 'snow': 255.0, 'ivory': 255.0,
+      'black': 0.0, 'navy': 30.0, 'darkblue': 35.0,
+    };
+    return namedBrightness[colorValue.toLowerCase()];
+  }
+
+  bool _isDarkColor(String colorValue) {
+    // Check if color is dark (would be invisible on dark background)
+    final rgbMatch = RegExp(r'rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)').firstMatch(colorValue);
+    if (rgbMatch != null) {
+      final r = int.tryParse(rgbMatch.group(1) ?? '') ?? 0;
+      final g = int.tryParse(rgbMatch.group(2) ?? '') ?? 0;
+      final b = int.tryParse(rgbMatch.group(3) ?? '') ?? 0;
+      // Calculate perceived brightness (standard formula)
+      final brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness < 128; // Dark if brightness is less than 50%
+    }
+
+    final rgbaMatch = RegExp(r'rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)').firstMatch(colorValue);
+    if (rgbaMatch != null) {
+      final r = int.tryParse(rgbaMatch.group(1) ?? '') ?? 0;
+      final g = int.tryParse(rgbaMatch.group(2) ?? '') ?? 0;
+      final b = int.tryParse(rgbaMatch.group(3) ?? '') ?? 0;
+      final brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness < 128;
+    }
+
+    // Check hex colors
+    final hexMatch = RegExp(r'#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})').firstMatch(colorValue);
+    if (hexMatch != null) {
+      final hex = hexMatch.group(1)!;
+      int r, g, b;
+      if (hex.length == 3) {
+        r = int.parse('${hex[0]}${hex[0]}', radix: 16);
+        g = int.parse('${hex[1]}${hex[1]}', radix: 16);
+        b = int.parse('${hex[2]}${hex[2]}', radix: 16);
+      } else {
+        r = int.parse(hex.substring(0, 2), radix: 16);
+        g = int.parse(hex.substring(2, 4), radix: 16);
+        b = int.parse(hex.substring(4, 6), radix: 16);
+      }
+      final brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness < 128;
+    }
+
+    // Check named colors that are dark
+    final darkColors = {'black', 'darkblue', 'darkgreen', 'darkred', 'navy', 'maroon', 'purple'};
+    return darkColors.contains(colorValue.toLowerCase());
   }
 
   String _normalizeCommentHtml(String html) {
@@ -907,6 +1562,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     bool isLoading,
   ) {
     final composer = _buildCommentComposer(taskId);
+    final displayComments = comments.reversed.toList();
     if (isLoading) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -930,7 +1586,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       children: [
         composer,
         const SizedBox(height: 12),
-        if (comments.isEmpty)
+        if (displayComments.isEmpty)
           Text(
             'Комментариев нет',
             style: TextStyle(color: Colors.grey[500]),
@@ -941,7 +1597,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemBuilder: (context, index) {
-              final comment = comments[index];
+              final comment = displayComments[index];
               return Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1004,7 +1660,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               );
             },
             separatorBuilder: (context, index) => const SizedBox(height: 8),
-            itemCount: comments.length,
+            itemCount: displayComments.length,
           ),
       ],
     );
@@ -1037,6 +1693,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           final hasText = value.text.trim().isNotEmpty;
           final isFocused = Focus.of(context).hasFocus;
           final isSending = _sendingCommentTaskIds.contains(taskId);
+          final pending = _pendingCommentAttachments[taskId] ?? [];
+          final hasAttachments = pending.isNotEmpty;
+          final isUploading = pending.any(
+            (item) =>
+                item.status == _AttachmentUploadStatus.uploading && item.progress < 1,
+          );
+          final hasUploadedAttachments = pending.any(_isAttachmentReady);
           final placeholder = isFocused ? '' : 'Напишите комментарий';
           final borderColor = error != null
               ? Colors.redAccent
@@ -1044,7 +1707,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   ? widget.themeColor.withValues(alpha: 0.8)
                   : Colors.grey[700]!;
           final fillColor = hasText ? const Color(0xFF242424) : const Color(0xFF1E1E1E);
-          final isEnabled = hasText && !isSending;
+          final isEnabled =
+              (hasText || hasUploadedAttachments) && !isSending && !isUploading;
+          _log.fine(
+            'Comment UI state: taskId=$taskId hasText=$hasText pending=${pending.length} '
+            'hasUploaded=$hasUploadedAttachments isSending=$isSending isUploading=$isUploading '
+            'enabled=$isEnabled',
+          );
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1056,7 +1725,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   border: Border.all(color: borderColor.withValues(alpha: 0.7)),
                 ),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
                       child: isIos
@@ -1078,6 +1747,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                           : TextField(
                               controller: controller,
                               style: const TextStyle(color: Colors.white, fontSize: 13),
+                              textAlignVertical: TextAlignVertical.center,
                               minLines: 1,
                               maxLines: 4,
                               textInputAction: TextInputAction.newline,
@@ -1090,6 +1760,29 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                             ),
                     ),
                     const SizedBox(width: 6),
+                    if (isIos)
+                      CupertinoButton(
+                        onPressed: isSending ? null : () => _pickCommentAttachments(taskId),
+                        padding: EdgeInsets.zero,
+                        child: Icon(
+                          CupertinoIcons.paperclip,
+                          size: 18,
+                          color: isSending ? Colors.grey[600] : Colors.grey[400],
+                        ),
+                      )
+                    else
+                      IconButton(
+                        onPressed: isSending ? null : () => _pickCommentAttachments(taskId),
+                        icon: Icon(
+                          Icons.attach_file,
+                          size: 18,
+                          color: isSending ? Colors.grey[600] : Colors.grey[400],
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Прикрепить файл',
+                      ),
+                    const SizedBox(width: 4),
                     isIos
                         ? CupertinoButton(
                             onPressed: isEnabled ? () => _submitComment(taskId) : null,
@@ -1141,6 +1834,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   ],
                 ),
               ),
+              if (pending.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                _buildPendingAttachments(taskId, pending),
+              ],
               if (error != null) ...[
                 const SizedBox(height: 6),
                 Text(
@@ -1155,6 +1852,100 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     );
   }
 
+  Widget _buildPendingAttachments(
+    int taskId,
+    List<_PendingCommentAttachment> pending,
+  ) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (var i = 0; i < pending.length; i++)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E1E),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _isAttachmentReady(pending[i])
+                      ? Icons.check_circle
+                      : pending[i].status == _AttachmentUploadStatus.failed
+                          ? Icons.error
+                          : Icons.insert_drive_file,
+                  size: 14,
+                  color: pending[i].status == _AttachmentUploadStatus.failed
+                      ? Colors.redAccent
+                      : Colors.grey,
+                ),
+                const SizedBox(width: 6),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        pending[i].name,
+                        style: const TextStyle(color: Colors.white, fontSize: 11),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (pending[i].status == _AttachmentUploadStatus.failed)
+                        Text(
+                          pending[i].error ?? 'Ошибка загрузки',
+                          style:
+                              const TextStyle(color: Colors.redAccent, fontSize: 9),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                if (pending[i].status == _AttachmentUploadStatus.uploading &&
+                    pending[i].progress < 1)
+                  SizedBox(
+                    width: 40,
+                    child: LinearProgressIndicator(
+                      value: pending[i].progress,
+                      backgroundColor: Colors.grey[800],
+                      color: widget.themeColor,
+                    ),
+                  )
+                else
+                  Text(
+                    _formatBytes(pending[i].length),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                  ),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: pending[i].status == _AttachmentUploadStatus.uploading &&
+                          pending[i].progress < 1
+                      ? null
+                      : () => _removePendingAttachment(taskId, i),
+                  child: Icon(
+                    Icons.close,
+                    size: 14,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    final kb = bytes / 1024;
+    if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
+    final mb = kb / 1024;
+    return '${mb.toStringAsFixed(1)} MB';
+  }
+
   TextEditingController _commentControllerFor(int taskId) {
     return _commentControllers.putIfAbsent(taskId, () => TextEditingController());
   }
@@ -1165,10 +1956,264 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     setState(() => _commentErrors[taskId] = null);
   }
 
+  Future<void> _pickCommentAttachments(int taskId) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+      if (result == null) return;
+      final pending = _pendingCommentAttachments[taskId] ?? [];
+      final additions = <_PendingCommentAttachment>[];
+      for (final file in result.files) {
+        final path = file.path;
+        if (path == null) continue;
+        final contentType = lookupMimeType(path) ?? 'application/octet-stream';
+        final mediaType = contentType.startsWith('image/') ? 'image' : 'file';
+        final normalizedName = _normalizeFilename(p.basename(path), contentType);
+        additions.add(
+          _PendingCommentAttachment(
+            file: File(path),
+            name: normalizedName,
+            length: file.size,
+            contentType: contentType,
+            mediaType: mediaType,
+            status: _AttachmentUploadStatus.queued,
+            progress: 0,
+          ),
+        );
+      }
+      if (additions.isEmpty) return;
+      setState(() {
+        _pendingCommentAttachments[taskId] = [...pending, ...additions];
+        _commentErrors[taskId] = null;
+      });
+      await _uploadPendingAttachments(taskId);
+    } catch (e, st) {
+      _log.warning('Error picking attachments', e, st);
+      setState(() => _commentErrors[taskId] = 'Не удалось выбрать файл');
+    }
+  }
+
+  void _removePendingAttachment(int taskId, int index) {
+    final pending = _pendingCommentAttachments[taskId];
+    if (pending == null || pending.isEmpty) return;
+    setState(() {
+      final updated = [...pending]..removeAt(index);
+      if (updated.isEmpty) {
+        _pendingCommentAttachments.remove(taskId);
+      } else {
+        _pendingCommentAttachments[taskId] = updated;
+      }
+    });
+  }
+
+  void _updatePendingAttachment(
+    int taskId,
+    int index,
+    _PendingCommentAttachment updated,
+  ) {
+    final pending = _pendingCommentAttachments[taskId];
+    if (pending == null || index >= pending.length) return;
+    setState(() {
+      final next = [...pending];
+      next[index] = updated;
+      _pendingCommentAttachments[taskId] = next;
+    });
+  }
+
+  bool _isAttachmentReady(_PendingCommentAttachment item) {
+    final hasUploadInfo =
+        item.uploadedFilename != null && item.uploadedVersion != null;
+    if (!hasUploadInfo) return false;
+    final ready = item.progress >= 1 ||
+        item.status == _AttachmentUploadStatus.uploaded ||
+        (item.status == _AttachmentUploadStatus.uploading && item.progress >= 1);
+    _log.fine(
+      'Attachment readiness: name=${item.name} status=${item.status} '
+      'progress=${item.progress.toStringAsFixed(3)} ready=$ready '
+      'hasUploadInfo=$hasUploadInfo',
+    );
+    return ready;
+  }
+
+  Future<void> _uploadPendingAttachments(int taskId) async {
+    var i = 0;
+    while (true) {
+      final pending = _pendingCommentAttachments[taskId];
+      if (pending == null || i >= pending.length) return;
+      final item = pending[i];
+      _log.info(
+        'Upload start: taskId=$taskId index=$i name=${item.name} '
+        'status=${item.status} progress=${item.progress.toStringAsFixed(3)}',
+      );
+      if (item.status == _AttachmentUploadStatus.uploaded ||
+          item.status == _AttachmentUploadStatus.uploading) {
+        i++;
+        continue;
+      }
+      _updatePendingAttachment(
+        taskId,
+        i,
+        item.copyWith(
+          status: _AttachmentUploadStatus.uploading,
+          progress: 0,
+          error: null,
+        ),
+      );
+      final directory = 'tasks/$taskId/comments/${const Uuid().v4()}';
+      _log.info(
+        'Request upload link: taskId=$taskId index=$i name=${item.name} '
+        'contentType=${item.contentType} directory=$directory',
+      );
+      final link = await apiService.getUploadLink(
+        directory: directory,
+        filename: item.name,
+        contentType: item.contentType,
+      );
+      if (link == null) {
+        _log.warning(
+          'Upload link failed: taskId=$taskId index=$i name=${item.name}',
+        );
+        _updatePendingAttachment(
+          taskId,
+          i,
+          item.copyWith(
+            status: _AttachmentUploadStatus.failed,
+            error: 'Не удалось получить ссылку',
+          ),
+        );
+        i++;
+        continue;
+      }
+      _log.info(
+        'Upload link ok: taskId=$taskId index=$i name=${item.name} '
+        'filename=${link.filename} version=${link.version}',
+      );
+      final currentForLink = _pendingCommentAttachments[taskId];
+      if (currentForLink == null || i >= currentForLink.length) return;
+      _updatePendingAttachment(
+        taskId,
+        i,
+        currentForLink[i].copyWith(
+          uploadedFilename: link.filename,
+          uploadedVersion: link.version,
+          uploadedShortName: link.shortName,
+          uploadedObjectKey: link.objectKey,
+          status: _AttachmentUploadStatus.uploading,
+        ),
+      );
+      _log.info(
+        'Upload PUT call: taskId=$taskId index=$i url=${link.url}',
+      );
+      final uploaded = await apiService.uploadFileToUrlWithProgress(
+        url: link.url,
+        file: item.file,
+        contentType: item.contentType,
+        metaVersion: link.version,
+        onProgress: (progress) {
+          if (!mounted) return;
+          _log.fine(
+            'Upload progress: taskId=$taskId index=$i name=${item.name} '
+            'progress=${progress.toStringAsFixed(3)}',
+          );
+          final current = _pendingCommentAttachments[taskId];
+          if (current == null || i >= current.length) return;
+          _updatePendingAttachment(
+            taskId,
+            i,
+            current[i].copyWith(progress: progress),
+          );
+        },
+      );
+      if (!uploaded) {
+        _log.warning(
+          'Upload failed: taskId=$taskId index=$i name=${item.name}',
+        );
+        _updatePendingAttachment(
+          taskId,
+          i,
+          item.copyWith(
+            status: _AttachmentUploadStatus.failed,
+            error: 'Ошибка загрузки',
+          ),
+        );
+        i++;
+        continue;
+      }
+      _log.info(
+        'Upload success: taskId=$taskId index=$i name=${item.name}',
+      );
+      final current = _pendingCommentAttachments[taskId];
+      if (current == null || i >= current.length) return;
+      _updatePendingAttachment(
+        taskId,
+        i,
+        current[i].copyWith(
+          status: _AttachmentUploadStatus.uploaded,
+          progress: 1,
+          uploadedFilename: link.filename,
+          uploadedVersion: link.version,
+        ),
+      );
+      i++;
+    }
+  }
+
+  String _normalizeFilename(String name, String contentType) {
+    var normalized = name.trim();
+    final suffixMatch =
+        RegExp(r'^(.*\.[A-Za-z0-9]+)_[A-Za-z0-9]{4,}$').firstMatch(normalized);
+    if (suffixMatch != null) {
+      normalized = suffixMatch.group(1) ?? normalized;
+    }
+    final currentExt = p.extension(normalized);
+    if (currentExt.isNotEmpty) {
+      final base = p.basenameWithoutExtension(normalized);
+      normalized = '$base${currentExt.toLowerCase()}';
+    } else {
+      final ext = extensionFromMime(contentType);
+      if (ext != null && ext.isNotEmpty) {
+        normalized = '$normalized.$ext';
+      }
+    }
+    return normalized;
+  }
+
   Future<void> _submitComment(int taskId) async {
     final controller = _commentControllerFor(taskId);
     final rawText = controller.text.trim();
-    if (rawText.isEmpty) {
+    final pending = _pendingCommentAttachments[taskId] ?? [];
+    _log.info(
+      'Submit comment: taskId=$taskId rawTextLen=${rawText.length} '
+      'pending=${pending.length}',
+    );
+    if (rawText.isEmpty && pending.isEmpty) {
+      setState(() => _commentErrors[taskId] = 'Введите текст комментария');
+      return;
+    }
+    if (pending.any((item) => item.status == _AttachmentUploadStatus.uploading && item.progress < 1)) {
+      setState(() => _commentErrors[taskId] = 'Дождитесь загрузки файлов');
+      return;
+    }
+    if (pending.any((item) => item.status == _AttachmentUploadStatus.failed)) {
+      setState(() => _commentErrors[taskId] = 'Не все файлы загрузились');
+      return;
+    }
+    final attachments = pending
+        .where(_isAttachmentReady)
+        .map((item) => {
+              'version': item.uploadedVersion,
+              'filename': item.uploadedFilename ?? item.uploadedObjectKey,
+              'length': item.length,
+              'mediaType': item.mediaType,
+              'name': _attachmentNameFor(item),
+            })
+        .toList();
+    _log.info(
+      'Submit comment attachments: taskId=$taskId count=${attachments.length}',
+    );
+    _log.fine(
+      'Submit comment attachments payload: taskId=$taskId ${jsonEncode(attachments)}',
+    );
+    if (rawText.isEmpty && attachments.isEmpty) {
       setState(() => _commentErrors[taskId] = 'Введите текст комментария');
       return;
     }
@@ -1182,7 +2227,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       final commentId = await apiService.createTaskComment(
         taskId: taskId,
         content: _commentTextToHtml(rawText),
-        attachments: const [],
+        attachments: attachments,
       );
       if (!mounted) return;
       if (commentId == null) {
@@ -1190,6 +2235,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         return;
       }
       controller.clear();
+      setState(() => _pendingCommentAttachments.remove(taskId));
       final updated = await apiService.fetchTaskComments(taskId);
       if (!mounted) return;
       setState(() {
@@ -1211,8 +2257,17 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   String _commentTextToHtml(String text) {
+    if (text.trim().isEmpty) return '';
     final escaped = const HtmlEscape(HtmlEscapeMode.element).convert(text);
     return '<p>${escaped.replaceAll('\n', '<br>')}</p>';
+  }
+
+  String _attachmentNameFor(_PendingCommentAttachment item) {
+    final filename = item.uploadedFilename;
+    if (filename != null && filename.isNotEmpty) {
+      return p.basename(filename);
+    }
+    return item.uploadedShortName ?? item.name;
   }
 
   Widget _buildInfoTab(
@@ -1844,6 +2899,63 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       themeColor: widget.themeColor,
       size: AttachmentCardSize.compact,
       onTap: () => _downloadAttachment(attachment, key),
+    );
+  }
+}
+
+enum _AttachmentUploadStatus { queued, uploading, uploaded, failed }
+
+class _PendingCommentAttachment {
+  final File file;
+  final String name;
+  final int length;
+  final String contentType;
+  final String mediaType;
+  final _AttachmentUploadStatus status;
+  final double progress;
+  final String? uploadedFilename;
+  final String? uploadedVersion;
+  final String? uploadedShortName;
+  final String? uploadedObjectKey;
+  final String? error;
+
+  const _PendingCommentAttachment({
+    required this.file,
+    required this.name,
+    required this.length,
+    required this.contentType,
+    required this.mediaType,
+    required this.status,
+    required this.progress,
+    this.uploadedFilename,
+    this.uploadedVersion,
+    this.uploadedShortName,
+    this.uploadedObjectKey,
+    this.error,
+  });
+
+  _PendingCommentAttachment copyWith({
+    _AttachmentUploadStatus? status,
+    double? progress,
+    String? uploadedFilename,
+    String? uploadedVersion,
+    String? uploadedShortName,
+    String? uploadedObjectKey,
+    String? error,
+  }) {
+    return _PendingCommentAttachment(
+      file: file,
+      name: name,
+      length: length,
+      contentType: contentType,
+      mediaType: mediaType,
+      status: status ?? this.status,
+      progress: progress ?? this.progress,
+      uploadedFilename: uploadedFilename ?? this.uploadedFilename,
+      uploadedVersion: uploadedVersion ?? this.uploadedVersion,
+      uploadedShortName: uploadedShortName ?? this.uploadedShortName,
+      uploadedObjectKey: uploadedObjectKey ?? this.uploadedObjectKey,
+      error: error ?? this.error,
     );
   }
 }

@@ -139,7 +139,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        child: SafeArea(child: _buildBody(isIos)),
+        child: SafeArea(bottom: false, child: _buildBody(isIos)),
       );
     }
 
@@ -314,6 +314,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   Widget _buildScoresTab(bool isIos) {
     final activities = _getAvailableActivities();
     final exercises = _getFilteredExercises();
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Column(
       children: [
@@ -327,7 +328,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                   ),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + bottomInset),
                   itemCount: exercises.length,
                   itemBuilder: (context, index) {
                     final item = exercises[index];
@@ -420,7 +421,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                 ),
                 child: Text(
                   hasScore
-                      ? '${item.scoreValue.toStringAsFixed(1)} / ${item.maxScore}'
+                      ? '${_formatScore(item.scoreValue)} / ${item.maxScore}'
                       : '-',
                   style: TextStyle(
                     fontSize: 12,
@@ -458,9 +459,10 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
     final summaries = _getActivitySummaries();
     final totalContribution =
         summaries.fold<double>(0, (sum, s) => sum + s.totalContribution);
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
       children: [
         Container(
           padding: const EdgeInsets.all(12),
@@ -513,11 +515,11 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                     const SizedBox(width: 8),
                     Expanded(
                       flex: 1,
-                      child: Text(
-                        totalContribution.toStringAsFixed(2),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _getGradeColor(totalContribution.round()),
+                  child: Text(
+                    _formatDecimal(totalContribution, 2),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _getGradeColor(totalContribution.round()),
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -573,7 +575,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
           Expanded(
             flex: 1,
             child: Text(
-              summary.averageScore.toStringAsFixed(1),
+              _formatScore(summary.averageScore),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: _getScoreColor(summary.averageScore, 10),
@@ -587,7 +589,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
           Expanded(
             flex: 1,
             child: Text(
-              summary.weight.toStringAsFixed(2),
+              _formatDecimal(summary.weight, 2),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white, fontSize: 12),
             ),
@@ -598,7 +600,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
           Expanded(
             flex: 1,
             child: Text(
-              summary.totalContribution.toStringAsFixed(2),
+              _formatDecimal(summary.totalContribution, 2),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: _getGradeColor((summary.totalContribution * 10).round()),
@@ -625,6 +627,15 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
     if (percentage >= 0.6) return const Color(0xFFFFCA28);
     if (percentage >= 0.4) return const Color(0xFFFF9800);
     return const Color(0xFFEF5350);
+  }
+
+  String _formatScore(double value) {
+    return _formatDecimal(value, 1);
+  }
+
+  String _formatDecimal(num value, int fractionDigits) {
+    final fixed = value.toStringAsFixed(fractionDigits);
+    return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
   }
 
   String _getGradeDescription(int grade) {

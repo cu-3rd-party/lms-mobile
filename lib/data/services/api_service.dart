@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
@@ -88,6 +89,8 @@ class ApiService {
     bool inProgress = true,
     bool review = false,
     bool backlog = true,
+    bool failed = false,
+    bool evaluated = false,
   }) async {
     try {
       final cookie = await getCookie();
@@ -97,6 +100,8 @@ class ApiService {
       if (inProgress) states.add('state=inProgress');
       if (review) states.add('state=review');
       if (backlog) states.add('state=backlog');
+      if (failed) states.add('state=failed');
+      if (evaluated) states.add('state=evaluated');
 
       final queryString = states.join('&');
       final response = await http.get(
@@ -204,6 +209,106 @@ class ApiService {
       _log.warning('Error getting download link', e, st);
     }
     return null;
+  }
+
+  Future<UploadLinkData?> getUploadLink({
+    required String directory,
+    required String filename,
+    required String contentType,
+  }) async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final encodedDirectory = Uri.encodeComponent(directory);
+      final encodedFilename = Uri.encodeComponent(filename);
+      final encodedContentType = Uri.encodeComponent(contentType);
+      final response = await http.get(
+        Uri.parse(
+          '$baseUrl/micro-lms/content/upload-link?directory=$encodedDirectory&filename=$encodedFilename&contentType=$encodedContentType',
+        ),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic>) {
+          return UploadLinkData.fromJson(data);
+        }
+      }
+    } catch (e, st) {
+      _log.warning('Error getting upload link', e, st);
+    }
+    return null;
+  }
+
+  Future<bool> uploadFileToUrl({
+    required String url,
+    required File file,
+    required String contentType,
+    String? metaVersion,
+  }) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final headers = <String, String>{
+        'Content-Type': contentType,
+      };
+      if (metaVersion != null && metaVersion.isNotEmpty) {
+        headers['x-amz-meta-version'] = metaVersion;
+      }
+      final response = await http.put(
+        Uri.parse(url),
+        headers: headers,
+        body: bytes,
+      );
+      return response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204;
+    } catch (e, st) {
+      _log.warning('Error uploading file', e, st);
+      return false;
+    }
+  }
+
+  Future<bool> uploadFileToUrlWithProgress({
+    required String url,
+    required File file,
+    required String contentType,
+    String? metaVersion,
+    void Function(double progress)? onProgress,
+  }) async {
+    try {
+      _log.info('Upload PUT: url=$url contentType=$contentType');
+      final length = await file.length();
+      final request = http.StreamedRequest('PUT', Uri.parse(url));
+      request.headers['Content-Type'] = contentType;
+      if (metaVersion != null && metaVersion.isNotEmpty) {
+        request.headers['x-amz-meta-version'] = metaVersion;
+      }
+      request.contentLength = length;
+
+      final responseFuture = request.send();
+      var sent = 0;
+      await for (final chunk in file.openRead()) {
+        sent += chunk.length;
+        request.sink.add(chunk);
+        if (length > 0) {
+          onProgress?.call(sent / length);
+        }
+      }
+      await request.sink.close();
+
+      final response = await responseFuture;
+      await response.stream.drain();
+      _log.info('Upload PUT response: status=${response.statusCode}');
+      return response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204;
+    } catch (e, st) {
+      _log.warning('Error uploading file', e, st);
+      return false;
+    }
   }
 
   Future<StudentLmsProfile?> fetchStudentLmsProfile() async {
@@ -436,6 +541,52 @@ class ApiService {
       _log.warning('Error fetching course student performance', e, st);
     }
     return null;
+  }
+
+  Future<GradebookResponse?> fetchGradebook() async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/gradebook'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        return GradebookResponse.fromJson(jsonDecode(response.body));
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching gradebook', e, st);
+    }
+    return null;
+  }
+}
+
+class UploadLinkData {
+  final String shortName;
+  final String filename;
+  final String objectKey;
+  final String version;
+  final String url;
+
+  UploadLinkData({
+    required this.shortName,
+    required this.filename,
+    required this.objectKey,
+    required this.version,
+    required this.url,
+  });
+
+  factory UploadLinkData.fromJson(Map<String, dynamic> json) {
+    return UploadLinkData(
+      shortName: json['shortName'] ?? '',
+      filename: json['filename'] ?? '',
+      objectKey: json['objectKey'] ?? '',
+      version: json['version'] ?? '',
+      url: json['url'] ?? '',
+    );
   }
 }
 

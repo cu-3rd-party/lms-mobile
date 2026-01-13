@@ -238,7 +238,7 @@ class _WebViewLoginPageState extends State<WebViewLoginPage> {
     if (isIos) {
       return CupertinoPageScaffold(
         navigationBar: appBar as ObstructingPreferredSizeWidget,
-        child: SafeArea(child: body),
+        child: SafeArea(bottom: false, child: body),
       );
     }
 

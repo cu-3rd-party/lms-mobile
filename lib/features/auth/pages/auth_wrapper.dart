@@ -159,6 +159,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       return isIos
           ? CupertinoPageScaffold(
               child: SafeArea(
+                bottom: false,
                 child: loader,
               ),
             )
