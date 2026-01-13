@@ -15,6 +15,7 @@ import 'package:cumobile/data/models/student_task.dart';
 import 'package:cumobile/data/models/task_comment.dart';
 import 'package:cumobile/data/models/task_details.dart';
 import 'package:cumobile/data/models/task_event.dart';
+import 'package:cumobile/data/models/student_performance.dart';
 
 class ApiService {
   static const String baseUrl = 'https://my.centraluniversity.ru/api';
@@ -375,6 +376,66 @@ class ApiService {
       _log.warning('Error fetching notifications', e, st);
     }
     return [];
+  }
+
+  Future<StudentPerformanceResponse?> fetchStudentPerformance() async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/performance/student'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        return StudentPerformanceResponse.fromJson(jsonDecode(response.body));
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching student performance', e, st);
+    }
+    return null;
+  }
+
+  Future<CourseExercisesResponse?> fetchCourseExercises(int courseId) async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/courses/$courseId/exercises'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        return CourseExercisesResponse.fromJson(jsonDecode(response.body));
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching course exercises', e, st);
+    }
+    return null;
+  }
+
+  Future<CourseStudentPerformanceResponse?> fetchCourseStudentPerformance(int courseId) async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/courses/$courseId/student-performance'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        return CourseStudentPerformanceResponse.fromJson(jsonDecode(response.body));
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching course student performance', e, st);
+    }
+    return null;
   }
 }
 

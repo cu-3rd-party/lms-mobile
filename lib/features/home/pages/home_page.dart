@@ -27,6 +27,8 @@ import 'package:cumobile/features/home/widgets/sections/schedule_section.dart';
 import 'package:cumobile/features/home/widgets/tabs/courses_tab.dart';
 import 'package:cumobile/features/home/widgets/tabs/files_tab.dart';
 import 'package:cumobile/features/home/widgets/tabs/tasks_tab.dart';
+import 'package:cumobile/features/performance/pages/course_performance_page.dart';
+import 'package:cumobile/data/models/student_performance.dart';
 
 class HomePage extends StatefulWidget {
   final VoidCallback onLogout;
@@ -62,6 +64,8 @@ class _HomePageState extends State<HomePage> {
   List<FileSystemEntity> _downloadedFiles = [];
   bool _isLoadingFiles = false;
   final Set<String> _selectedFiles = {};
+  List<StudentPerformanceCourse> _performanceCourses = [];
+  bool _isLoadingPerformance = true;
 
   @override
   void initState() {
@@ -82,6 +86,7 @@ class _HomePageState extends State<HomePage> {
       _loadCourses(),
       _loadLmsProfile(),
       _loadSchedule(),
+      _loadPerformance(),
     ]);
   }
 
@@ -195,6 +200,21 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e, st) {
       _log.warning('Error loading LMS profile', e, st);
+    }
+  }
+
+  Future<void> _loadPerformance() async {
+    try {
+      final response = await apiService.fetchStudentPerformance();
+      if (!mounted) return;
+      setState(() {
+        _performanceCourses = response?.courses ?? [];
+        _isLoadingPerformance = false;
+      });
+    } catch (e, st) {
+      _log.warning('Error loading performance', e, st);
+      if (!mounted) return;
+      setState(() => _isLoadingPerformance = false);
     }
   }
 
@@ -525,6 +545,9 @@ class _HomePageState extends State<HomePage> {
           onReorderActive: _reorderActiveCourse,
           onArchive: _archiveCourse,
           onRestore: _restoreCourse,
+          performanceCourses: _performanceCourses,
+          isLoadingPerformance: _isLoadingPerformance,
+          onOpenPerformanceCourse: _openPerformanceCourse,
         ),
         FilesTab(
           files: _downloadedFiles,
@@ -775,6 +798,17 @@ class _HomePageState extends State<HomePage> {
       Platform.isIOS
           ? CupertinoPageRoute(builder: (context) => CoursePage(course: course))
           : MaterialPageRoute(builder: (context) => CoursePage(course: course)),
+    );
+  }
+
+  void _openPerformanceCourse(StudentPerformanceCourse course) {
+    Navigator.push(
+      context,
+      Platform.isIOS
+          ? CupertinoPageRoute(
+              builder: (context) => CoursePerformancePage(course: course))
+          : MaterialPageRoute(
+              builder: (context) => CoursePerformancePage(course: course)),
     );
   }
 
