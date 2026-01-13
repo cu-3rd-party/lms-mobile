@@ -1694,7 +1694,6 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           final isFocused = Focus.of(context).hasFocus;
           final isSending = _sendingCommentTaskIds.contains(taskId);
           final pending = _pendingCommentAttachments[taskId] ?? [];
-          final hasAttachments = pending.isNotEmpty;
           final isUploading = pending.any(
             (item) =>
                 item.status == _AttachmentUploadStatus.uploading && item.progress < 1,

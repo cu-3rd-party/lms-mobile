@@ -890,19 +890,4 @@ class _TaskListItem extends StatelessWidget {
         return task.state;
     }
   }
-
-  IconData _taskTypeIcon(String type, bool isIos) {
-    switch (type) {
-      case 'coding':
-        return isIos
-            ? CupertinoIcons.chevron_left_slash_chevron_right
-            : Icons.code;
-      case 'quiz':
-        return isIos ? CupertinoIcons.question_circle : Icons.quiz;
-      case 'essay':
-        return isIos ? CupertinoIcons.doc_text : Icons.description;
-      default:
-        return isIos ? CupertinoIcons.square_list : Icons.assignment;
-    }
-  }
 }
