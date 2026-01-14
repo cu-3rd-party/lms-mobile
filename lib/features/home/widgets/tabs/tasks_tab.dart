@@ -135,6 +135,7 @@ class TasksTab extends StatelessWidget {
     onStatusFiltersChanged({
       'backlog',
       'inProgress',
+      'hasSolution',
       'review',
       'failed',
       'evaluated',
@@ -146,7 +147,7 @@ class TasksTab extends StatelessWidget {
   List<StudentTask> _filteredTasks() {
     final query = searchQuery.trim().toLowerCase();
     return tasks
-        .where((task) => statusFilters.contains(task.state))
+        .where((task) => statusFilters.contains(task.normalizedState))
         .where(
           (task) => courseFilters.isEmpty || courseFilters.contains(task.course.id),
         )
@@ -169,8 +170,9 @@ class TasksTab extends StatelessWidget {
       'evaluated': 0,
     };
     for (final task in tasks) {
-      if (counts.containsKey(task.state)) {
-        counts[task.state] = counts[task.state]! + 1;
+      final state = task.normalizedState;
+      if (counts.containsKey(state)) {
+        counts[state] = counts[state]! + 1;
       }
     }
     return counts;
@@ -179,7 +181,8 @@ class TasksTab extends StatelessWidget {
   Map<int, int> _taskCountsByCourse() {
     final counts = <int, int>{};
     for (final task in tasks) {
-      if (!statusFilters.contains(task.state)) continue;
+      final state = task.normalizedState;
+      if (!statusFilters.contains(state)) continue;
       counts[task.course.id] = (counts[task.course.id] ?? 0) + 1;
     }
     return counts;
@@ -775,20 +778,25 @@ class _TaskListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
-    return Container(
+    final card = Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: task.stateBorderColor, width: 1),
       ),
-      child: (isIos
-              ? GestureDetector(onTap: onTap, child: _buildContent(isIos))
-              : InkWell(
-                  onTap: onTap,
-                  borderRadius: BorderRadius.circular(12),
-                  child: _buildContent(isIos),
-                )),
+      child: _buildContent(isIos),
+    );
+    if (isIos) {
+      return GestureDetector(onTap: onTap, child: card);
+    }
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: card,
+      ),
     );
   }
 
@@ -865,7 +873,7 @@ class _TaskListItem extends StatelessWidget {
   }
 
   String _getStateLabel(StudentTask task) {
-    switch (task.state) {
+    switch (task.normalizedState) {
       case 'inProgress':
         return 'В работе';
       case 'review':
@@ -887,7 +895,7 @@ class _TaskListItem extends StatelessWidget {
         }
         return 'Проверено';
       default:
-        return task.state;
+        return task.normalizedState;
     }
   }
 }

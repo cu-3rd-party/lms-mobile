@@ -9,6 +9,7 @@ class TaskDetails {
   final String? state;
   final String? solutionUrl;
   final List<MaterialAttachment> solutionAttachments;
+  final DateTime? submitAt;
   final bool hasSolution;
 
   TaskDetails({
@@ -20,6 +21,7 @@ class TaskDetails {
     this.state,
     this.solutionUrl,
     List<MaterialAttachment>? solutionAttachments,
+    this.submitAt,
     this.hasSolution = false,
   }) : solutionAttachments = solutionAttachments ?? const [];
 
@@ -41,6 +43,8 @@ class TaskDetails {
         );
       }
     }
+    final submitAt =
+        json['submitAt'] != null ? DateTime.tryParse(json['submitAt'].toString()) : null;
     return TaskDetails(
       id: json['id'] ?? 0,
       score: rawScore is num ? rawScore.toDouble() : null,
@@ -50,9 +54,8 @@ class TaskDetails {
       state: json['state']?.toString(),
       solutionUrl: solutionUrl,
       solutionAttachments: solutionAttachments,
-      hasSolution: solution != null &&
-          ((solutionUrl != null && solutionUrl.isNotEmpty) ||
-              solutionAttachments.isNotEmpty),
+      submitAt: submitAt,
+      hasSolution: submitAt != null,
     );
   }
 }

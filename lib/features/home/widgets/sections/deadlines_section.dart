@@ -23,10 +23,10 @@ class DeadlinesSection extends StatelessWidget {
     final deadlineTasks = tasks
         .where(
           (task) =>
-              task.state == 'backlog' ||
-              task.state == 'inProgress' ||
-              task.state == 'revision' ||
-              task.state == 'rework',
+              task.normalizedState == 'backlog' ||
+              task.normalizedState == 'inProgress' ||
+              task.normalizedState == 'revision' ||
+              task.normalizedState == 'rework',
         )
         .toList();
     return Column(
@@ -244,7 +244,7 @@ class _TaskCard extends StatelessWidget {
   }
 
   String _getStateLabel(StudentTask task) {
-    switch (task.state) {
+    switch (task.normalizedState) {
       case 'inProgress':
         return 'В работе';
       case 'review':
@@ -266,7 +266,7 @@ class _TaskCard extends StatelessWidget {
         }
         return 'Проверено';
       default:
-        return task.state;
+        return task.normalizedState;
     }
   }
 }

@@ -3706,6 +3706,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
   String _deriveStatus(List<TaskEvent> events, TaskDetails? details) {
     final state = details?.state;
+    final submitAt = details?.submitAt;
+    final hasSubmittedSolution = submitAt != null;
     if (state != null) {
       switch (state) {
         case 'evaluated':
@@ -3713,7 +3715,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         case 'backlog':
           return 'Бэклог';
         case 'inProgress':
-          return 'В работе';
+          return hasSubmittedSolution ? 'Есть решение' : 'В работе';
         case 'review':
           return 'На проверке';
         case 'revision':
@@ -3724,13 +3726,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           return 'Не сдано';
       }
     }
-    if (details?.hasSolution == true) return 'Есть решение';
+    if (hasSubmittedSolution) return 'Есть решение';
     final types = events.map((e) => e.type).toSet();
     if (types.contains('taskEvaluated')) return 'Проверено';
     if (types.contains('taskCompleted') || events.any((e) => e.content.state == 'review')) {
       return 'На проверке';
     }
-    if (types.contains('solutionAttached')) return 'Есть решение';
+    if (submitAt != null && types.contains('solutionAttached')) return 'Есть решение';
     if (types.contains('taskStarted')) return 'В работе';
     return 'Не сдано';
   }

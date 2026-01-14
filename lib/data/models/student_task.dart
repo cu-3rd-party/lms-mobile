@@ -55,6 +55,25 @@ class StudentTask {
 
   Duration? get timeLeft => deadline?.difference(DateTime.now());
 
+  String get normalizedState {
+    switch (state) {
+      case 'evaluated':
+      case 'review':
+      case 'failed':
+      case 'rejected':
+      case 'revision':
+      case 'rework':
+      case 'backlog':
+        return state;
+      case 'inProgress':
+        return submitAt != null ? 'hasSolution' : 'inProgress';
+      case 'hasSolution':
+        return submitAt != null ? 'hasSolution' : 'inProgress';
+      default:
+        return submitAt != null ? 'hasSolution' : state;
+    }
+  }
+
   String get formattedDeadline {
     if (deadline == null) return '';
     final months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
@@ -76,7 +95,7 @@ class StudentTask {
   }
 
   Color get stateColor {
-    return statusColors[state] ?? backlogColor;
+    return statusColors[normalizedState] ?? backlogColor;
   }
 
   Color get stateBorderColor => stateColor.withValues(alpha: 0.5);
