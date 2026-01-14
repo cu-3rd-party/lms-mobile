@@ -433,6 +433,37 @@ class ApiService {
     return null;
   }
 
+  Future<bool> submitTaskSolution({
+    required int taskId,
+    String? solutionUrl,
+    List<Map<String, dynamic>> attachments = const [],
+  }) async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return false;
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/micro-lms/tasks/$taskId/submit'),
+        headers: {
+          'Cookie': cookie,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          if (solutionUrl != null && solutionUrl.isNotEmpty) 'solutionUrl': solutionUrl,
+          'attachments': attachments,
+        }),
+      );
+
+      await _handleResponse(response);
+      return response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204;
+    } catch (e, st) {
+      _log.warning('Error submitting task solution', e, st);
+      return false;
+    }
+  }
+
   Future<List<NotificationItem>> fetchNotifications({
     required int category,
     int limit = 100,

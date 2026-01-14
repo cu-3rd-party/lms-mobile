@@ -1,3 +1,5 @@
+import 'package:cumobile/data/models/longread_material.dart';
+
 class TaskDetails {
   final int id;
   final double? score;
@@ -5,6 +7,8 @@ class TaskDetails {
   final int? maxScore;
   final int? scoreSkillLevel;
   final String? state;
+  final String? solutionUrl;
+  final List<MaterialAttachment> solutionAttachments;
   final bool hasSolution;
 
   TaskDetails({
@@ -14,8 +18,10 @@ class TaskDetails {
     this.maxScore,
     this.scoreSkillLevel,
     this.state,
+    this.solutionUrl,
+    List<MaterialAttachment>? solutionAttachments,
     this.hasSolution = false,
-  });
+  }) : solutionAttachments = solutionAttachments ?? const [];
 
   factory TaskDetails.fromJson(Map<String, dynamic> json) {
     final rawScore = json['score'];
@@ -23,6 +29,18 @@ class TaskDetails {
     final rawLevel = json['scoreSkillLevel'];
     final exercise = json['exercise'];
     final scoreSkillLevel = _parseSkillLevel(rawLevel);
+    final solution = json['solution'];
+    final solutionUrl =
+        solution is Map<String, dynamic> ? solution['solutionUrl']?.toString() : null;
+    final solutionAttachments = <MaterialAttachment>[];
+    if (solution is Map<String, dynamic>) {
+      final attachments = solution['attachments'];
+      if (attachments is List) {
+        solutionAttachments.addAll(
+          attachments.whereType<Map<String, dynamic>>().map(MaterialAttachment.fromJson),
+        );
+      }
+    }
     return TaskDetails(
       id: json['id'] ?? 0,
       score: rawScore is num ? rawScore.toDouble() : null,
@@ -30,7 +48,11 @@ class TaskDetails {
       maxScore: exercise is Map ? exercise['maxScore'] as int? : null,
       scoreSkillLevel: scoreSkillLevel,
       state: json['state']?.toString(),
-      hasSolution: json['solution'] != null,
+      solutionUrl: solutionUrl,
+      solutionAttachments: solutionAttachments,
+      hasSolution: solution != null &&
+          ((solutionUrl != null && solutionUrl.isNotEmpty) ||
+              solutionAttachments.isNotEmpty),
     );
   }
 }

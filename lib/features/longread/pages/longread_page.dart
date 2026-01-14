@@ -71,9 +71,15 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   final Map<int, String?> _taskLoadErrors = {};
   final Map<int, int> _taskTabIndex = {};
   final Map<int, TextEditingController> _commentControllers = {};
+  final Map<int, TextEditingController> _solutionUrlControllers = {};
   final Set<int> _sendingCommentTaskIds = {};
+  final Set<int> _sendingSolutionTaskIds = {};
   final Map<int, String?> _commentErrors = {};
+  final Map<int, String?> _solutionErrors = {};
   final Map<int, List<_PendingCommentAttachment>> _pendingCommentAttachments = {};
+  final Map<int, List<_PendingCommentAttachment>> _pendingSolutionAttachments = {};
+  final Map<int, List<MaterialAttachment>> _editingSolutionAttachments = {};
+  final Map<int, bool> _isEditingSolution = {};
   static final Logger _log = Logger('LongreadPage');
 
   // Search
@@ -99,6 +105,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     _searchController.dispose();
     _materialsScrollController.dispose();
     for (final controller in _commentControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _solutionUrlControllers.values) {
       controller.dispose();
     }
     super.dispose();
@@ -256,6 +265,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final keys = <String>{};
     final events = _eventsByTaskId[taskId] ?? [];
     final comments = _commentsByTaskId[taskId] ?? [];
+    final details = _taskDetailsById[taskId];
     for (final event in events) {
       for (final attachment in event.content.attachments) {
         final existingPath = await _getExistingFilePathFor(
@@ -276,6 +286,15 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         if (existingPath != null) {
           keys.add(_taskAttachmentKey(taskId, attachment));
         }
+      }
+    }
+    for (final attachment in details?.solutionAttachments ?? const []) {
+      final existingPath = await _getExistingFilePathFor(
+        attachment.name,
+        attachment.version,
+      );
+      if (existingPath != null) {
+        keys.add(_taskAttachmentKey(taskId, attachment));
       }
     }
     if (mounted && keys.isNotEmpty) {
@@ -1498,63 +1517,544 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     List<TaskEvent> events,
     bool isLoading,
   ) {
+    final details = _taskDetailsById[taskId];
+    final existingSolutionAttachments = details?.solutionAttachments ?? const [];
+    final derivedStatus = _deriveStatus(events, details);
+    final isInProgress = details?.state == 'inProgress' || derivedStatus == 'В работе';
+    final hasSolutionData =
+        (details?.solutionUrl?.isNotEmpty ?? false) || existingSolutionAttachments.isNotEmpty;
+    final canEdit = isInProgress;
+    final rawEditing = _isEditingSolution[taskId] ?? (!hasSolutionData && canEdit);
+    final isEditing = canEdit ? rawEditing : false;
+    final existingForEdit =
+        _editingSolutionAttachments[taskId] ?? existingSolutionAttachments;
+    final composer =
+        isEditing && canEdit ? _buildSolutionComposer(taskId, existingForEdit) : null;
+
+    final showCurrentSolution = hasSolutionData && !isEditing;
+    final currentSolutionSection =
+        showCurrentSolution ? _buildCurrentSolutionView(taskId, details, canEdit, isEditing) : null;
+
     if (isLoading) {
-      return Center(
-        child: Platform.isIOS
-            ? const CupertinoActivityIndicator(
-                radius: 14,
-                color: Color(0xFF00E676),
-              )
-            : const CircularProgressIndicator(color: Color(0xFF00E676)),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (currentSolutionSection != null) ...[
+            currentSolutionSection,
+            const SizedBox(height: 12),
+          ],
+          if (composer != null) ...[
+            composer,
+            const SizedBox(height: 12),
+          ],
+          Center(
+            child: Platform.isIOS
+                ? const CupertinoActivityIndicator(
+                    radius: 14,
+                    color: Color(0xFF00E676),
+                  )
+                : const CircularProgressIndicator(color: Color(0xFF00E676)),
+          ),
+        ],
       );
     }
 
     final error = _taskLoadErrors[taskId];
     if (error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              error,
-              style: TextStyle(color: Colors.grey[500]),
-            ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (currentSolutionSection != null) ...[
+            currentSolutionSection,
             const SizedBox(height: 12),
-            Platform.isIOS
-                ? CupertinoButton(
-                    onPressed: () => _reloadTaskDetails(taskId),
-                    child: const Text('Повторить'),
-                  )
-                : TextButton(
-                    onPressed: () => _reloadTaskDetails(taskId),
-                    child: const Text('Повторить'),
-                  ),
           ],
-        ),
+          if (composer != null) ...[
+            composer,
+            const SizedBox(height: 12),
+          ],
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  error,
+                  style: TextStyle(color: Colors.grey[500]),
+                ),
+                const SizedBox(height: 12),
+                Platform.isIOS
+                    ? CupertinoButton(
+                        onPressed: () => _reloadTaskDetails(taskId),
+                        child: const Text('Повторить'),
+                      )
+                    : TextButton(
+                        onPressed: () => _reloadTaskDetails(taskId),
+                        child: const Text('Повторить'),
+                      ),
+              ],
+            ),
+          ),
+        ],
       );
     }
 
     final sortedEvents = _sortEvents(events);
-    if (sortedEvents.isEmpty) {
-      return Center(
-        child: Text(
-          'История пока пуста',
-          style: TextStyle(color: Colors.grey[500]),
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.only(top: 4),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemBuilder: (context, index) {
-        final event = sortedEvents[index];
-        return _buildEventCard(taskId, event);
-      },
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
-      itemCount: sortedEvents.length,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (currentSolutionSection != null) ...[
+          currentSolutionSection,
+          const SizedBox(height: 12),
+        ],
+        if (composer != null) ...[
+          composer,
+          const SizedBox(height: 12),
+        ],
+        if (sortedEvents.isEmpty)
+          Center(
+            child: Text(
+              'История пока пуста',
+              style: TextStyle(color: Colors.grey[500]),
+            ),
+          )
+        else
+          ListView.separated(
+            padding: const EdgeInsets.only(top: 4),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemBuilder: (context, index) {
+              final event = sortedEvents[index];
+              return _buildEventCard(taskId, event);
+            },
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemCount: sortedEvents.length,
+          ),
+      ],
     );
+  }
+
+  Widget _buildSolutionComposer(
+    int taskId,
+    List<MaterialAttachment> existingAttachments,
+  ) {
+    final urlController = _solutionUrlControllerFor(taskId);
+    final error = _solutionErrors[taskId];
+    final isIos = Platform.isIOS;
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: urlController,
+      builder: (context, value, child) {
+        final existing =
+            _editingSolutionAttachments[taskId] ?? existingAttachments;
+        final pending = _pendingSolutionAttachments[taskId] ?? [];
+        final isSending = _sendingSolutionTaskIds.contains(taskId);
+        final isUploading = pending.any(
+          (item) =>
+              item.status == _AttachmentUploadStatus.uploading && item.progress < 1,
+        );
+        final hasReadyAttachments = pending.any(_isAttachmentReady);
+        final urlText = value.text.trim();
+        final hasUrl = urlText.isNotEmpty;
+        final isUrlValid = !hasUrl || _isValidUrl(urlText);
+        final hasFailed =
+            pending.any((item) => item.status == _AttachmentUploadStatus.failed);
+        final isEnabled = (hasUrl || hasReadyAttachments || existing.isNotEmpty) &&
+            isUrlValid &&
+            !isSending &&
+            !isUploading &&
+            !hasFailed;
+        final borderColor = (error != null || (hasUrl && !isUrlValid))
+            ? Colors.redAccent
+            : Colors.grey[700]!.withValues(alpha: 0.7);
+
+        final urlField = isIos
+            ? CupertinoTextField(
+                controller: urlController,
+                placeholder: 'Ссылка на решение (опционально)',
+                placeholderStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                cursorColor: widget.themeColor,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                decoration: const BoxDecoration(),
+                keyboardType: TextInputType.url,
+                textInputAction: TextInputAction.done,
+                onChanged: (_) => _clearSolutionError(taskId),
+              )
+            : TextField(
+                controller: urlController,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                keyboardType: TextInputType.url,
+                textInputAction: TextInputAction.done,
+                onChanged: (_) => _clearSolutionError(taskId),
+                decoration: InputDecoration(
+                  isDense: true,
+                  filled: true,
+                  fillColor: const Color(0xFF242424),
+                  labelText: 'Ссылка на решение (опционально)',
+                  labelStyle: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: widget.themeColor),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                ),
+              );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  urlField,
+                  if (existing.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Прикрепленные файлы',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (var i = 0; i < existing.length; i++)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF242424),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey[800]!),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.attach_file,
+                                  size: 14,
+                                  color: widget.themeColor,
+                                ),
+                                const SizedBox(width: 6),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 180),
+                                  child: Text(
+                                    existing[i].name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                GestureDetector(
+                                  onTap: isSending || isUploading
+                                      ? null
+                                      : () => _removeExistingSolutionAttachment(
+                                            taskId,
+                                            i,
+                                          ),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: isSending || isUploading
+                                        ? Colors.grey[600]
+                                        : Colors.grey[400],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      if (isIos)
+                        CupertinoButton(
+                          onPressed:
+                              isSending ? null : () => _pickSolutionAttachments(taskId),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          color: const Color(0xFF2A2A2A),
+                          minimumSize: const Size(32, 32),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                CupertinoIcons.paperclip,
+                                size: 16,
+                                color: isSending ? Colors.grey[600] : widget.themeColor,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Файл',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isSending ? Colors.grey[600] : Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        TextButton.icon(
+                          onPressed:
+                              isSending ? null : () => _pickSolutionAttachments(taskId),
+                          icon: Icon(
+                            Icons.attach_file,
+                            size: 16,
+                            color: isSending ? Colors.grey[600] : widget.themeColor,
+                          ),
+                          label: Text(
+                            'Файл',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isSending ? Colors.grey[600] : Colors.white,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            backgroundColor: const Color(0xFF2A2A2A),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      const Spacer(),
+                      if (isIos)
+                        CupertinoButton(
+                          onPressed: isEnabled ? () => _submitSolution(taskId) : null,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          color:
+                              isEnabled ? widget.themeColor : const Color(0xFF3A3A3A),
+                          minimumSize: const Size(32, 32),
+                          borderRadius: BorderRadius.circular(8),
+                          child: isSending
+                              ? const CupertinoActivityIndicator(
+                                  radius: 9,
+                                  color: CupertinoColors.black,
+                                )
+                              : const Text(
+                                  'Отправить решение',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                        )
+                      else
+                        ElevatedButton(
+                          onPressed: isEnabled ? () => _submitSolution(taskId) : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                isEnabled ? widget.themeColor : Colors.grey[700],
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            minimumSize: const Size(0, 34),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: isSending
+                              ? const SizedBox(
+                                  width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.black,
+                              ),
+                            )
+                            : const Text('Отправить решение'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (pending.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _buildPendingAttachments(
+                taskId,
+                pending,
+                storage: _pendingSolutionAttachments,
+              ),
+            ],
+            if (error != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                error,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 11),
+              ),
+            ],
+            const SizedBox(height: 6),
+            Text(
+              'Можно менять решение до дедлайна, после — отправим его на проверку',
+              style: TextStyle(color: Colors.grey[500], fontSize: 11),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget? _buildCurrentSolutionView(
+    int taskId,
+    TaskDetails? details,
+    bool canEdit,
+    bool isEditing,
+  ) {
+    if (details == null) return null;
+    final hasUrl = details.solutionUrl?.isNotEmpty ?? false;
+    final attachments = details.solutionAttachments;
+    if (!hasUrl && attachments.isEmpty) return null;
+    final isIos = Platform.isIOS;
+    final editButton = canEdit && !isEditing
+        ? (isIos
+            ? CupertinoButton(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                color: widget.themeColor,
+                onPressed: () => _startSolutionEdit(taskId, details),
+                child: const Text(
+                  'Изменить решение',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+              )
+            : ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.themeColor,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  textStyle:
+                      const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  minimumSize: const Size(0, 32),
+                ),
+                onPressed: () => _startSolutionEdit(taskId, details),
+                child: const Text('Изменить решение'),
+              ))
+        : null;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[800]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Текущее решение',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              if (editButton != null) editButton,
+            ],
+          ),
+          if (hasUrl) ...[
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () async {
+                final uri = Uri.tryParse(details.solutionUrl ?? '');
+                if (uri != null && await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2A2A2A),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isIos ? CupertinoIcons.link : Icons.link,
+                      size: 14,
+                      color: widget.themeColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        details.solutionUrl ?? '',
+                        style: TextStyle(fontSize: 12, color: widget.themeColor),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (attachments.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Прикрепленные файлы',
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 6),
+            ...attachments.map(
+              (attachment) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _buildTaskAttachmentCard(taskId, attachment),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _startSolutionEdit(int taskId, TaskDetails? details) {
+    final existing = List<MaterialAttachment>.from(
+      details?.solutionAttachments ?? const [],
+    );
+    _solutionUrlControllerFor(taskId).text = details?.solutionUrl ?? '';
+    setState(() {
+      _isEditingSolution[taskId] = true;
+      _editingSolutionAttachments[taskId] = existing;
+      _pendingSolutionAttachments.remove(taskId);
+      _solutionErrors[taskId] = null;
+    });
+  }
+
+  void _removeExistingSolutionAttachment(int taskId, int index) {
+    final existing = _editingSolutionAttachments[taskId] ??
+        _taskDetailsById[taskId]?.solutionAttachments ??
+        const [];
+    if (index >= existing.length) return;
+    setState(() {
+      _editingSolutionAttachments[taskId] = [...existing]..removeAt(index);
+    });
   }
 
   Widget _buildCommentsTab(
@@ -1854,8 +2354,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
   Widget _buildPendingAttachments(
     int taskId,
-    List<_PendingCommentAttachment> pending,
-  ) {
+    List<_PendingCommentAttachment> pending, {
+    Map<int, List<_PendingCommentAttachment>>? storage,
+  }) {
+    final targetStorage = storage ?? _pendingCommentAttachments;
     return Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -1924,7 +2426,11 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   onTap: pending[i].status == _AttachmentUploadStatus.uploading &&
                           pending[i].progress < 1
                       ? null
-                      : () => _removePendingAttachment(taskId, i),
+                      : () => _removePendingAttachment(
+                            taskId,
+                            i,
+                            storage: targetStorage,
+                          ),
                   child: Icon(
                     Icons.close,
                     size: 14,
@@ -1950,10 +2456,19 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     return _commentControllers.putIfAbsent(taskId, () => TextEditingController());
   }
 
+  TextEditingController _solutionUrlControllerFor(int taskId) {
+    return _solutionUrlControllers.putIfAbsent(taskId, () => TextEditingController());
+  }
+
   void _clearCommentError(int taskId, String value) {
     if (_commentErrors[taskId] == null) return;
     if (value.trim().isEmpty) return;
     setState(() => _commentErrors[taskId] = null);
+  }
+
+  void _clearSolutionError(int taskId) {
+    if (_solutionErrors[taskId] == null) return;
+    setState(() => _solutionErrors[taskId] = null);
   }
 
   Future<void> _pickCommentAttachments(int taskId) async {
@@ -1978,6 +2493,42 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     }
   }
 
+  Future<void> _pickSolutionAttachments(int taskId) async {
+    try {
+      final quick = await _pickRecentScan();
+      if (quick != null) {
+        await _addPendingAttachments(
+          taskId,
+          [quick],
+          storage: _pendingSolutionAttachments,
+          errorMap: _solutionErrors,
+          directoryBuilder: (id) => 'tasks/$id/solutions',
+          uploadContext: 'solution',
+        );
+        return;
+      }
+
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+      if (result == null) return;
+      final additions = await Future.wait(
+        result.files.map(_pendingFromPlatformFile),
+      );
+      final filtered = additions.whereType<_PendingCommentAttachment>().toList();
+      if (filtered.isEmpty) return;
+      await _addPendingAttachments(
+        taskId,
+        filtered,
+        storage: _pendingSolutionAttachments,
+        errorMap: _solutionErrors,
+        directoryBuilder: (id) => 'tasks/$id/solutions',
+        uploadContext: 'solution',
+      );
+    } catch (e, st) {
+      _log.warning('Error picking solution attachments', e, st);
+      setState(() => _solutionErrors[taskId] = 'Не удалось выбрать файл');
+    }
+  }
+
   Future<_PendingCommentAttachment?> _pendingFromPlatformFile(
     PlatformFile file,
   ) async {
@@ -1999,15 +2550,29 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
   Future<void> _addPendingAttachments(
     int taskId,
-    List<_PendingCommentAttachment> additions,
-  ) async {
+    List<_PendingCommentAttachment> additions, {
+    Map<int, List<_PendingCommentAttachment>>? storage,
+    Map<int, String?>? errorMap,
+    String Function(int taskId)? directoryBuilder,
+    String uploadContext = 'comment',
+  }) async {
     if (additions.isEmpty) return;
-    final pending = _pendingCommentAttachments[taskId] ?? [];
+    final target = storage ?? _pendingCommentAttachments;
+    final pending = target[taskId] ?? [];
     setState(() {
-      _pendingCommentAttachments[taskId] = [...pending, ...additions];
-      _commentErrors[taskId] = null;
+      target[taskId] = [...pending, ...additions];
+      if (errorMap != null) {
+        errorMap[taskId] = null;
+      } else if (storage == null) {
+        _commentErrors[taskId] = null;
+      }
     });
-    await _uploadPendingAttachments(taskId);
+    await _uploadPendingAttachments(
+      taskId,
+      storage: target,
+      directoryBuilder: directoryBuilder,
+      uploadContext: uploadContext,
+    );
   }
 
   Future<_PendingCommentAttachment?> _pickRecentScan() async {
@@ -2148,15 +2713,20 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     return DateFormat('dd.MM.yyyy HH:mm').format(time);
   }
 
-  void _removePendingAttachment(int taskId, int index) {
-    final pending = _pendingCommentAttachments[taskId];
+  void _removePendingAttachment(
+    int taskId,
+    int index, {
+    Map<int, List<_PendingCommentAttachment>>? storage,
+  }) {
+    final target = storage ?? _pendingCommentAttachments;
+    final pending = target[taskId];
     if (pending == null || pending.isEmpty) return;
     setState(() {
       final updated = [...pending]..removeAt(index);
       if (updated.isEmpty) {
-        _pendingCommentAttachments.remove(taskId);
+        target.remove(taskId);
       } else {
-        _pendingCommentAttachments[taskId] = updated;
+        target[taskId] = updated;
       }
     });
   }
@@ -2164,14 +2734,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   void _updatePendingAttachment(
     int taskId,
     int index,
-    _PendingCommentAttachment updated,
-  ) {
-    final pending = _pendingCommentAttachments[taskId];
+    _PendingCommentAttachment updated, {
+    Map<int, List<_PendingCommentAttachment>>? storage,
+  }) {
+    final target = storage ?? _pendingCommentAttachments;
+    final pending = target[taskId];
     if (pending == null || index >= pending.length) return;
     setState(() {
       final next = [...pending];
       next[index] = updated;
-      _pendingCommentAttachments[taskId] = next;
+      target[taskId] = next;
     });
   }
 
@@ -2190,14 +2762,22 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     return ready;
   }
 
-  Future<void> _uploadPendingAttachments(int taskId) async {
+  Future<void> _uploadPendingAttachments(
+    int taskId, {
+    Map<int, List<_PendingCommentAttachment>>? storage,
+    String Function(int taskId)? directoryBuilder,
+    String uploadContext = 'comment',
+  }) async {
+    final target = storage ?? _pendingCommentAttachments;
+    final buildDirectory =
+        directoryBuilder ?? (id) => 'tasks/$id/comments/${const Uuid().v4()}';
     var i = 0;
     while (true) {
-      final pending = _pendingCommentAttachments[taskId];
+      final pending = target[taskId];
       if (pending == null || i >= pending.length) return;
       final item = pending[i];
       _log.info(
-        'Upload start: taskId=$taskId index=$i name=${item.name} '
+        'Upload start [$uploadContext]: taskId=$taskId index=$i name=${item.name} '
         'status=${item.status} progress=${item.progress.toStringAsFixed(3)}',
       );
       if (item.status == _AttachmentUploadStatus.uploaded ||
@@ -2213,10 +2793,11 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           progress: 0,
           error: null,
         ),
+        storage: target,
       );
-      final directory = 'tasks/$taskId/comments/${const Uuid().v4()}';
+      final directory = buildDirectory(taskId);
       _log.info(
-        'Request upload link: taskId=$taskId index=$i name=${item.name} '
+        'Request upload link [$uploadContext]: taskId=$taskId index=$i name=${item.name} '
         'contentType=${item.contentType} directory=$directory',
       );
       final link = await apiService.getUploadLink(
@@ -2235,15 +2816,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             status: _AttachmentUploadStatus.failed,
             error: 'Не удалось получить ссылку',
           ),
+          storage: target,
         );
         i++;
         continue;
       }
       _log.info(
-        'Upload link ok: taskId=$taskId index=$i name=${item.name} '
+        'Upload link ok [$uploadContext]: taskId=$taskId index=$i name=${item.name} '
         'filename=${link.filename} version=${link.version}',
       );
-      final currentForLink = _pendingCommentAttachments[taskId];
+      final currentForLink = target[taskId];
       if (currentForLink == null || i >= currentForLink.length) return;
       _updatePendingAttachment(
         taskId,
@@ -2255,9 +2837,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           uploadedObjectKey: link.objectKey,
           status: _AttachmentUploadStatus.uploading,
         ),
+        storage: target,
       );
       _log.info(
-        'Upload PUT call: taskId=$taskId index=$i url=${link.url}',
+        'Upload PUT call [$uploadContext]: taskId=$taskId index=$i url=${link.url}',
       );
       final uploaded = await apiService.uploadFileToUrlWithProgress(
         url: link.url,
@@ -2267,21 +2850,22 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         onProgress: (progress) {
           if (!mounted) return;
           _log.fine(
-            'Upload progress: taskId=$taskId index=$i name=${item.name} '
+            'Upload progress [$uploadContext]: taskId=$taskId index=$i name=${item.name} '
             'progress=${progress.toStringAsFixed(3)}',
           );
-          final current = _pendingCommentAttachments[taskId];
+          final current = target[taskId];
           if (current == null || i >= current.length) return;
           _updatePendingAttachment(
             taskId,
             i,
             current[i].copyWith(progress: progress),
+            storage: target,
           );
         },
       );
       if (!uploaded) {
         _log.warning(
-          'Upload failed: taskId=$taskId index=$i name=${item.name}',
+          'Upload failed [$uploadContext]: taskId=$taskId index=$i name=${item.name}',
         );
         _updatePendingAttachment(
           taskId,
@@ -2290,14 +2874,15 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             status: _AttachmentUploadStatus.failed,
             error: 'Ошибка загрузки',
           ),
+          storage: target,
         );
         i++;
         continue;
       }
       _log.info(
-        'Upload success: taskId=$taskId index=$i name=${item.name}',
+        'Upload success [$uploadContext]: taskId=$taskId index=$i name=${item.name}',
       );
-      final current = _pendingCommentAttachments[taskId];
+      final current = target[taskId];
       if (current == null || i >= current.length) return;
       _updatePendingAttachment(
         taskId,
@@ -2308,6 +2893,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           uploadedFilename: link.filename,
           uploadedVersion: link.version,
         ),
+        storage: target,
       );
       i++;
     }
@@ -2414,6 +3000,108 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         _sendingCommentTaskIds.remove(taskId);
       }
     }
+  }
+
+  Future<void> _submitSolution(int taskId) async {
+    final controller = _solutionUrlControllerFor(taskId);
+    final rawUrl = controller.text.trim();
+    final pending = _pendingSolutionAttachments[taskId] ?? [];
+    final details = _taskDetailsById[taskId];
+    final existing = _editingSolutionAttachments[taskId] ??
+        details?.solutionAttachments ??
+        const <MaterialAttachment>[];
+    _log.info(
+      'Submit solution: taskId=$taskId urlLen=${rawUrl.length} pending=${pending.length} existing=${existing.length}',
+    );
+
+    if (pending.any(
+      (item) => item.status == _AttachmentUploadStatus.uploading && item.progress < 1,
+    )) {
+      setState(() => _solutionErrors[taskId] = 'Дождитесь загрузки файлов');
+      return;
+    }
+    if (pending.any((item) => item.status == _AttachmentUploadStatus.failed)) {
+      setState(() => _solutionErrors[taskId] = 'Не все файлы загрузились');
+      return;
+    }
+
+    final hasUrl = rawUrl.isNotEmpty;
+    if (hasUrl && !_isValidUrl(rawUrl)) {
+      setState(() => _solutionErrors[taskId] = 'Введите корректную ссылку');
+      return;
+    }
+
+    final attachments = pending
+        .where(_isAttachmentReady)
+        .map((item) => {
+              'version': item.uploadedVersion,
+              'filename': item.uploadedFilename ?? item.uploadedObjectKey,
+              'length': item.length,
+              'mediaType': item.mediaType,
+              'name': _attachmentNameFor(item),
+            })
+        .toList()
+      ..addAll(existing.map(
+        (item) => {
+              'version': item.version,
+              'filename': item.filename,
+              'length': item.length,
+              'mediaType': item.mediaType,
+              'name': item.name,
+            },
+      ));
+
+    if (!hasUrl && attachments.isEmpty) {
+      setState(() => _solutionErrors[taskId] = 'Добавьте ссылку или файлы');
+      return;
+    }
+
+    setState(() {
+      _sendingSolutionTaskIds.add(taskId);
+      _solutionErrors[taskId] = null;
+    });
+
+    try {
+      final success = await apiService.submitTaskSolution(
+        taskId: taskId,
+        solutionUrl: hasUrl ? rawUrl : null,
+        attachments: attachments,
+      );
+      if (!mounted) return;
+      if (!success) {
+        setState(() => _solutionErrors[taskId] = 'Не удалось отправить решение');
+        return;
+      }
+      controller.clear();
+      setState(() {
+        _pendingSolutionAttachments.remove(taskId);
+        _editingSolutionAttachments.remove(taskId);
+        _isEditingSolution[taskId] = false;
+        _solutionErrors[taskId] = null;
+      });
+      await _reloadTaskDetails(taskId);
+    } catch (e, st) {
+      _log.warning('Error sending solution', e, st);
+      if (mounted) {
+        setState(() => _solutionErrors[taskId] = 'Не удалось отправить решение');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _sendingSolutionTaskIds.remove(taskId));
+      } else {
+        _sendingSolutionTaskIds.remove(taskId);
+      }
+    }
+  }
+
+  bool _isValidUrl(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return false;
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return false;
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme != 'http' && scheme != 'https') return false;
+    return uri.host.isNotEmpty;
   }
 
   String _commentTextToHtml(String text) {
