@@ -1431,17 +1431,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               },
             ),
             const SizedBox(height: 8),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Container(
-                key: ValueKey(selectedIndex),
-                color: const Color(0xFF121212),
-                child: selectedIndex == 1
-                    ? _buildCommentsTab(taskId, comments, isLoading)
-                    : selectedIndex == 2
-                        ? _buildInfoTab(material, events, isLoading)
-                        : _buildSolutionTab(taskId, material, events, isLoading),
-              ),
+            Container(
+              color: const Color(0xFF121212),
+              child: selectedIndex == 1
+                  ? _buildCommentsTab(taskId, comments, isLoading)
+                  : selectedIndex == 2
+                      ? _buildInfoTab(material, events, isLoading)
+                      : _buildSolutionTab(taskId, material, events, isLoading),
             ),
           ],
         ),
@@ -1493,13 +1489,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                       default:
                         content = _buildSolutionTab(taskId, material, events, isLoading);
                     }
-                    return AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Container(
-                        key: ValueKey(index),
-                        color: const Color(0xFF121212),
-                        child: content,
-                      ),
+                    return Container(
+                      color: const Color(0xFF121212),
+                      child: content,
                     );
                   },
                 );
