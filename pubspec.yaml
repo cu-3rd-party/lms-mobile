@@ -56,6 +56,9 @@ dependencies:
   uuid: ^4.4.0
   flutter_inappwebview: ^6.1.5
   flutter_highlight: ^0.7.0
+  image_picker: ^1.1.2
+  image: ^4.1.7
+  pdf: ^3.11.0
 
 dev_dependencies:
   flutter_test:

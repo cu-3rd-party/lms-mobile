@@ -4,12 +4,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
 
 class FilesTab extends StatelessWidget {
   final List<FileSystemEntity> files;
   final bool isLoading;
   final Set<String> selectedFiles;
   final VoidCallback onRefresh;
+  final VoidCallback onStartScan;
   final VoidCallback onDeleteAll;
   final VoidCallback onDeleteSelected;
   final void Function(File) onDelete;
@@ -21,6 +23,7 @@ class FilesTab extends StatelessWidget {
     required this.isLoading,
     required this.selectedFiles,
     required this.onRefresh,
+    required this.onStartScan,
     required this.onDeleteAll,
     required this.onDeleteSelected,
     required this.onDelete,
@@ -29,8 +32,10 @@ class FilesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sortedFiles = files.whereType<File>().toList()
+      ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
     final isIos = Platform.isIOS;
-    if (isLoading && files.isEmpty) {
+    if (isLoading && sortedFiles.isEmpty) {
       return Center(
         child: isIos
             ? const CupertinoActivityIndicator(
@@ -41,7 +46,7 @@ class FilesTab extends StatelessWidget {
       );
     }
 
-    if (files.isEmpty) {
+    if (sortedFiles.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -57,36 +62,58 @@ class FilesTab extends StatelessWidget {
               style: TextStyle(color: Colors.grey[500], fontSize: 16),
             ),
             const SizedBox(height: 8),
-            isIos
-                ? CupertinoButton(
-                    onPressed: onRefresh,
-                    child: const Text(
-                      'Обновить',
-                      style: TextStyle(color: Color(0xFF00E676)),
-                    ),
-                  )
-                : TextButton(
-                    onPressed: onRefresh,
-                    child: const Text('Обновить', style: TextStyle(color: Color(0xFF00E676))),
-                  ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                isIos
+                    ? CupertinoButton.filled(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        onPressed: onStartScan,
+                        child: const Text('Начать скан', style: TextStyle(color: Colors.black)),
+                      )
+                    : ElevatedButton(
+                        onPressed: onStartScan,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00E676),
+                          foregroundColor: Colors.black,
+                        ),
+                        child: const Text('Начать скан'),
+                      ),
+                isIos
+                    ? CupertinoButton(
+                        onPressed: onRefresh,
+                        child: const Text(
+                          'Обновить',
+                          style: TextStyle(color: Color(0xFF00E676)),
+                        ),
+                      )
+                    : TextButton(
+                        onPressed: onRefresh,
+                        child: const Text('Обновить', style: TextStyle(color: Color(0xFF00E676))),
+                      ),
+              ],
+            ),
           ],
         ),
       );
     }
 
-    final totalSize = files.fold<int>(
-      0,
-      (sum, file) => sum + (file as File).lengthSync(),
-    );
+    final totalSize = sortedFiles.fold<int>(0, (sum, file) => sum + file.lengthSync());
 
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: _ScanCallout(isIos: isIos, onStartScan: onStartScan),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
               Text(
-                '${files.length} файлов • ${_formatFileSize(totalSize)}',
+                '${sortedFiles.length} файлов • ${_formatFileSize(totalSize)}',
                 style: TextStyle(fontSize: 13, color: Colors.grey[500]),
               ),
               const Spacer(),
@@ -156,7 +183,7 @@ class FilesTab extends StatelessWidget {
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
-                            final file = files[index] as File;
+                            final file = sortedFiles[index];
                             return _FileListItem(
                               file: file,
                               isSelected: selectedFiles.contains(file.path),
@@ -165,7 +192,7 @@ class FilesTab extends StatelessWidget {
                               onDelete: () => onDelete(file),
                             );
                           },
-                          childCount: files.length,
+                          childCount: sortedFiles.length,
                         ),
                       ),
                     ),
@@ -176,9 +203,9 @@ class FilesTab extends StatelessWidget {
                   color: const Color(0xFF00E676),
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: files.length,
+                    itemCount: sortedFiles.length,
                     itemBuilder: (context, index) {
-                      final file = files[index] as File;
+                      final file = sortedFiles[index];
                       return _FileListItem(
                         file: file,
                         isSelected: selectedFiles.contains(file.path),
@@ -204,6 +231,85 @@ class FilesTab extends StatelessWidget {
   }
 }
 
+class _ScanCallout extends StatelessWidget {
+  final bool isIos;
+  final VoidCallback onStartScan;
+
+  const _ScanCallout({required this.isIos, required this.onStartScan});
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(12);
+    return Material(
+      color: Colors.transparent,
+      borderRadius: radius,
+      child: InkWell(
+        borderRadius: radius,
+        onTap: onStartScan,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E),
+            borderRadius: radius,
+            border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.2)),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00E676).withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isIos ? CupertinoIcons.viewfinder : Icons.document_scanner_outlined,
+                  color: const Color(0xFF00E676),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Сканировать работу',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              isIos
+                  ? CupertinoButton.filled(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      onPressed: onStartScan,
+                      child: const Text(
+                        'Начать',
+                        style: TextStyle(color: Colors.black),
+                      ),
+                    )
+                  : ElevatedButton(
+                      onPressed: onStartScan,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00E676),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      child: const Text('Начать'),
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FileListItem extends StatelessWidget {
   final File file;
   final bool isSelected;
@@ -223,7 +329,7 @@ class _FileListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
     final stat = file.statSync();
-    final name = file.path.split('/').last;
+    final name = _visibleName(file);
     final ext = _getFileExtension(name);
 
     final content = Container(
@@ -277,7 +383,7 @@ class _FileListItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${_formatFileSize(stat.size)} • ${DateFormat('dd.MM.yyyy').format(stat.modified)}',
+                    '${_formatFileSize(stat.size)} • ${DateFormat('dd.MM.yyyy HH:mm').format(stat.modified)}',
                     style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                   ),
                 ],
@@ -343,5 +449,14 @@ class _FileListItem extends StatelessWidget {
     final lastDot = path.lastIndexOf('.');
     if (lastDot == -1 || lastDot == path.length - 1) return '';
     return path.substring(lastDot + 1).toUpperCase();
+  }
+
+  String _visibleName(File file) {
+    final base = p.basename(file.path);
+    final match = RegExp(r'^(.*)__dup\d+(\.[^.]+)$').firstMatch(base);
+    if (match != null) {
+      return '${match.group(1)}${match.group(2)}';
+    }
+    return base;
   }
 }

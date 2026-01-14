@@ -17,6 +17,7 @@ import 'package:mime/mime.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
@@ -1957,38 +1958,194 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
   Future<void> _pickCommentAttachments(int taskId) async {
     try {
+      final quick = await _pickRecentScan();
+      if (quick != null) {
+        await _addPendingAttachments(taskId, [quick]);
+        return;
+      }
+
       final result = await FilePicker.platform.pickFiles(allowMultiple: true);
       if (result == null) return;
-      final pending = _pendingCommentAttachments[taskId] ?? [];
-      final additions = <_PendingCommentAttachment>[];
-      for (final file in result.files) {
-        final path = file.path;
-        if (path == null) continue;
-        final contentType = lookupMimeType(path) ?? 'application/octet-stream';
-        final mediaType = contentType.startsWith('image/') ? 'image' : 'file';
-        final normalizedName = _normalizeFilename(p.basename(path), contentType);
-        additions.add(
-          _PendingCommentAttachment(
-            file: File(path),
-            name: normalizedName,
-            length: file.size,
-            contentType: contentType,
-            mediaType: mediaType,
-            status: _AttachmentUploadStatus.queued,
-            progress: 0,
-          ),
-        );
-      }
-      if (additions.isEmpty) return;
-      setState(() {
-        _pendingCommentAttachments[taskId] = [...pending, ...additions];
-        _commentErrors[taskId] = null;
-      });
-      await _uploadPendingAttachments(taskId);
+      final additions = await Future.wait(
+        result.files.map(_pendingFromPlatformFile),
+      );
+      final filtered = additions.whereType<_PendingCommentAttachment>().toList();
+      if (filtered.isEmpty) return;
+      await _addPendingAttachments(taskId, filtered);
     } catch (e, st) {
       _log.warning('Error picking attachments', e, st);
       setState(() => _commentErrors[taskId] = 'Не удалось выбрать файл');
     }
+  }
+
+  Future<_PendingCommentAttachment?> _pendingFromPlatformFile(
+    PlatformFile file,
+  ) async {
+    final path = file.path;
+    if (path == null) return null;
+    final contentType = lookupMimeType(path) ?? 'application/octet-stream';
+    final mediaType = contentType.startsWith('image/') ? 'image' : 'file';
+    final normalizedName = _normalizeFilename(p.basename(path), contentType);
+    return _PendingCommentAttachment(
+      file: File(path),
+      name: normalizedName,
+      length: file.size,
+      contentType: contentType,
+      mediaType: mediaType,
+      status: _AttachmentUploadStatus.queued,
+      progress: 0,
+    );
+  }
+
+  Future<void> _addPendingAttachments(
+    int taskId,
+    List<_PendingCommentAttachment> additions,
+  ) async {
+    if (additions.isEmpty) return;
+    final pending = _pendingCommentAttachments[taskId] ?? [];
+    setState(() {
+      _pendingCommentAttachments[taskId] = [...pending, ...additions];
+      _commentErrors[taskId] = null;
+    });
+    await _uploadPendingAttachments(taskId);
+  }
+
+  Future<_PendingCommentAttachment?> _pickRecentScan() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final cutoff = DateTime.now().subtract(const Duration(minutes: 10));
+      final recent = dir
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.toLowerCase().endsWith('.pdf'))
+          .where((file) => file.statSync().modified.isAfter(cutoff))
+          .toList()
+        ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+      if (recent.isEmpty) return null;
+
+      final chosen = await _showRecentScanPicker(recent);
+      if (chosen == null) return null;
+
+      final stat = chosen.statSync();
+      final contentType = lookupMimeType(chosen.path) ?? 'application/pdf';
+      final mediaType = contentType.startsWith('image/') ? 'image' : 'file';
+      final normalizedName =
+          _normalizeFilename(_stripDupSuffix(p.basename(chosen.path)), contentType);
+      return _PendingCommentAttachment(
+        file: chosen,
+        name: normalizedName,
+        length: stat.size,
+        contentType: contentType,
+        mediaType: mediaType,
+        status: _AttachmentUploadStatus.queued,
+        progress: 0,
+      );
+    } catch (e, st) {
+      _log.warning('Error suggesting recent scan', e, st);
+      return null;
+    }
+  }
+
+  String _stripDupSuffix(String name) {
+    final match = RegExp(r'^(.*)__dup\d+(\.[A-Za-z0-9]+)$').firstMatch(name);
+    if (match != null) {
+      return '${match.group(1)}${match.group(2)}';
+    }
+    return name;
+  }
+
+  Future<File?> _showRecentScanPicker(List<File> files) {
+    final items = files.take(5).toList();
+    final now = DateTime.now();
+
+    if (Platform.isIOS) {
+      return showCupertinoModalPopup<File>(
+        context: context,
+        builder: (context) => CupertinoActionSheet(
+          title: const Text('Недавние сканы'),
+          actions: items
+              .map(
+                (file) => CupertinoActionSheetAction(
+                  onPressed: () => Navigator.pop(context, file),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _stripDupSuffix(p.basename(file.path)),
+                          style: const TextStyle(fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatRelative(now, file.statSync().modified),
+                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Другое...'),
+          ),
+        ),
+      );
+    }
+
+    return showModalBottomSheet<File>(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(
+                'Недавние сканы',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ...items.map(
+              (file) => ListTile(
+                title: Text(
+                  _stripDupSuffix(p.basename(file.path)),
+                  style: const TextStyle(color: Colors.white),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  _formatRelative(now, file.statSync().modified),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                ),
+                onTap: () => Navigator.pop(context, file),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.insert_drive_file, color: Colors.white),
+              title: const Text('Выбрать другой файл', style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatRelative(DateTime now, DateTime time) {
+    final diff = now.difference(time);
+    if (diff.inMinutes < 1) return 'менее минуты назад';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} мин назад';
+    if (diff.inHours < 24) return '${diff.inHours} ч назад';
+    return DateFormat('dd.MM.yyyy HH:mm').format(time);
   }
 
   void _removePendingAttachment(int taskId, int index) {
@@ -2162,6 +2319,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         RegExp(r'^(.*\.[A-Za-z0-9]+)_[A-Za-z0-9]{4,}$').firstMatch(normalized);
     if (suffixMatch != null) {
       normalized = suffixMatch.group(1) ?? normalized;
+    }
+    final dupMatch = RegExp(r'^(.*)__dup\d+(\.[A-Za-z0-9]+)$').firstMatch(normalized);
+    if (dupMatch != null) {
+      normalized = '${dupMatch.group(1)}${dupMatch.group(2)}';
     }
     final currentExt = p.extension(normalized);
     if (currentExt.isNotEmpty) {

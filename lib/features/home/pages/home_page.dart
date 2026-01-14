@@ -27,6 +27,7 @@ import 'package:cumobile/features/home/widgets/sections/schedule_section.dart';
 import 'package:cumobile/features/home/widgets/tabs/courses_tab.dart';
 import 'package:cumobile/features/home/widgets/tabs/files_tab.dart';
 import 'package:cumobile/features/home/widgets/tabs/tasks_tab.dart';
+import 'package:cumobile/features/home/pages/scan_work_page.dart';
 import 'package:cumobile/features/performance/pages/course_performance_page.dart';
 import 'package:cumobile/data/models/student_performance.dart';
 
@@ -648,6 +649,7 @@ class _HomePageState extends State<HomePage> {
           isLoading: _isLoadingFiles,
           selectedFiles: _selectedFiles,
           onRefresh: _loadFiles,
+          onStartScan: _openScanner,
           onDeleteAll: _deleteAllFiles,
           onDeleteSelected: _deleteSelectedFiles,
           onDelete: _deleteFile,
@@ -916,6 +918,22 @@ class _HomePageState extends State<HomePage> {
           : MaterialPageRoute(
               builder: (context) => CoursePerformancePage(course: course)),
     );
+  }
+
+  Future<void> _openScanner() async {
+    if (!mounted) return;
+    final created = await Navigator.push<bool>(
+      context,
+      Platform.isIOS
+          ? CupertinoPageRoute(builder: (context) => const ScanWorkPage())
+          : MaterialPageRoute(builder: (context) => const ScanWorkPage()),
+    );
+    if (created == true) {
+      await _loadFiles();
+      if (mounted) {
+        _showSnack('Скан сохранён в файлах');
+      }
+    }
   }
 
   Future<void> _loadFiles() async {
