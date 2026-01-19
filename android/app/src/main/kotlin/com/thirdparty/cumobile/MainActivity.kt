@@ -1,4 +1,4 @@
-package com.`3rdparty`.culms
+package com.thirdparty.cumobile
 
 import io.flutter.embedding.android.FlutterActivity
 

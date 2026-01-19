@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.3rdparty.culms"
+    namespace = "com.thirdparty.cumobile"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.3rdparty.culms"
+        applicationId = "com.thirdparty.cumobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
