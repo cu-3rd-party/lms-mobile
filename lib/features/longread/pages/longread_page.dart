@@ -22,6 +22,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:cumobile/core/services/file_rename_service.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/longread_material.dart';
 import 'package:cumobile/data/models/task_comment.dart';
@@ -29,6 +30,7 @@ import 'package:cumobile/data/models/task_details.dart';
 import 'package:cumobile/data/models/task_event.dart';
 import 'package:cumobile/data/services/api_service.dart';
 import 'package:cumobile/features/longread/widgets/attachment_card.dart';
+import 'package:cumobile/features/longread/widgets/file_rename_dialog.dart';
 import 'package:cumobile/features/longread/widgets/longread_file_card.dart';
 
 class LongreadPage extends StatefulWidget {
@@ -97,6 +99,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    FileRenameService.instance.load();
     _loadMaterials();
   }
 
@@ -2480,11 +2483,22 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     setState(() => _solutionErrors[taskId] = null);
   }
 
+  String? _getActivityNameForTask(int taskId) {
+    final material = _materials.firstWhere(
+      (m) => m.taskId == taskId,
+      orElse: () => LongreadMaterial(id: 0, discriminator: ''),
+    );
+    return material.estimation?.activityName;
+  }
+
   Future<void> _pickCommentAttachments(int taskId) async {
     try {
       final quick = await _pickRecentScan();
       if (quick != null) {
-        await _addPendingAttachments(taskId, [quick]);
+        final renamed = await _applyRenameDialog(quick, taskId);
+        if (renamed != null) {
+          await _addPendingAttachments(taskId, [renamed]);
+        }
         return;
       }
 
@@ -2495,7 +2509,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       );
       final filtered = additions.whereType<_PendingCommentAttachment>().toList();
       if (filtered.isEmpty) return;
-      await _addPendingAttachments(taskId, filtered);
+
+      final renamed = await _applyRenameDialogToList(filtered, taskId);
+      if (renamed.isEmpty) return;
+      await _addPendingAttachments(taskId, renamed);
     } catch (e, st) {
       _log.warning('Error picking attachments', e, st);
       setState(() => _commentErrors[taskId] = 'Не удалось выбрать файл');
@@ -2506,14 +2523,17 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     try {
       final quick = await _pickRecentScan();
       if (quick != null) {
-        await _addPendingAttachments(
-          taskId,
-          [quick],
-          storage: _pendingSolutionAttachments,
-          errorMap: _solutionErrors,
-          directoryBuilder: (id) => 'tasks/$id/solutions',
-          uploadContext: 'solution',
-        );
+        final renamed = await _applyRenameDialog(quick, taskId);
+        if (renamed != null) {
+          await _addPendingAttachments(
+            taskId,
+            [renamed],
+            storage: _pendingSolutionAttachments,
+            errorMap: _solutionErrors,
+            directoryBuilder: (id) => 'tasks/$id/solutions',
+            uploadContext: 'solution',
+          );
+        }
         return;
       }
 
@@ -2524,9 +2544,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       );
       final filtered = additions.whereType<_PendingCommentAttachment>().toList();
       if (filtered.isEmpty) return;
+
+      final renamed = await _applyRenameDialogToList(filtered, taskId);
+      if (renamed.isEmpty) return;
       await _addPendingAttachments(
         taskId,
-        filtered,
+        renamed,
         storage: _pendingSolutionAttachments,
         errorMap: _solutionErrors,
         directoryBuilder: (id) => 'tasks/$id/solutions',
@@ -2536,6 +2559,50 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       _log.warning('Error picking solution attachments', e, st);
       setState(() => _solutionErrors[taskId] = 'Не удалось выбрать файл');
     }
+  }
+
+  Future<_PendingCommentAttachment?> _applyRenameDialog(
+    _PendingCommentAttachment attachment,
+    int taskId,
+  ) async {
+    final courseId = widget.courseId;
+    if (courseId == null) return attachment;
+
+    final activityType = _getActivityNameForTask(taskId);
+    final result = await FileRenameDialog.show(
+      context: context,
+      originalName: attachment.name,
+      courseId: courseId,
+      courseName: widget.courseName,
+      activityType: activityType,
+    );
+
+    if (result == null) return null;
+    if (result.name == attachment.name) return attachment;
+
+    return _PendingCommentAttachment(
+      file: attachment.file,
+      name: result.name,
+      length: attachment.length,
+      contentType: attachment.contentType,
+      mediaType: attachment.mediaType,
+      status: attachment.status,
+      progress: attachment.progress,
+    );
+  }
+
+  Future<List<_PendingCommentAttachment>> _applyRenameDialogToList(
+    List<_PendingCommentAttachment> attachments,
+    int taskId,
+  ) async {
+    final result = <_PendingCommentAttachment>[];
+    for (final attachment in attachments) {
+      final renamed = await _applyRenameDialog(attachment, taskId);
+      if (renamed != null) {
+        result.add(renamed);
+      }
+    }
+    return result;
   }
 
   Future<_PendingCommentAttachment?> _pendingFromPlatformFile(

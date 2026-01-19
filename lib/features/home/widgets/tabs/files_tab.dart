@@ -11,6 +11,7 @@ class FilesTab extends StatelessWidget {
   final bool isLoading;
   final Set<String> selectedFiles;
   final VoidCallback onRefresh;
+  final VoidCallback onOpenTemplates;
   final VoidCallback onStartScan;
   final VoidCallback onDeleteAll;
   final VoidCallback onDeleteSelected;
@@ -23,6 +24,7 @@ class FilesTab extends StatelessWidget {
     required this.isLoading,
     required this.selectedFiles,
     required this.onRefresh,
+    required this.onOpenTemplates,
     required this.onStartScan,
     required this.onDeleteAll,
     required this.onDeleteSelected,
@@ -67,6 +69,7 @@ class FilesTab extends StatelessWidget {
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: [
+                _TemplatesButton(isIos: isIos, onOpenTemplates: onOpenTemplates),
                 isIos
                     ? CupertinoButton.filled(
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -104,6 +107,10 @@ class FilesTab extends StatelessWidget {
 
     return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: _TemplatesCallout(isIos: isIos, onOpenTemplates: onOpenTemplates),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: _ScanCallout(isIos: isIos, onStartScan: onStartScan),
@@ -228,6 +235,111 @@ class FilesTab extends StatelessWidget {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+}
+
+class _TemplatesButton extends StatelessWidget {
+  final bool isIos;
+  final VoidCallback onOpenTemplates;
+
+  const _TemplatesButton({required this.isIos, required this.onOpenTemplates});
+
+  @override
+  Widget build(BuildContext context) {
+    if (isIos) {
+      return CupertinoButton(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(10),
+        onPressed: onOpenTemplates,
+        child: const Text(
+          'Шаблоны имён',
+          style: TextStyle(color: Color(0xFF00E676), fontSize: 14),
+        ),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: onOpenTemplates,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF00E676),
+        side: const BorderSide(color: Color(0xFF00E676)),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
+      icon: const Icon(Icons.description_outlined, size: 18),
+      label: const Text('Шаблоны имён'),
+    );
+  }
+}
+
+class _TemplatesCallout extends StatelessWidget {
+  final bool isIos;
+  final VoidCallback onOpenTemplates;
+
+  const _TemplatesCallout({required this.isIos, required this.onOpenTemplates});
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(12);
+    return Material(
+      color: Colors.transparent,
+      borderRadius: radius,
+      child: InkWell(
+        borderRadius: radius,
+        onTap: onOpenTemplates,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E),
+            borderRadius: radius,
+            border: Border.all(color: Colors.grey[800]!),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00E676).withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isIos ? CupertinoIcons.doc_text : Icons.description_outlined,
+                  color: const Color(0xFF00E676),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Шаблоны имён файлов',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Автопереименование вложений',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                isIos ? CupertinoIcons.chevron_right : Icons.chevron_right,
+                color: Colors.grey[600],
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

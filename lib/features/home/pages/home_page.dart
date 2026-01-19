@@ -30,6 +30,7 @@ import 'package:cumobile/features/home/widgets/tabs/tasks_tab.dart';
 import 'package:cumobile/features/home/pages/scan_work_page.dart';
 import 'package:cumobile/features/performance/pages/course_performance_page.dart';
 import 'package:cumobile/data/models/student_performance.dart';
+import 'package:cumobile/features/settings/pages/file_rename_settings_page.dart';
 
 class HomePage extends StatefulWidget {
   final VoidCallback onLogout;
@@ -649,6 +650,7 @@ class _HomePageState extends State<HomePage> {
           isLoading: _isLoadingFiles,
           selectedFiles: _selectedFiles,
           onRefresh: _loadFiles,
+          onOpenTemplates: _openFileRenameSettings,
           onStartScan: _openScanner,
           onDeleteAll: _deleteAllFiles,
           onDeleteSelected: _deleteSelectedFiles,
@@ -917,6 +919,15 @@ class _HomePageState extends State<HomePage> {
               builder: (context) => CoursePerformancePage(course: course))
           : MaterialPageRoute(
               builder: (context) => CoursePerformancePage(course: course)),
+    );
+  }
+
+  void _openFileRenameSettings() {
+    Navigator.push(
+      context,
+      Platform.isIOS
+          ? CupertinoPageRoute(builder: (_) => const FileRenameSettingsPage())
+          : MaterialPageRoute(builder: (_) => const FileRenameSettingsPage()),
     );
   }
 
