@@ -86,6 +86,7 @@ flutter:
     - assets/icons/level-basic.svg
     - assets/icons/level-medium.svg
     - assets/icons/level-advanced.svg
+    - assets/icons/cuIconLogo.svg
 
 flutter_launcher_icons:
   android: true
