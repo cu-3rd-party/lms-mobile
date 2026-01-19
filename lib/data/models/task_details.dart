@@ -25,6 +25,21 @@ class TaskDetails {
     this.hasSolution = false,
   }) : solutionAttachments = solutionAttachments ?? const [];
 
+  TaskDetails copyWith({String? state}) {
+    return TaskDetails(
+      id: id,
+      score: score,
+      extraScore: extraScore,
+      maxScore: maxScore,
+      scoreSkillLevel: scoreSkillLevel,
+      state: state ?? this.state,
+      solutionUrl: solutionUrl,
+      solutionAttachments: solutionAttachments,
+      submitAt: submitAt,
+      hasSolution: hasSolution,
+    );
+  }
+
   factory TaskDetails.fromJson(Map<String, dynamic> json) {
     final rawScore = json['score'];
     final rawExtraScore = json['extraScore'];

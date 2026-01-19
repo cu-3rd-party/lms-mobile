@@ -464,6 +464,29 @@ class ApiService {
     }
   }
 
+  Future<bool> startTask(int taskId) async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return false;
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/micro-lms/tasks/$taskId/start'),
+        headers: {
+          'Cookie': cookie,
+          'Content-Type': 'application/json',
+        },
+      );
+
+      await _handleResponse(response);
+      return response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204;
+    } catch (e, st) {
+      _log.warning('Error starting task', e, st);
+      return false;
+    }
+  }
+
   Future<List<NotificationItem>> fetchNotifications({
     required int category,
     int limit = 100,

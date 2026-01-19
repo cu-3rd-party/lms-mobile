@@ -80,6 +80,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   final Map<int, List<_PendingCommentAttachment>> _pendingSolutionAttachments = {};
   final Map<int, List<MaterialAttachment>> _editingSolutionAttachments = {};
   final Map<int, bool> _isEditingSolution = {};
+  final Set<int> _startingTaskIds = {};
   static final Logger _log = Logger('LongreadPage');
 
   // Search
@@ -1512,6 +1513,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final details = _taskDetailsById[taskId];
     final existingSolutionAttachments = details?.solutionAttachments ?? const [];
     final derivedStatus = _deriveStatus(events, details);
+    final isBacklog = details?.state == 'backlog' || derivedStatus == 'Бэклог';
     final isInProgress = details?.state == 'inProgress' || derivedStatus == 'В работе';
     final hasSolutionData =
         (details?.solutionUrl?.isNotEmpty ?? false) || existingSolutionAttachments.isNotEmpty;
@@ -1527,12 +1529,19 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final currentSolutionSection =
         showCurrentSolution ? _buildCurrentSolutionView(taskId, details, canEdit, isEditing) : null;
 
+    final isStarting = _startingTaskIds.contains(taskId);
+    final startTaskButton = isBacklog ? _buildStartTaskButton(taskId, isStarting) : null;
+
     if (isLoading) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (currentSolutionSection != null) ...[
             currentSolutionSection,
+            const SizedBox(height: 12),
+          ],
+          if (startTaskButton != null) ...[
+            startTaskButton,
             const SizedBox(height: 12),
           ],
           if (composer != null) ...[
@@ -1558,6 +1567,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         children: [
           if (currentSolutionSection != null) ...[
             currentSolutionSection,
+            const SizedBox(height: 12),
+          ],
+          if (startTaskButton != null) ...[
+            startTaskButton,
             const SizedBox(height: 12),
           ],
           if (composer != null) ...[
@@ -1595,6 +1608,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       children: [
         if (currentSolutionSection != null) ...[
           currentSolutionSection,
+          const SizedBox(height: 12),
+        ],
+        if (startTaskButton != null) ...[
+          startTaskButton,
           const SizedBox(height: 12),
         ],
         if (composer != null) ...[
@@ -3618,6 +3635,97 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     } finally {
       _loadingTaskIds.remove(taskId);
     }
+  }
+
+  Future<void> _startTask(int taskId) async {
+    if (_startingTaskIds.contains(taskId)) return;
+    setState(() => _startingTaskIds.add(taskId));
+    try {
+      final success = await apiService.startTask(taskId);
+      if (!mounted) return;
+      if (success) {
+        await _reloadTaskDetails(taskId);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось начать задание')),
+        );
+      }
+    } catch (e, st) {
+      _log.warning('Error starting task', e, st);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ошибка при начале задания')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _startingTaskIds.remove(taskId));
+      }
+    }
+  }
+
+  Widget _buildStartTaskButton(int taskId, bool isStarting) {
+    final isIos = Platform.isIOS;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Задание в бэклоге',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          isIos
+              ? CupertinoButton(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  color: widget.themeColor,
+                  borderRadius: BorderRadius.circular(12),
+                  onPressed: isStarting ? null : () => _startTask(taskId),
+                  child: isStarting
+                      ? const CupertinoActivityIndicator(color: Colors.white)
+                      : const Text(
+                          'Начать задание',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                )
+              : ElevatedButton(
+                  onPressed: isStarting ? null : () => _startTask(taskId),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: widget.themeColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: isStarting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Начать задание',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                ),
+        ],
+      ),
+    );
   }
 
   Widget _buildInfoRow(String label, String value) {
