@@ -821,14 +821,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
   List<LongreadMaterial> _getFilteredMaterials() {
     if (widget.selectedTaskId != null) {
-      return _materials
-          .where((m) => m.isCoding && m.taskId == widget.selectedTaskId)
-          .toList();
+      return _materials.where((m) {
+        if (m.isCoding) return m.taskId == widget.selectedTaskId;
+        return true; // keep markdown/files alongside selected task
+      }).toList();
     }
     if (widget.selectedExerciseName != null) {
-      return _materials
-          .where((m) => m.isCoding && m.name == widget.selectedExerciseName)
-          .toList();
+      return _materials.where((m) {
+        if (m.isCoding) return m.name == widget.selectedExerciseName;
+        return true;
+      }).toList();
     }
     return _materials;
   }
@@ -839,7 +841,14 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final seenTaskIds = <int>{};
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final items = <Widget>[];
-    for (final material in filteredMaterials) {
+
+    // Show non-coding materials first (markdown/files), then coding cards.
+    final orderedMaterials = [
+      ...filteredMaterials.where((m) => !m.isCoding),
+      ...filteredMaterials.where((m) => m.isCoding),
+    ];
+
+    for (final material in orderedMaterials) {
       if (material.isMarkdown) {
         items.add(_buildMarkdownCard(material));
       } else if (material.isFile) {
