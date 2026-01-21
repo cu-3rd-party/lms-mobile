@@ -724,7 +724,7 @@ class _HomePageState extends State<HomePage> {
             final course = _findCourse(task.course.id);
             final themeColor = course?.categoryColor ?? const Color(0xFF607D8B);
             final courseName = course?.cleanName ?? task.course.cleanName;
-            Navigator.push(
+            await Navigator.push(
               context,
               Platform.isIOS
                   ? CupertinoPageRoute(
@@ -750,6 +750,9 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
             );
+            if (!mounted) return;
+            setState(() => _isLoadingTasks = true);
+            await _loadTasks();
             return;
           }
         }
