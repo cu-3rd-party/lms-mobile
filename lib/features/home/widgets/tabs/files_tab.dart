@@ -49,55 +49,66 @@ class FilesTab extends StatelessWidget {
     }
 
     if (sortedFiles.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      final emptyContent = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isIos ? CupertinoIcons.folder : Icons.folder_open,
+            size: 64,
+            color: Colors.grey[700],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Нет скачанных файлов',
+            style: TextStyle(color: Colors.grey[500], fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              _TemplatesButton(isIos: isIos, onOpenTemplates: onOpenTemplates),
+              isIos
+                  ? CupertinoButton.filled(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      onPressed: onStartScan,
+                      child: const Text('Начать скан', style: TextStyle(color: Colors.black)),
+                    )
+                  : ElevatedButton(
+                      onPressed: onStartScan,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00E676),
+                        foregroundColor: Colors.black,
+                      ),
+                      child: const Text('Начать скан'),
+                    ),
+            ],
+          ),
+        ],
+      );
+
+      if (isIos) {
+        return CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            CupertinoSliverRefreshControl(onRefresh: () async => onRefresh()),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: emptyContent),
+            ),
+          ],
+        );
+      }
+
+      return RefreshIndicator(
+        onRefresh: () async => onRefresh(),
+        color: const Color(0xFF00E676),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           children: [
-            Icon(
-              isIos ? CupertinoIcons.folder : Icons.folder_open,
-              size: 64,
-              color: Colors.grey[700],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Нет скачанных файлов',
-              style: TextStyle(color: Colors.grey[500], fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                _TemplatesButton(isIos: isIos, onOpenTemplates: onOpenTemplates),
-                isIos
-                    ? CupertinoButton.filled(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                        onPressed: onStartScan,
-                        child: const Text('Начать скан', style: TextStyle(color: Colors.black)),
-                      )
-                    : ElevatedButton(
-                        onPressed: onStartScan,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00E676),
-                          foregroundColor: Colors.black,
-                        ),
-                        child: const Text('Начать скан'),
-                      ),
-                isIos
-                    ? CupertinoButton(
-                        onPressed: onRefresh,
-                        child: const Text(
-                          'Обновить',
-                          style: TextStyle(color: Color(0xFF00E676)),
-                        ),
-                      )
-                    : TextButton(
-                        onPressed: onRefresh,
-                        child: const Text('Обновить', style: TextStyle(color: Color(0xFF00E676))),
-                      ),
-              ],
-            ),
+            Center(child: emptyContent),
           ],
         ),
       );
