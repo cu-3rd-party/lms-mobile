@@ -105,7 +105,7 @@ class DeadlinesSection extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 76,
+            height: 88,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),

@@ -523,117 +523,121 @@ class _CourseSheetState extends State<_CourseSheet> {
       ..sort((a, b) => (widget.courseNames[a] ?? '').compareTo(widget.courseNames[b] ?? ''));
     final maxListHeight = MediaQuery.of(context).size.height * 0.5;
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 36,
-            height: 4,
-            margin: const EdgeInsets.only(top: 8, bottom: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey[700],
-              borderRadius: BorderRadius.circular(2),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 8, bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey[700],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Фильтр по курсам',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Фильтр по курсам',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          if (isIos)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Все курсы',
-                      style: TextStyle(fontSize: 13, color: Colors.white),
+            const SizedBox(height: 8),
+            if (isIos)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Все курсы',
+                        style: TextStyle(fontSize: 13, color: Colors.white),
+                      ),
                     ),
-                  ),
-                  CupertinoSwitch(
-                    value: _localFilters.isEmpty,
-                    activeTrackColor: const Color(0xFF00E676),
-                    onChanged: (_) => _clearFilters(),
-                  ),
-                ],
+                    CupertinoSwitch(
+                      value: _localFilters.isEmpty,
+                      activeTrackColor: const Color(0xFF00E676),
+                      onChanged: (_) => _clearFilters(),
+                    ),
+                  ],
+                ),
+              )
+            else
+              CheckboxListTile(
+                value: _localFilters.isEmpty,
+                dense: true,
+                activeColor: const Color(0xFF00E676),
+                checkColor: Colors.black,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text(
+                  'Все курсы',
+                  style: TextStyle(fontSize: 13, color: Colors.white),
+                ),
+                onChanged: (_) => _clearFilters(),
               ),
-            )
-          else
-            CheckboxListTile(
-              value: _localFilters.isEmpty,
-              dense: true,
-              activeColor: const Color(0xFF00E676),
-              checkColor: Colors.black,
-              controlAffinity: ListTileControlAffinity.leading,
-              title: const Text(
-                'Все курсы',
-                style: TextStyle(fontSize: 13, color: Colors.white),
-              ),
-              onChanged: (_) => _clearFilters(),
-            ),
-          const Divider(color: Color(0xFF1E1E1E), height: 16),
-          ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxListHeight),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: courseIds.length,
-              itemBuilder: (context, index) {
-                final courseId = courseIds[index];
-                final name = widget.courseNames[courseId] ?? 'Курс';
-                final count = widget.counts[courseId] ?? 0;
-                final isSelected = _localFilters.contains(courseId);
-                if (isIos) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '$name ($count)',
-                            style: const TextStyle(fontSize: 13, color: Colors.white),
+            const Divider(color: Color(0xFF1E1E1E), height: 16),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxListHeight),
+              child: ListView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                shrinkWrap: true,
+                itemCount: courseIds.length,
+                itemBuilder: (context, index) {
+                  final courseId = courseIds[index];
+                  final name = widget.courseNames[courseId] ?? 'Курс';
+                  final count = widget.counts[courseId] ?? 0;
+                  final isSelected = _localFilters.contains(courseId);
+                  if (isIos) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '$name ($count)',
+                              style: const TextStyle(fontSize: 13, color: Colors.white),
+                            ),
                           ),
-                        ),
-                        CupertinoSwitch(
-                          value: isSelected,
-                          activeTrackColor: const Color(0xFF00E676),
-                          onChanged: (_) => _toggleFilter(courseId),
-                        ),
-                      ],
+                          CupertinoSwitch(
+                            value: isSelected,
+                            activeTrackColor: const Color(0xFF00E676),
+                            onChanged: (_) => _toggleFilter(courseId),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return CheckboxListTile(
+                    value: isSelected,
+                    dense: true,
+                    activeColor: const Color(0xFF00E676),
+                    checkColor: Colors.black,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: Text(
+                      '$name ($count)',
+                      style: const TextStyle(fontSize: 13, color: Colors.white),
                     ),
+                    onChanged: (_) => _toggleFilter(courseId),
                   );
-                }
-                return CheckboxListTile(
-                  value: isSelected,
-                  dense: true,
-                  activeColor: const Color(0xFF00E676),
-                  checkColor: Colors.black,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: Text(
-                    '$name ($count)',
-                    style: const TextStyle(fontSize: 13, color: Colors.white),
-                  ),
-                  onChanged: (_) => _toggleFilter(courseId),
-                );
-              },
+                },
+              ),
             ),
-          ),
-          if (isIos)
-            CupertinoButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Готово'),
-            ),
-        ],
+            if (isIos)
+              CupertinoButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Готово'),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -684,47 +688,50 @@ class _StatusSheetState extends State<_StatusSheet> {
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 36,
-            height: 4,
-            margin: const EdgeInsets.only(top: 8, bottom: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey[700],
-              borderRadius: BorderRadius.circular(2),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 8, bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey[700],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Фильтр по статусу',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Фильтр по статусу',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          _buildStatusTile('В работе', 'inProgress', widget.counts['inProgress'] ?? 0, isIos),
-          _buildStatusTile('Есть решение', 'hasSolution', widget.counts['hasSolution'] ?? 0, isIos),
-          _buildStatusTile('Доработка', 'revision', widget.counts['revision'] ?? 0, isIos),
-          _buildStatusTile('На проверке', 'review', widget.counts['review'] ?? 0, isIos),
-          _buildStatusTile('Не начато', 'backlog', widget.counts['backlog'] ?? 0, isIos),
-          _buildStatusTile('Не сдано', 'failed', widget.counts['failed'] ?? 0, isIos),
-          _buildStatusTile('Проверено', 'evaluated', widget.counts['evaluated'] ?? 0, isIos),
-          const SizedBox(height: 8),
-          if (isIos)
-            CupertinoButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Готово'),
-            ),
-        ],
+            const SizedBox(height: 8),
+            _buildStatusTile('В работе', 'inProgress', widget.counts['inProgress'] ?? 0, isIos),
+            _buildStatusTile('Есть решение', 'hasSolution', widget.counts['hasSolution'] ?? 0, isIos),
+            _buildStatusTile('Доработка', 'revision', widget.counts['revision'] ?? 0, isIos),
+            _buildStatusTile('На проверке', 'review', widget.counts['review'] ?? 0, isIos),
+            _buildStatusTile('Не начато', 'backlog', widget.counts['backlog'] ?? 0, isIos),
+            _buildStatusTile('Не сдано', 'failed', widget.counts['failed'] ?? 0, isIos),
+            _buildStatusTile('Проверено', 'evaluated', widget.counts['evaluated'] ?? 0, isIos),
+            const SizedBox(height: 8),
+            if (isIos)
+              CupertinoButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Готово'),
+              ),
+          ],
+        ),
       ),
     );
   }
