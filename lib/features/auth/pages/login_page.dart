@@ -112,7 +112,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
             Text(
-              'Версия ${_appVersion}',
+              'Версия $_appVersion',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[600],

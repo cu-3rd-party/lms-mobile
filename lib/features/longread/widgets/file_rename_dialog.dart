@@ -36,7 +36,6 @@ class FileRenameDialog extends StatefulWidget {
     String? courseName,
     String? activityType,
   }) async {
-    final extension = p.extension(originalName).toLowerCase();
     return showDialog<FileRenameResult>(
       context: context,
       builder: (context) => FileRenameDialog(
