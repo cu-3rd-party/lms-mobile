@@ -1853,14 +1853,23 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                 ),
                                 const SizedBox(width: 6),
                                 if (pending[i].status == _AttachmentUploadStatus.uploading)
-                                  SizedBox(
-                                    width: 40,
-                                    child: LinearProgressIndicator(
-                                      value: pending[i].progress,
-                                      backgroundColor: Colors.grey[800],
-                                      color: widget.themeColor,
-                                    ),
-                                  )
+                                  pending[i].progress >= 1
+                                      ? SizedBox(
+                                          width: 12,
+                                          height: 12,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: widget.themeColor,
+                                          ),
+                                        )
+                                      : SizedBox(
+                                          width: 40,
+                                          child: LinearProgressIndicator(
+                                            value: pending[i].progress,
+                                            backgroundColor: Colors.grey[800],
+                                            color: widget.themeColor,
+                                          ),
+                                        )
                                 else
                                   Text(
                                     _formatBytes(pending[i].length),
@@ -2004,14 +2013,6 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 ],
               ),
             ),
-            if (pending.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              _buildPendingAttachments(
-                taskId,
-                pending,
-                storage: _pendingSolutionAttachments,
-              ),
-            ],
             if (error != null) ...[
               const SizedBox(height: 6),
               Text(
@@ -2517,14 +2518,23 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 ),
                 const SizedBox(width: 6),
                 if (pending[i].status == _AttachmentUploadStatus.uploading)
-                  SizedBox(
-                    width: 40,
-                    child: LinearProgressIndicator(
-                      value: pending[i].progress,
-                      backgroundColor: Colors.grey[800],
-                      color: widget.themeColor,
-                    ),
-                  )
+                  pending[i].progress >= 1
+                      ? SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: widget.themeColor,
+                          ),
+                        )
+                      : SizedBox(
+                          width: 40,
+                          child: LinearProgressIndicator(
+                            value: pending[i].progress,
+                            backgroundColor: Colors.grey[800],
+                            color: widget.themeColor,
+                          ),
+                        )
                 else
                   Text(
                     _formatBytes(pending[i].length),
