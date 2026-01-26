@@ -533,10 +533,11 @@ class _CourseSheetState extends State<_CourseSheet> {
     final courseIds = widget.courseNames.keys.toList()
       ..sort((a, b) => (widget.courseNames[a] ?? '').compareTo(widget.courseNames[b] ?? ''));
     final maxListHeight = MediaQuery.of(context).size.height * 0.5;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxListHeight + 120),
-      child: Column(
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxListHeight + 120),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
@@ -641,14 +642,15 @@ class _CourseSheetState extends State<_CourseSheet> {
           ),
           if (isIos)
             Padding(
-              padding: EdgeInsets.only(bottom: bottomPadding > 0 ? bottomPadding : 8),
+              padding: const EdgeInsets.only(bottom: 8),
               child: CupertinoButton(
                 padding: EdgeInsets.zero,
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Готово'),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -698,10 +700,11 @@ class _StatusSheetState extends State<_StatusSheet> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
         Container(
           width: 36,
           height: 4,
@@ -734,14 +737,15 @@ class _StatusSheetState extends State<_StatusSheet> {
         _buildStatusTile('Проверено', 'evaluated', widget.counts['evaluated'] ?? 0, isIos),
         if (isIos)
           Padding(
-            padding: EdgeInsets.only(bottom: bottomPadding > 0 ? bottomPadding : 8),
+            padding: const EdgeInsets.only(bottom: 8),
             child: CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: () => Navigator.pop(context),
               child: const Text('Готово'),
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 

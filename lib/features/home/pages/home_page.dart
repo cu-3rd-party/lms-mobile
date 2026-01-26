@@ -200,13 +200,18 @@ class _HomePageState extends State<HomePage> {
       final savedActiveOrder = prefs.getStringList(_prefsActiveCoursesKey);
       final savedArchivedOrder = prefs.getStringList(_prefsArchivedCoursesKey);
       final hasSavedArchived = savedArchivedOrder != null;
-      final archivedIds = (savedArchivedOrder ?? <String>[])
+      final backendArchivedIds = courses
+          .where((c) => c.isArchived)
+          .map((c) => c.id)
+          .toSet();
+      final localArchivedIds = (savedArchivedOrder ?? <String>[])
           .map(int.tryParse)
           .whereType<int>()
           .toSet();
       final effectiveArchivedIds = hasSavedArchived
-          ? archivedIds
-          : courses.where((c) => c.isArchived).map((c) => c.id).toSet();
+          ? {...backendArchivedIds, ...localArchivedIds}
+          : backendArchivedIds;
+
       final activeCourses =
           courses.where((c) => !effectiveArchivedIds.contains(c.id)).toList();
       final archivedCourses =
@@ -219,6 +224,10 @@ class _HomePageState extends State<HomePage> {
         _archivedCourses = orderedArchived;
         _isLoadingCourses = false;
       });
+      // Сохраняем обновленный список если бекенд архивировал курсы
+      if (backendArchivedIds.isNotEmpty) {
+        _saveCoursePreferences();
+      }
     } catch (e, st) {
       _log.warning('Error loading courses', e, st);
       if (!mounted) return;
