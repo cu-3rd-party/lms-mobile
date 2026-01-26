@@ -576,9 +576,11 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DeadlinesSection(
+                key: ValueKey('deadlines_${_archivedCourses.map((c) => c.id).join(',')}'),
                 tasks: _filteredTasksForHome(),
                 isLoading: _isLoadingTasks,
                 onOpenTask: _openTask,
+                userArchivedCourseIds: _archivedCourses.map((c) => c.id).toSet(),
               ),
               const SizedBox(height: 24),
               ScheduleSection(
@@ -604,6 +606,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         TasksTab(
+          key: ValueKey('tasks_${_archivedCourses.map((c) => c.id).join(',')}'),
           tasks: _tasks,
           isLoading: _isLoadingTasks,
           statusFilters: _taskStatusFilters,
@@ -630,6 +633,7 @@ class _HomePageState extends State<HomePage> {
             _saveTaskFilters();
           },
           onOpenTask: _openTask,
+          userArchivedCourseIds: _archivedCourses.map((c) => c.id).toSet(),
         ),
         CoursesTab(
           activeCourses: _activeCourses,

@@ -280,15 +280,17 @@ class _CoursesTabState extends State<CoursesTab> {
               course: course,
               onTap: _isEditing ? null : () => widget.onOpenCourse(course),
               trailing: _isEditing
-                  ? IconButton(
-                      tooltip: 'Вернуть',
-                      icon: Icon(
-                        isIos ? CupertinoIcons.archivebox_fill : Icons.unarchive,
-                        color: Colors.grey[500],
-                        size: 20,
-                      ),
-                      onPressed: () => widget.onRestore(course),
-                    )
+                  ? (course.isArchived
+                      ? const SizedBox(width: 48)
+                      : IconButton(
+                          tooltip: 'Вернуть',
+                          icon: Icon(
+                            isIos ? CupertinoIcons.archivebox_fill : Icons.unarchive,
+                            color: Colors.grey[500],
+                            size: 20,
+                          ),
+                          onPressed: () => widget.onRestore(course),
+                        ))
                   : Icon(
                       isIos ? CupertinoIcons.chevron_forward : Icons.chevron_right,
                       color: Colors.grey[600],

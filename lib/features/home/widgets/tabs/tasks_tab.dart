@@ -15,6 +15,7 @@ class TasksTab extends StatelessWidget {
   final String searchQuery;
   final void Function(String) onSearchQueryChanged;
   final void Function(StudentTask) onOpenTask;
+  final Set<int> userArchivedCourseIds;
 
   const TasksTab({
     super.key,
@@ -27,6 +28,7 @@ class TasksTab extends StatelessWidget {
     required this.searchQuery,
     required this.onSearchQueryChanged,
     required this.onOpenTask,
+    this.userArchivedCourseIds = const {},
   });
 
   @override
@@ -145,9 +147,14 @@ class TasksTab extends StatelessWidget {
     onSearchQueryChanged('');
   }
 
+  bool _isCourseHidden(TaskCourse course) {
+    return course.isArchived || userArchivedCourseIds.contains(course.id);
+  }
+
   List<StudentTask> _filteredTasks() {
     final query = searchQuery.trim().toLowerCase();
     return tasks
+        .where((task) => !_isCourseHidden(task.course))
         .where((task) => statusFilters.contains(task.normalizedState))
         .where(
           (task) => courseFilters.isEmpty || courseFilters.contains(task.course.id),
@@ -171,6 +178,7 @@ class TasksTab extends StatelessWidget {
       'evaluated': 0,
     };
     for (final task in tasks) {
+      if (_isCourseHidden(task.course)) continue;
       final state = task.normalizedState;
       if (counts.containsKey(state)) {
         counts[state] = counts[state]! + 1;
@@ -182,6 +190,7 @@ class TasksTab extends StatelessWidget {
   Map<int, int> _taskCountsByCourse() {
     final counts = <int, int>{};
     for (final task in tasks) {
+      if (_isCourseHidden(task.course)) continue;
       final state = task.normalizedState;
       if (!statusFilters.contains(state)) continue;
       counts[task.course.id] = (counts[task.course.id] ?? 0) + 1;
@@ -192,6 +201,7 @@ class TasksTab extends StatelessWidget {
   Map<int, String> _courseNamesById() {
     final names = <int, String>{};
     for (final task in tasks) {
+      if (_isCourseHidden(task.course)) continue;
       names[task.course.id] = task.course.cleanName;
     }
     return names;

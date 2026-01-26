@@ -9,18 +9,25 @@ class DeadlinesSection extends StatelessWidget {
   final List<StudentTask> tasks;
   final bool isLoading;
   final void Function(StudentTask task) onOpenTask;
+  final Set<int> userArchivedCourseIds;
 
   const DeadlinesSection({
     super.key,
     required this.tasks,
     required this.isLoading,
     required this.onOpenTask,
+    this.userArchivedCourseIds = const {},
   });
+
+  bool _isCourseHidden(TaskCourse course) {
+    return course.isArchived || userArchivedCourseIds.contains(course.id);
+  }
 
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
     final deadlineTasks = tasks
+        .where((task) => !_isCourseHidden(task.course))
         .where(
           (task) =>
               task.normalizedState == 'backlog' ||
