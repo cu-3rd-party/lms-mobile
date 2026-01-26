@@ -1413,6 +1413,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final isLoading = _loadingTaskIds.contains(taskId) && events.isEmpty && comments.isEmpty;
     final isIos = Platform.isIOS;
 
+    // Определяем статус задания для показа кнопки "Начать задание"
+    final details = _taskDetailsById[taskId];
+    final derivedStatus = _deriveStatus(events, details);
+    final isBacklog = details?.state == 'backlog' || derivedStatus == 'Бэклог';
+    final isStarting = _startingTaskIds.contains(taskId);
+    final startTaskButton = isBacklog ? _buildStartTaskButton(taskId, isStarting) : null;
+
     if (isIos) {
       final selectedIndex = _taskTabIndex[taskId] ?? 0;
       return Padding(
@@ -1420,6 +1427,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (startTaskButton != null) ...[
+              startTaskButton,
+              const SizedBox(height: 12),
+            ],
             CupertinoSlidingSegmentedControl<int>(
               groupValue: selectedIndex,
               thumbColor: const Color(0xFF1E1E1E),
@@ -1464,6 +1475,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (startTaskButton != null) ...[
+              startTaskButton,
+              const SizedBox(height: 12),
+            ],
             Theme(
               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
               child: TabBar(
@@ -1525,7 +1540,6 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final details = _taskDetailsById[taskId];
     final existingSolutionAttachments = details?.solutionAttachments ?? const [];
     final derivedStatus = _deriveStatus(events, details);
-    final isBacklog = details?.state == 'backlog' || derivedStatus == 'Бэклог';
     final isInProgress = details?.state == 'inProgress' || derivedStatus == 'В работе';
     final hasSolutionData =
         (details?.solutionUrl?.isNotEmpty ?? false) || existingSolutionAttachments.isNotEmpty;
@@ -1541,19 +1555,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final currentSolutionSection =
         showCurrentSolution ? _buildCurrentSolutionView(taskId, details, canEdit, isEditing) : null;
 
-    final isStarting = _startingTaskIds.contains(taskId);
-    final startTaskButton = isBacklog ? _buildStartTaskButton(taskId, isStarting) : null;
-
     if (isLoading) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (currentSolutionSection != null) ...[
             currentSolutionSection,
-            const SizedBox(height: 12),
-          ],
-          if (startTaskButton != null) ...[
-            startTaskButton,
             const SizedBox(height: 12),
           ],
           if (composer != null) ...[
@@ -1579,10 +1586,6 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         children: [
           if (currentSolutionSection != null) ...[
             currentSolutionSection,
-            const SizedBox(height: 12),
-          ],
-          if (startTaskButton != null) ...[
-            startTaskButton,
             const SizedBox(height: 12),
           ],
           if (composer != null) ...[
@@ -1620,10 +1623,6 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       children: [
         if (currentSolutionSection != null) ...[
           currentSolutionSection,
-          const SizedBox(height: 12),
-        ],
-        if (startTaskButton != null) ...[
-          startTaskButton,
           const SizedBox(height: 12),
         ],
         if (composer != null) ...[
@@ -3808,6 +3807,19 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       final success = await apiService.startTask(taskId);
       if (!mounted) return;
       if (success) {
+        // Находим материал с этим taskId
+        final materialIndex = _materials.indexWhere((m) => m.taskId == taskId);
+        if (materialIndex != -1) {
+          final materialId = _materials[materialIndex].id;
+          // Получаем обновленный материал
+          final updatedMaterial = await apiService.fetchMaterialById(materialId);
+          if (!mounted) return;
+          if (updatedMaterial != null) {
+            setState(() {
+              _materials[materialIndex] = updatedMaterial;
+            });
+          }
+        }
         await _reloadTaskDetails(taskId);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

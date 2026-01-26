@@ -189,6 +189,27 @@ class ApiService {
     return [];
   }
 
+  Future<LongreadMaterial?> fetchMaterialById(int materialId) async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/materials/$materialId'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return LongreadMaterial.fromJson(data);
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching material by id: $materialId', e, st);
+    }
+    return null;
+  }
+
   Future<String?> getDownloadLink(String filename, String version) async {
     try {
       final cookie = await getCookie();
