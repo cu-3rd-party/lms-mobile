@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 class StudentTask {
   static const Color backlogColor = Color(0xFF9E9E9E);
-  static const Color inProgressColor = Color(0xFF00E676);
-  static const Color reviewColor = Color(0xFFFF9800);
+  static const Color inProgressColor = Color(0xFF6087DC);
+  static const Color reviewColor = Color(0xFFF6AD58);
   static const Color hasSolutionColor = Color(0xFF28A745);
   static const Color revisionColor = Color(0xFFFE456A);
   static const Color failedColor = Color(0xFFEF5350);

@@ -112,7 +112,7 @@ class DeadlinesSection extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 88,
+            height: 115,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -145,94 +145,89 @@ class _TaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final card = Container(
       width: 200,
-      padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: task.stateBorderColor, width: 1),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                task.exercise.name,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                task.course.cleanName,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+          if (task.deadline != null)
+            Row(
               children: [
-                Text(
-                  task.exercise.name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Icon(
+                  Platform.isIOS ? CupertinoIcons.time : Icons.access_time,
+                  size: 12,
+                  color: task.isOverdue ? Colors.redAccent : Colors.grey[400],
                 ),
-                Text(
-                  task.course.cleanName,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[500],
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    task.formattedDeadline,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: task.isOverdue ? Colors.redAccent : Colors.grey[400],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                if (task.deadline != null) ...[
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Icon(
-                        Platform.isIOS ? CupertinoIcons.time : Icons.access_time,
-                        size: 11,
-                        color: task.isOverdue ? Colors.redAccent : Colors.grey[400],
-                      ),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(
-                          task.formattedDeadline,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: task.isOverdue ? Colors.redAccent : Colors.grey[400],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: task.stateColor.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          _getStateLabel(task),
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: task.stateColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        'макс. ${task.exercise.maxScore}',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: task.stateColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _getStateLabel(task),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: task.stateColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'макс. ${task.exercise.maxScore}',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey[500],
+                ),
+              ),
+            ],
           ),
         ],
       ),
