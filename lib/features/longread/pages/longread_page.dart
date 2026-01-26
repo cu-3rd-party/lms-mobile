@@ -1668,8 +1668,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         final pending = _pendingSolutionAttachments[taskId] ?? [];
         final isSending = _sendingSolutionTaskIds.contains(taskId);
         final isUploading = pending.any(
-          (item) =>
-              item.status == _AttachmentUploadStatus.uploading && item.progress < 1,
+          (item) => item.status == _AttachmentUploadStatus.uploading,
         );
         final hasReadyAttachments = pending.any(_isAttachmentReady);
         final urlText = value.text.trim();
@@ -1738,7 +1737,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   urlField,
-                  if (existing.isNotEmpty) ...[
+                  if (existing.isNotEmpty || pending.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Text(
                       'Прикрепленные файлы',
@@ -1792,6 +1791,98 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                     Icons.close,
                                     size: 14,
                                     color: isSending || isUploading
+                                        ? Colors.grey[600]
+                                        : Colors.grey[400],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        for (var i = 0; i < pending.length; i++)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF242424),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: pending[i].status == _AttachmentUploadStatus.failed
+                                    ? Colors.redAccent
+                                    : Colors.grey[800]!,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.attach_file,
+                                  size: 14,
+                                  color: pending[i].status == _AttachmentUploadStatus.failed
+                                      ? Colors.redAccent
+                                      : pending[i].status == _AttachmentUploadStatus.uploaded
+                                          ? widget.themeColor
+                                          : Colors.grey,
+                                ),
+                                const SizedBox(width: 6),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 150),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        pending[i].name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (pending[i].status == _AttachmentUploadStatus.failed)
+                                        Text(
+                                          pending[i].error ?? 'Ошибка загрузки',
+                                          style: const TextStyle(
+                                            color: Colors.redAccent,
+                                            fontSize: 9,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                if (pending[i].status == _AttachmentUploadStatus.uploading)
+                                  SizedBox(
+                                    width: 40,
+                                    child: LinearProgressIndicator(
+                                      value: pending[i].progress,
+                                      backgroundColor: Colors.grey[800],
+                                      color: widget.themeColor,
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    _formatBytes(pending[i].length),
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                const SizedBox(width: 6),
+                                GestureDetector(
+                                  onTap: pending[i].status == _AttachmentUploadStatus.uploading
+                                      ? null
+                                      : () => _removePendingAttachment(
+                                            taskId,
+                                            i,
+                                            storage: _pendingSolutionAttachments,
+                                          ),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: pending[i].status == _AttachmentUploadStatus.uploading
                                         ? Colors.grey[600]
                                         : Colors.grey[400],
                                   ),
@@ -2217,8 +2308,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           final isSending = _sendingCommentTaskIds.contains(taskId);
           final pending = _pendingCommentAttachments[taskId] ?? [];
           final isUploading = pending.any(
-            (item) =>
-                item.status == _AttachmentUploadStatus.uploading && item.progress < 1,
+            (item) => item.status == _AttachmentUploadStatus.uploading,
           );
           final hasUploadedAttachments = pending.any(_isAttachmentReady);
           final placeholder = isFocused ? '' : 'Напишите комментарий';
@@ -2427,8 +2517,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   ),
                 ),
                 const SizedBox(width: 6),
-                if (pending[i].status == _AttachmentUploadStatus.uploading &&
-                    pending[i].progress < 1)
+                if (pending[i].status == _AttachmentUploadStatus.uploading)
                   SizedBox(
                     width: 40,
                     child: LinearProgressIndicator(
@@ -2444,8 +2533,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   ),
                 const SizedBox(width: 6),
                 GestureDetector(
-                  onTap: pending[i].status == _AttachmentUploadStatus.uploading &&
-                          pending[i].progress < 1
+                  onTap: pending[i].status == _AttachmentUploadStatus.uploading
                       ? null
                       : () => _removePendingAttachment(
                             taskId,
@@ -3020,7 +3108,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       setState(() => _commentErrors[taskId] = 'Введите текст комментария');
       return;
     }
-    if (pending.any((item) => item.status == _AttachmentUploadStatus.uploading && item.progress < 1)) {
+    if (pending.any((item) => item.status == _AttachmentUploadStatus.uploading)) {
       setState(() => _commentErrors[taskId] = 'Дождитесь загрузки файлов');
       return;
     }
@@ -3100,7 +3188,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     );
 
     if (pending.any(
-      (item) => item.status == _AttachmentUploadStatus.uploading && item.progress < 1,
+      (item) => item.status == _AttachmentUploadStatus.uploading,
     )) {
       setState(() => _solutionErrors[taskId] = 'Дождитесь загрузки файлов');
       return;
