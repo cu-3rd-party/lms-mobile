@@ -177,12 +177,7 @@ class _HomePageState extends State<HomePage> {
         failed: true,
         evaluated: true,
       );
-      tasks.sort((a, b) {
-        if (a.deadline == null && b.deadline == null) return 0;
-        if (a.deadline == null) return 1;
-        if (b.deadline == null) return -1;
-        return a.deadline!.compareTo(b.deadline!);
-      });
+      tasks.sort(_compareTasksByDeadline);
       if (!mounted) return;
       setState(() {
         _tasks = tasks;
@@ -685,6 +680,21 @@ class _HomePageState extends State<HomePage> {
         ),
       ],
     );
+  }
+
+  static const _bottomStates = {'evaluated', 'failed', 'rejected', 'review'};
+
+  static int _compareTasksByDeadline(StudentTask a, StudentTask b) {
+    final aBottom = _bottomStates.contains(a.normalizedState);
+    final bBottom = _bottomStates.contains(b.normalizedState);
+    if (aBottom != bBottom) return aBottom ? 1 : -1;
+
+    final aDeadline = a.effectiveDeadline;
+    final bDeadline = b.effectiveDeadline;
+    if (aDeadline == null && bDeadline == null) return 0;
+    if (aDeadline == null) return 1;
+    if (bDeadline == null) return -1;
+    return aDeadline.compareTo(bDeadline);
   }
 
   List<StudentTask> _filteredTasksForHome() {
