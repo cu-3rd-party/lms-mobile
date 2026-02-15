@@ -173,6 +173,8 @@ class IcalService {
     final events = <CalendarEvent>[];
     final unfolded = content.replaceAll(RegExp(r'\r?\n[ \t]'), '');
     final blocks = unfolded.split('BEGIN:VEVENT');
+    // Collect EXDATE values per event to skip cancelled occurrences
+    final horizon = DateTime.now().add(const Duration(days: 400));
 
     for (var i = 1; i < blocks.length; i++) {
       final block = blocks[i].split('END:VEVENT').first;
@@ -184,6 +186,8 @@ class IcalService {
       String? link;
       String? url;
       String? description;
+      String? rrule;
+      final exdates = <DateTime>[];
 
       for (final line in lines) {
         final idx = line.indexOf(':');
@@ -201,6 +205,13 @@ class IcalService {
           start = _parseDateTime(value.trim());
         } else if (key.startsWith('DTEND')) {
           end = _parseDateTime(value.trim());
+        } else if (key.startsWith('RRULE')) {
+          rrule = value.trim();
+        } else if (key.startsWith('EXDATE')) {
+          for (final part in value.split(',')) {
+            final dt = _parseDateTime(part.trim());
+            if (dt != null) exdates.add(DateTime(dt.year, dt.month, dt.day));
+          }
         }
       }
 
@@ -208,16 +219,158 @@ class IcalService {
 
       if (summary == null || start == null) continue;
       end ??= start.add(const Duration(hours: 1));
+      final duration = end.difference(start);
 
-      events.add(CalendarEvent(
-        start: start,
-        end: end,
-        summary: summary,
-        link: link,
-      ));
+      if (rrule != null) {
+        final occurrences = _expandRrule(
+          rrule: rrule,
+          dtstart: start,
+          duration: duration,
+          horizon: horizon,
+          exdates: exdates,
+        );
+        for (final occ in occurrences) {
+          events.add(CalendarEvent(
+            start: occ,
+            end: occ.add(duration),
+            summary: summary,
+            link: link,
+          ));
+        }
+      } else {
+        events.add(CalendarEvent(
+          start: start,
+          end: end,
+          summary: summary,
+          link: link,
+        ));
+      }
     }
 
     return events;
+  }
+
+  List<DateTime> _expandRrule({
+    required String rrule,
+    required DateTime dtstart,
+    required Duration duration,
+    required DateTime horizon,
+    List<DateTime> exdates = const [],
+  }) {
+    final params = <String, String>{};
+    for (final part in rrule.split(';')) {
+      final eq = part.indexOf('=');
+      if (eq == -1) continue;
+      params[part.substring(0, eq).toUpperCase()] = part.substring(eq + 1);
+    }
+
+    final freq = params['FREQ']?.toUpperCase();
+    if (freq == null) return [dtstart];
+
+    final count = params['COUNT'] != null ? int.tryParse(params['COUNT']!) : null;
+    final until = params['UNTIL'] != null ? _parseDateTime(params['UNTIL']!) : null;
+    final interval = params['INTERVAL'] != null ? int.tryParse(params['INTERVAL']!) ?? 1 : 1;
+    final byDay = params['BYDAY']?.split(',');
+
+    final limit = until ?? horizon;
+    final maxCount = count ?? 730; // safety cap
+
+    final results = <DateTime>[];
+    final exdateSet = exdates.toSet();
+
+    bool isExcluded(DateTime dt) {
+      return exdateSet.contains(DateTime(dt.year, dt.month, dt.day));
+    }
+
+    switch (freq) {
+      case 'DAILY':
+        var current = dtstart;
+        while (current.isBefore(limit) && results.length < maxCount) {
+          if (!isExcluded(current)) results.add(current);
+          current = current.add(Duration(days: interval));
+        }
+        break;
+
+      case 'WEEKLY':
+        if (byDay != null && byDay.isNotEmpty) {
+          final targetDays = byDay.map(_parseIcalDay).whereType<int>().toSet();
+          if (targetDays.isEmpty) targetDays.add(dtstart.weekday);
+
+          // Start from the week of dtstart
+          var weekStart = dtstart.subtract(Duration(days: dtstart.weekday - 1));
+          while (weekStart.isBefore(limit) && results.length < maxCount) {
+            for (var wd = 1; wd <= 7 && results.length < maxCount; wd++) {
+              if (!targetDays.contains(wd)) continue;
+              final candidate = DateTime(
+                weekStart.year,
+                weekStart.month,
+                weekStart.day + (wd - 1),
+                dtstart.hour,
+                dtstart.minute,
+                dtstart.second,
+              );
+              if (candidate.isBefore(dtstart)) continue;
+              if (candidate.isAfter(limit)) break;
+              if (!isExcluded(candidate)) results.add(candidate);
+            }
+            weekStart = weekStart.add(Duration(days: 7 * interval));
+          }
+        } else {
+          var current = dtstart;
+          while (current.isBefore(limit) && results.length < maxCount) {
+            if (!isExcluded(current)) results.add(current);
+            current = current.add(Duration(days: 7 * interval));
+          }
+        }
+        break;
+
+      case 'MONTHLY':
+        var current = dtstart;
+        var i = 0;
+        while (current.isBefore(limit) && results.length < maxCount && i < maxCount) {
+          if (!isExcluded(current)) results.add(current);
+          final nextMonth = current.month + interval;
+          current = DateTime(
+            current.year + (nextMonth - 1) ~/ 12,
+            ((nextMonth - 1) % 12) + 1,
+            dtstart.day,
+            dtstart.hour,
+            dtstart.minute,
+            dtstart.second,
+          );
+          i++;
+        }
+        break;
+
+      case 'YEARLY':
+        var current = dtstart;
+        while (current.isBefore(limit) && results.length < maxCount) {
+          if (!isExcluded(current)) results.add(current);
+          current = DateTime(
+            current.year + interval,
+            dtstart.month,
+            dtstart.day,
+            dtstart.hour,
+            dtstart.minute,
+            dtstart.second,
+          );
+        }
+        break;
+
+      default:
+        results.add(dtstart);
+    }
+
+    return results;
+  }
+
+  int? _parseIcalDay(String day) {
+    // Strip numeric prefix (e.g. "1MO" → "MO")
+    final clean = day.replaceAll(RegExp(r'[^A-Z]'), '').toUpperCase();
+    const mapping = {
+      'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6, 'SU': 7,
+    };
+    return mapping[clean];
   }
 
   String? _extractKtalkUrl(String? text) {
