@@ -3838,6 +3838,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         return deadline != null
             ? 'Задание выдано. Дедлайн ${_formatDateTime(deadline)}'
             : 'Задание выдано';
+      case 'taskLateDaysProlong':
+        final dl = event.content.contentDeadline;
+        final days = event.content.lateDaysValue;
+        final dlText = dl != null ? _formatDateTime(dl) : '';
+        final daysText = days != null ? 'Списано $days Late Days' : '';
+        return dlText.isNotEmpty
+            ? 'Дедлайн перенесён на $dlText. $daysText'.trim()
+            : 'Дедлайн перенесён. $daysText'.trim();
+      case 'taskLateDaysCancelled':
+        return 'Перенос дедлайна отменён';
       case 'exerciseEstimated':
         return 'Выставлены параметры';
       case 'exerciseAttachmentsChanged':

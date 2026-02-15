@@ -40,6 +40,8 @@ class TaskEventContent {
   final String? taskState;
   final DateTime? taskDeadline;
   final String? exerciseName;
+  final int? lateDaysValue;
+  final DateTime? contentDeadline;
 
   TaskEventContent({
     this.state,
@@ -52,6 +54,8 @@ class TaskEventContent {
     this.taskState,
     this.taskDeadline,
     this.exerciseName,
+    this.lateDaysValue,
+    this.contentDeadline,
   });
 
   factory TaskEventContent.fromJson(Map<String, dynamic> json) {
@@ -121,6 +125,18 @@ class TaskEventContent {
       }
     }
 
+    // lateDays for taskLateDaysProlong / taskLateDaysCancelled
+    int? lateDaysValue;
+    final lateDays = json['lateDays'];
+    if (lateDays is Map) {
+      lateDaysValue = lateDays['value'] as int?;
+    } else if (lateDays is int) {
+      lateDaysValue = lateDays;
+    }
+    final contentDeadline = json['deadline'] != null
+        ? DateTime.tryParse(json['deadline'].toString())
+        : null;
+
     return TaskEventContent(
       state: json['state'],
       score: json['score'] != null ? TaskEventScore.fromJson(json['score']) : null,
@@ -132,6 +148,8 @@ class TaskEventContent {
       taskState: taskState,
       taskDeadline: taskDeadline,
       exerciseName: json['name']?.toString(),
+      lateDaysValue: lateDaysValue,
+      contentDeadline: contentDeadline,
     );
   }
 }
