@@ -5,7 +5,17 @@ import 'package:flutter/material.dart';
 
 import 'package:cumobile/data/models/student_task.dart';
 
-class TasksTab extends StatelessWidget {
+const _statusLabels = <String, String>{
+  'backlog': 'Не начато',
+  'inProgress': 'В работе',
+  'hasSolution': 'Есть решение',
+  'revision': 'Доработка',
+  'review': 'На проверке',
+  'failed': 'Не сдано',
+  'evaluated': 'Проверено',
+};
+
+class TasksTab extends StatefulWidget {
   final List<StudentTask> tasks;
   final bool isLoading;
   final Set<String> statusFilters;
@@ -38,9 +48,33 @@ class TasksTab extends StatelessWidget {
   });
 
   @override
+  State<TasksTab> createState() => _TasksTabState();
+}
+
+class _TasksTabState extends State<TasksTab> {
+  static const _activeStates = {'backlog', 'inProgress', 'hasSolution', 'revision', 'rework', 'review'};
+  static const _archiveStates = {'evaluated', 'failed', 'rejected'};
+
+  // Display keys: rework → revision, rejected → failed
+  static const _displayStatesActive = {'backlog', 'inProgress', 'hasSolution', 'revision', 'review'};
+  static const _displayStatesArchive = {'evaluated', 'failed'};
+
+  static String _normalizeForDisplay(String state) {
+    if (state == 'rework') return 'revision';
+    if (state == 'rejected') return 'failed';
+    return state;
+  }
+
+  int _segment = 0; // 0 = active, 1 = archive
+
+  bool get _isActive => _segment == 0;
+
+  Set<String> get _statesForSegment => _isActive ? _activeStates : _archiveStates;
+
+  @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
-    if (isLoading) {
+    if (widget.isLoading) {
       return Center(
         child: isIos
             ? const CupertinoActivityIndicator(
@@ -52,9 +86,12 @@ class TasksTab extends StatelessWidget {
     }
 
     final filtered = _filteredTasks();
+
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
+        _buildSegmentControl(isIos),
+        const SizedBox(height: 12),
         _buildTaskFilters(context),
         const SizedBox(height: 12),
         if (filtered.isEmpty)
@@ -82,13 +119,115 @@ class TasksTab extends StatelessWidget {
         else
           ...filtered.map((task) => _TaskListItem(
                 task: task,
-                onTap: () => onOpenTask(task),
-                lateDaysBalance: lateDaysBalance,
-                onExtendDeadline: onExtendDeadline != null ? () => onExtendDeadline!(task) : null,
-                onCancelLateDays: onCancelLateDays != null ? () => onCancelLateDays!(task) : null,
+                onTap: () => widget.onOpenTask(task),
+                lateDaysBalance: widget.lateDaysBalance,
+                onExtendDeadline: widget.onExtendDeadline != null ? () => widget.onExtendDeadline!(task) : null,
+                onCancelLateDays: widget.onCancelLateDays != null ? () => widget.onCancelLateDays!(task) : null,
               )),
       ],
     );
+  }
+
+  Widget _buildSegmentControl(bool isIos) {
+    final activeCount = _countForSegment(_activeStates);
+    final archiveCount = _countForSegment(_archiveStates);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildSegmentButton(
+              icon: isIos ? CupertinoIcons.bolt_fill : Icons.flash_on,
+              label: 'Активные',
+              count: activeCount,
+              index: 0,
+              accentColor: const Color(0xFF00E676),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: _buildSegmentButton(
+              icon: isIos ? CupertinoIcons.archivebox_fill : Icons.inventory_2,
+              label: 'Архив',
+              count: archiveCount,
+              index: 1,
+              accentColor: const Color(0xFF9E9E9E),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSegmentButton({
+    required IconData icon,
+    required String label,
+    required int count,
+    required int index,
+    required Color accentColor,
+  }) {
+    final selected = _segment == index;
+    final color = selected ? accentColor : Colors.grey[600]!;
+
+    return GestureDetector(
+      onTap: () => setState(() => _segment = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? accentColor.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? accentColor.withValues(alpha: 0.3) : Colors.transparent,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                color: selected ? Colors.white : Colors.grey[500],
+              ),
+            ),
+            const SizedBox(width: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: selected ? accentColor.withValues(alpha: 0.2) : Colors.grey[800],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? accentColor : Colors.grey[500],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _countForSegment(Set<String> states) {
+    return widget.tasks.where((t) {
+      if (_isCourseHidden(t.course)) return false;
+      return states.contains(t.normalizedState);
+    }).length;
   }
 
   Widget _buildTaskFilters(BuildContext context) {
@@ -102,8 +241,8 @@ class TasksTab extends StatelessWidget {
             Expanded(
               child: _StatusDropdown(
                 counts: counts,
-                statusFilters: statusFilters,
-                onStatusFiltersChanged: onStatusFiltersChanged,
+                statusFilters: widget.statusFilters,
+                onStatusFiltersChanged: widget.onStatusFiltersChanged,
               ),
             ),
             const SizedBox(width: 8),
@@ -128,22 +267,22 @@ class TasksTab extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _TaskSearchField(
-          value: searchQuery,
-          onChanged: onSearchQueryChanged,
+          value: widget.searchQuery,
+          onChanged: widget.onSearchQueryChanged,
         ),
         const SizedBox(height: 8),
         _CourseDropdown(
           counts: courseCounts,
           courseNames: courseNames,
-          courseFilters: courseFilters,
-          onCourseFiltersChanged: onCourseFiltersChanged,
+          courseFilters: widget.courseFilters,
+          onCourseFiltersChanged: widget.onCourseFiltersChanged,
         ),
       ],
     );
   }
 
   void _resetFilters() {
-    onStatusFiltersChanged({
+    widget.onStatusFiltersChanged({
       'backlog',
       'inProgress',
       'hasSolution',
@@ -152,21 +291,23 @@ class TasksTab extends StatelessWidget {
       'failed',
       'evaluated',
     });
-    onCourseFiltersChanged(<int>{});
-    onSearchQueryChanged('');
+    widget.onCourseFiltersChanged(<int>{});
+    widget.onSearchQueryChanged('');
   }
 
   bool _isCourseHidden(TaskCourse course) {
-    return course.isArchived || userArchivedCourseIds.contains(course.id);
+    return course.isArchived || widget.userArchivedCourseIds.contains(course.id);
   }
 
   List<StudentTask> _filteredTasks() {
-    final query = searchQuery.trim().toLowerCase();
-    return tasks
+    final query = widget.searchQuery.trim().toLowerCase();
+    final segmentStates = _statesForSegment;
+    return widget.tasks
         .where((task) => !_isCourseHidden(task.course))
-        .where((task) => statusFilters.contains(task.normalizedState))
+        .where((task) => segmentStates.contains(task.normalizedState))
+        .where((task) => widget.statusFilters.contains(_normalizeForDisplay(task.normalizedState)))
         .where(
-          (task) => courseFilters.isEmpty || courseFilters.contains(task.course.id),
+          (task) => widget.courseFilters.isEmpty || widget.courseFilters.contains(task.course.id),
         )
         .where(
           (task) =>
@@ -177,40 +318,43 @@ class TasksTab extends StatelessWidget {
   }
 
   Map<String, int> _taskCountsByState() {
-    final counts = <String, int>{
-      'backlog': 0,
-      'inProgress': 0,
-      'hasSolution': 0,
-      'revision': 0,
-      'review': 0,
-      'failed': 0,
-      'evaluated': 0,
-    };
-    for (final task in tasks) {
+    final displayStates = _isActive ? _displayStatesActive : _displayStatesArchive;
+    final segmentStates = _statesForSegment;
+    final counts = <String, int>{};
+    for (final state in displayStates) {
+      counts[state] = 0;
+    }
+    for (final task in widget.tasks) {
       if (_isCourseHidden(task.course)) continue;
       final state = task.normalizedState;
-      if (counts.containsKey(state)) {
-        counts[state] = counts[state]! + 1;
+      if (!segmentStates.contains(state)) continue;
+      final key = _normalizeForDisplay(state);
+      if (counts.containsKey(key)) {
+        counts[key] = counts[key]! + 1;
       }
     }
     return counts;
   }
 
   Map<int, int> _taskCountsByCourse() {
+    final segmentStates = _statesForSegment;
     final counts = <int, int>{};
-    for (final task in tasks) {
+    for (final task in widget.tasks) {
       if (_isCourseHidden(task.course)) continue;
       final state = task.normalizedState;
-      if (!statusFilters.contains(state)) continue;
+      if (!segmentStates.contains(state)) continue;
+      if (!widget.statusFilters.contains(_normalizeForDisplay(state))) continue;
       counts[task.course.id] = (counts[task.course.id] ?? 0) + 1;
     }
     return counts;
   }
 
   Map<int, String> _courseNamesById() {
+    final segmentStates = _statesForSegment;
     final names = <int, String>{};
-    for (final task in tasks) {
+    for (final task in widget.tasks) {
       if (_isCourseHidden(task.course)) continue;
+      if (!segmentStates.contains(task.normalizedState)) continue;
       names[task.course.id] = task.course.cleanName;
     }
     return names;
@@ -268,16 +412,8 @@ class _StatusDropdown extends StatelessWidget {
   }
 
   String _selectedStatusLabel() {
-    final mapping = {
-      'backlog': 'Не начато',
-      'inProgress': 'В работе',
-      'hasSolution': 'Есть решение',
-      'revision': 'Доработка',
-      'review': 'На проверке',
-      'failed': 'Не сдано',
-      'evaluated': 'Проверено',
-    };
-    final labels = statusFilters.map((s) => mapping[s] ?? s).toList();
+    final relevant = statusFilters.where((s) => counts.containsKey(s));
+    final labels = relevant.map((s) => _statusLabels[s] ?? s).toList();
     labels.sort();
     return labels.isEmpty ? 'Статусы' : 'Статусы: ${labels.join(', ')}';
   }
@@ -737,13 +873,12 @@ class _StatusSheetState extends State<_StatusSheet> {
             ),
           ),
         ),
-        _buildStatusTile('В работе', 'inProgress', widget.counts['inProgress'] ?? 0, isIos),
-        _buildStatusTile('Есть решение', 'hasSolution', widget.counts['hasSolution'] ?? 0, isIos),
-        _buildStatusTile('Доработка', 'revision', widget.counts['revision'] ?? 0, isIos),
-        _buildStatusTile('На проверке', 'review', widget.counts['review'] ?? 0, isIos),
-        _buildStatusTile('Не начато', 'backlog', widget.counts['backlog'] ?? 0, isIos),
-        _buildStatusTile('Не сдано', 'failed', widget.counts['failed'] ?? 0, isIos),
-        _buildStatusTile('Проверено', 'evaluated', widget.counts['evaluated'] ?? 0, isIos),
+        ...widget.counts.entries.map((e) => _buildStatusTile(
+              _statusLabels[e.key] ?? e.key,
+              e.key,
+              e.value,
+              isIos,
+            )),
         if (isIos)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
