@@ -3319,10 +3319,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
     final TaskEventEstimation? eventEstimation = _latestEstimation(events);
     final materialEstimation = material.estimation;
-    final deadline = eventEstimation?.deadline ?? materialEstimation?.deadline;
-    final activityName = eventEstimation?.activityName ?? materialEstimation?.activityName;
     final taskDetails =
         material.taskId != null ? _taskDetailsById[material.taskId!] : null;
+    final deadline = taskDetails?.deadline ?? eventEstimation?.deadline ?? materialEstimation?.deadline;
+    final activityName = eventEstimation?.activityName ?? materialEstimation?.activityName;
     final scoreText = _formatScore(
       events,
       eventEstimation?.maxScore,
@@ -4020,15 +4020,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   Future<void> _handleExtendLateDays(int taskId, TaskDetails details, DateTime? deadline) async {
     final balance = details.lateDaysBalance ?? 0;
     final existingLateDays = details.lateDays ?? 0;
-    final effectiveDeadline = deadline != null && existingLateDays > 0
-        ? deadline.add(Duration(days: existingLateDays))
-        : deadline;
 
     final result = await showLateDaysDialog(
       context: context,
       taskName: widget.longread.name,
       courseName: widget.courseName ?? '',
-      deadline: effectiveDeadline,
+      deadline: deadline,
       existingLateDays: existingLateDays,
       lateDaysBalance: balance,
     );

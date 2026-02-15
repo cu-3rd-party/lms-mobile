@@ -128,8 +128,8 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
       _error = null;
       return;
     }
-    final totalLateDays = widget.existingLateDays + _days;
-    final newDeadline = widget.deadline!.add(Duration(days: totalLateDays));
+    // deadline уже включает existingLateDays, добавляем только новые дни
+    final newDeadline = widget.deadline!.add(Duration(days: _days));
     if (DateTime.now().isAfter(newDeadline)) {
       _error = 'Перенос на $_days дн. недостаточен — дедлайн всё равно будет просрочен';
     } else {
@@ -147,8 +147,7 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
-    final totalLateDays = widget.existingLateDays + _days;
-    final newDeadline = widget.deadline?.add(Duration(days: totalLateDays));
+    final newDeadline = widget.deadline?.add(Duration(days: _days));
 
     return SafeArea(
       top: false,
@@ -220,7 +219,7 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Текущий дедлайн: ${_formatDeadline(widget.deadline?.add(Duration(days: widget.existingLateDays)))}',
+                        'Текущий дедлайн: ${_formatDeadline(widget.deadline)}',
                         style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                       ),
                     ],

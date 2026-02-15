@@ -14,6 +14,7 @@ class TaskDetails {
   final bool isLateDaysEnabled;
   final int? lateDays;
   final int? lateDaysBalance;
+  final DateTime? deadline;
 
   TaskDetails({
     required this.id,
@@ -29,6 +30,7 @@ class TaskDetails {
     this.isLateDaysEnabled = false,
     this.lateDays,
     this.lateDaysBalance,
+    this.deadline,
   }) : solutionAttachments = solutionAttachments ?? const [];
 
   TaskDetails copyWith({
@@ -51,6 +53,7 @@ class TaskDetails {
       isLateDaysEnabled: isLateDaysEnabled,
       lateDays: clearLateDays ? null : (lateDays ?? this.lateDays),
       lateDaysBalance: lateDaysBalance ?? this.lateDaysBalance,
+      deadline: deadline,
     );
   }
 
@@ -91,6 +94,7 @@ class TaskDetails {
       isLateDaysEnabled: json['isLateDaysEnabled'] ?? false,
       lateDays: json['lateDays'] as int?,
       lateDaysBalance: lateDaysBalance,
+      deadline: json['deadline'] != null ? DateTime.tryParse(json['deadline'].toString()) : null,
     );
   }
 }

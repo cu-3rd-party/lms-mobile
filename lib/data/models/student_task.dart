@@ -57,13 +57,9 @@ class StudentTask {
     );
   }
 
-  DateTime? get effectiveDeadline {
-    if (deadline == null) return null;
-    if (lateDays != null && lateDays! > 0) {
-      return deadline!.add(Duration(days: lateDays!));
-    }
-    return deadline;
-  }
+  /// Бэкенд уже включает lateDays в поле deadline,
+  /// поэтому effectiveDeadline == deadline.
+  DateTime? get effectiveDeadline => deadline;
 
   bool get canExtendDeadline {
     if (!isLateDaysEnabled) return false;

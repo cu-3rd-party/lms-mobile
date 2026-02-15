@@ -947,7 +947,6 @@ class _HomePageState extends State<HomePage> {
     final success = await apiService.prolongLateDays(task.id, result);
     if (!mounted) return;
     if (success) {
-      setState(() => _isLoadingTasks = true);
       await Future.wait([_loadTasks(), _loadLmsProfile()]);
     } else {
       _showSnack('Не удалось перенести дедлайн');
@@ -960,7 +959,6 @@ class _HomePageState extends State<HomePage> {
     final success = await apiService.cancelLateDays(task.id);
     if (!mounted) return;
     if (success) {
-      setState(() => _isLoadingTasks = true);
       await Future.wait([_loadTasks(), _loadLmsProfile()]);
     } else {
       _showSnack('Не удалось отменить перенос');
