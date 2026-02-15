@@ -59,20 +59,50 @@ esac
 new_version="${major}.${minor}.${patch}"
 build_number="$(git rev-list --count HEAD)"
 new_full_version="${new_version}+${build_number}"
+version_file="$(mktemp)"
+trap 'rm -f "$version_file"' EXIT
 
-python3 - <<PY
+python3 - "$version_file" "${new_version}" "${new_full_version}" "${bump}" "${build_number}" <<'PY'
 import re
+import sys
 from pathlib import Path
 
 path = Path("pubspec.yaml")
 data = path.read_text()
-new_version = "${new_full_version}"
-updated = re.sub(r"^version:\\s*.+$", f"version: {new_version}", data, flags=re.MULTILINE)
+_, version_file, tag_version, tag_full, bump, build_number = sys.argv
+new_version = tag_version
+new_full_version = tag_full
+
+# Get current version from pubspec (e.g. "1.0.2+74" -> ("1.0.2", "74"))
+match = re.search(r"^version:\s*(\d+\.\d+\.\d+)(?:\+(\d+))?", data, flags=re.MULTILINE)
+if match:
+    cur_ver = match.group(1)
+    cur_parts = [int(x) for x in cur_ver.split(".")]
+    new_parts = [int(x) for x in tag_version.split(".")]
+    if cur_parts >= new_parts:
+        # Bump from pubspec (e.g. after rollback when pubspec is ahead of tag)
+        if bump == "major":
+            new_version = f"{cur_parts[0]+1}.0.0"
+        elif bump == "minor":
+            new_version = f"{cur_parts[0]}.{cur_parts[1]+1}.0"
+        else:
+            new_version = f"{cur_parts[0]}.{cur_parts[1]}.{cur_parts[2]+1}"
+        new_full_version = new_version + "+" + build_number
+    else:
+        new_version = tag_version
+        new_full_version = tag_full
+else:
+    new_version = tag_version
+    new_full_version = tag_full
+
+updated = re.sub(r"^version:\s*.+$", f"version: {new_full_version}", data, flags=re.MULTILINE)
 if data == updated:
     raise SystemExit("Failed to update version in pubspec.yaml")
 path.write_text(updated)
+Path(version_file).write_text(f"{new_version}\n{new_full_version}\n")
 PY
 
+{ read -r new_version; read -r new_full_version; } < "$version_file"
 echo "Updated version to ${new_full_version} (from ${latest_tag}, bump=${bump})"
 
 if [[ -n "$(git status --porcelain)" ]]; then
