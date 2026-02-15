@@ -221,7 +221,11 @@ class _CoursePageState extends State<CoursePage> {
                 return theme;
               }
               final matchingLongreads = theme.longreads
-                  .where((lr) => lr.name.toLowerCase().contains(query))
+                  .where((lr) =>
+                      lr.name.toLowerCase().contains(query) ||
+                      lr.exercises.any((ex) =>
+                          ex.name.toLowerCase().contains(query) ||
+                          (ex.activity?.name.toLowerCase().contains(query) ?? false)))
                   .toList();
               if (matchingLongreads.isEmpty) {
                 return null;
