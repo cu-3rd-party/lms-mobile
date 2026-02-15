@@ -28,6 +28,8 @@ class StudentTask {
   final DateTime? submitAt;
   final TaskExercise exercise;
   final TaskCourse course;
+  final bool isLateDaysEnabled;
+  final int? lateDays;
 
   StudentTask({
     required this.id,
@@ -37,6 +39,8 @@ class StudentTask {
     this.submitAt,
     required this.exercise,
     required this.course,
+    this.isLateDaysEnabled = false,
+    this.lateDays,
   });
 
   factory StudentTask.fromJson(Map<String, dynamic> json) {
@@ -48,12 +52,31 @@ class StudentTask {
       submitAt: json['submitAt'] != null ? DateTime.parse(json['submitAt']) : null,
       exercise: TaskExercise.fromJson(json['exercise'] ?? {}),
       course: TaskCourse.fromJson(json['course'] ?? {}),
+      isLateDaysEnabled: json['isLateDaysEnabled'] ?? false,
+      lateDays: json['lateDays'] as int?,
     );
   }
 
-  bool get isOverdue => deadline != null && DateTime.now().isAfter(deadline!);
+  DateTime? get effectiveDeadline {
+    if (deadline == null) return null;
+    if (lateDays != null && lateDays! > 0) {
+      return deadline!.add(Duration(days: lateDays!));
+    }
+    return deadline;
+  }
 
-  Duration? get timeLeft => deadline?.difference(DateTime.now());
+  bool get canExtendDeadline {
+    if (!isLateDaysEnabled) return false;
+    const blocked = {'review', 'evaluated', 'revision', 'rework', 'failed', 'rejected'};
+    return !blocked.contains(normalizedState);
+  }
+
+  bool get isOverdue {
+    final d = effectiveDeadline;
+    return d != null && DateTime.now().isAfter(d);
+  }
+
+  Duration? get timeLeft => effectiveDeadline?.difference(DateTime.now());
 
   String get normalizedState {
     switch (state) {
@@ -75,9 +98,10 @@ class StudentTask {
   }
 
   String get formattedDeadline {
-    if (deadline == null) return '';
+    final dl = effectiveDeadline;
+    if (dl == null) return '';
     final months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-    final d = deadline!.toLocal();
+    final d = dl.toLocal();
     return '${d.day} ${months[d.month - 1]}. ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 

@@ -29,6 +29,7 @@ import 'package:cumobile/data/models/task_comment.dart';
 import 'package:cumobile/data/models/task_details.dart';
 import 'package:cumobile/data/models/task_event.dart';
 import 'package:cumobile/data/services/api_service.dart';
+import 'package:cumobile/features/home/widgets/late_days_dialog.dart';
 import 'package:cumobile/features/longread/widgets/attachment_card.dart';
 import 'package:cumobile/features/longread/widgets/file_rename_dialog.dart';
 import 'package:cumobile/features/longread/widgets/longread_file_card.dart';
@@ -3403,7 +3404,109 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           ),
           const SizedBox(height: 8),
           _buildSummaryRow('Статус', Text(statusText, style: _summaryValueStyle)),
+          if (details != null) _buildLateDaysSummaryRow(taskId, details, material),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLateDaysSummaryRow(int taskId, TaskDetails details, LongreadMaterial material) {
+    if (!details.isLateDaysEnabled) return const SizedBox.shrink();
+    final state = details.state ?? '';
+    const blocked = {'review', 'evaluated', 'revision', 'rework', 'failed', 'rejected'};
+    if (blocked.contains(state)) return const SizedBox.shrink();
+
+    final isIos = Platform.isIOS;
+    final ld = details.lateDays ?? 0;
+    final hasExtension = ld > 0;
+    final canExtendMore = ld < 7;
+    final deadline = material.estimation?.deadline;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Divider(color: Colors.grey[800], height: 1),
+          const SizedBox(height: 8),
+          if (hasExtension) ...[
+            Row(
+              children: [
+                Icon(
+                  isIos ? CupertinoIcons.clock_fill : Icons.schedule,
+                  size: 14,
+                  color: const Color(0xFFF6AD58),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Дедлайн перенесён на $ld дн.',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFF6AD58)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (canExtendMore)
+                  Expanded(
+                    child: _buildLateDaysButton(
+                      label: 'Ещё перенести',
+                      color: const Color(0xFF00E676),
+                      icon: isIos ? CupertinoIcons.calendar_badge_plus : Icons.event,
+                      onTap: () => _handleExtendLateDays(taskId, details, deadline),
+                    ),
+                  ),
+                if (canExtendMore) const SizedBox(width: 8),
+                Expanded(
+                  child: _buildLateDaysButton(
+                    label: 'Отменить перенос',
+                    color: Colors.redAccent,
+                    icon: isIos ? CupertinoIcons.xmark : Icons.close,
+                    onTap: () => _handleCancelLateDays(taskId),
+                  ),
+                ),
+              ],
+            ),
+          ] else
+            SizedBox(
+              width: double.infinity,
+              child: _buildLateDaysButton(
+                label: 'Перенести дедлайн',
+                color: const Color(0xFF00E676),
+                icon: isIos ? CupertinoIcons.calendar_badge_plus : Icons.event,
+                onTap: () => _handleExtendLateDays(taskId, details, deadline),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLateDaysButton({
+    required String label,
+    required Color color,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: color),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3911,6 +4014,103 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 ),
         ],
       ),
+    );
+  }
+
+  Future<void> _handleExtendLateDays(int taskId, TaskDetails details, DateTime? deadline) async {
+    final balance = details.lateDaysBalance ?? 0;
+    final existingLateDays = details.lateDays ?? 0;
+    final effectiveDeadline = deadline != null && existingLateDays > 0
+        ? deadline.add(Duration(days: existingLateDays))
+        : deadline;
+
+    final result = await showLateDaysDialog(
+      context: context,
+      taskName: widget.longread.name,
+      courseName: widget.courseName ?? '',
+      deadline: effectiveDeadline,
+      existingLateDays: existingLateDays,
+      lateDaysBalance: balance,
+    );
+    if (result == null || !mounted) return;
+    final success = await apiService.prolongLateDays(taskId, result);
+    if (!mounted) return;
+    if (success) {
+      await _reloadTaskDetails(taskId);
+    } else {
+      _showError('Не удалось перенести дедлайн');
+    }
+  }
+
+  Future<void> _handleCancelLateDays(int taskId) async {
+    final confirmed = await _showCancelConfirm();
+    if (confirmed != true || !mounted) return;
+    final success = await apiService.cancelLateDays(taskId);
+    if (!mounted) return;
+    if (success) {
+      await _reloadTaskDetails(taskId);
+    } else {
+      _showError('Не удалось отменить перенос');
+    }
+  }
+
+  Future<bool?> _showCancelConfirm() {
+    if (Platform.isIOS) {
+      return showCupertinoDialog<bool>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('Отменить перенос дедлайна?'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Нет'),
+            ),
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context, true),
+              isDestructiveAction: true,
+              child: const Text('Отменить'),
+            ),
+          ],
+        ),
+      );
+    }
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Отменить перенос дедлайна?', style: TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Нет', style: TextStyle(color: Colors.grey[400])),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Отменить', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    if (Platform.isIOS) {
+      showCupertinoDialog(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          content: Text(message),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 

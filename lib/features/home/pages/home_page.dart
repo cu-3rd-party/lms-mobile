@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:cumobile/features/home/widgets/late_days_dialog.dart';
+
 import 'package:cumobile/data/models/class_data.dart';
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/student_lms_profile.dart';
@@ -643,6 +645,9 @@ class _HomePageState extends State<HomePage> {
           },
           onOpenTask: _openTask,
           userArchivedCourseIds: _archivedCourses.map((c) => c.id).toSet(),
+          lateDaysBalance: _lmsProfile?.lateDaysBalance ?? 0,
+          onExtendDeadline: _showLateDaysDialog,
+          onCancelLateDays: _cancelLateDays,
         ),
         CoursesTab(
           activeCourses: _activeCourses,
@@ -917,6 +922,79 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+
+  Future<void> _showLateDaysDialog(StudentTask task) async {
+    final balance = _lmsProfile?.lateDaysBalance ?? 0;
+    final result = await showLateDaysDialog(
+      context: context,
+      taskName: task.exercise.name,
+      courseName: task.course.cleanName,
+      deadline: task.effectiveDeadline,
+      existingLateDays: task.lateDays ?? 0,
+      lateDaysBalance: balance,
+    );
+    if (result == null || !mounted) return;
+    final success = await apiService.prolongLateDays(task.id, result);
+    if (!mounted) return;
+    if (success) {
+      setState(() => _isLoadingTasks = true);
+      await Future.wait([_loadTasks(), _loadLmsProfile()]);
+    } else {
+      _showSnack('Не удалось перенести дедлайн');
+    }
+  }
+
+  Future<void> _cancelLateDays(StudentTask task) async {
+    final confirmed = await _showCancelLateDaysConfirm();
+    if (confirmed != true || !mounted) return;
+    final success = await apiService.cancelLateDays(task.id);
+    if (!mounted) return;
+    if (success) {
+      setState(() => _isLoadingTasks = true);
+      await Future.wait([_loadTasks(), _loadLmsProfile()]);
+    } else {
+      _showSnack('Не удалось отменить перенос');
+    }
+  }
+
+  Future<bool?> _showCancelLateDaysConfirm() {
+    if (Platform.isIOS) {
+      return showCupertinoDialog<bool>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('Отменить перенос дедлайна?'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Нет'),
+            ),
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context, true),
+              isDestructiveAction: true,
+              child: const Text('Отменить'),
+            ),
+          ],
+        ),
+      );
+    }
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Отменить перенос дедлайна?', style: TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Нет', style: TextStyle(color: Colors.grey[400])),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Отменить', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _openCourse(Course course) {
     Navigator.push(

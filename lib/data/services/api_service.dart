@@ -558,6 +558,53 @@ class ApiService {
     return [];
   }
 
+  Future<bool> prolongLateDays(int taskId, int lateDays) async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return false;
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/micro-lms/tasks/$taskId/late-days-prolong'),
+        headers: {
+          'Cookie': cookie,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'lateDays': lateDays}),
+      );
+
+      await _handleResponse(response);
+      return response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204;
+    } catch (e, st) {
+      _log.warning('Error prolonging late days', e, st);
+      return false;
+    }
+  }
+
+  Future<bool> cancelLateDays(int taskId) async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return false;
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/micro-lms/tasks/$taskId/late-days-cancel'),
+        headers: {
+          'Cookie': cookie,
+          'Content-Type': 'application/json',
+        },
+      );
+
+      await _handleResponse(response);
+      return response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204;
+    } catch (e, st) {
+      _log.warning('Error cancelling late days', e, st);
+      return false;
+    }
+  }
+
   Future<StudentPerformanceResponse?> fetchStudentPerformance() async {
     try {
       final cookie = await getCookie();

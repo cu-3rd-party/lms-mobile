@@ -16,6 +16,9 @@ class TasksTab extends StatelessWidget {
   final void Function(String) onSearchQueryChanged;
   final void Function(StudentTask) onOpenTask;
   final Set<int> userArchivedCourseIds;
+  final int lateDaysBalance;
+  final void Function(StudentTask task)? onExtendDeadline;
+  final void Function(StudentTask task)? onCancelLateDays;
 
   const TasksTab({
     super.key,
@@ -29,6 +32,9 @@ class TasksTab extends StatelessWidget {
     required this.onSearchQueryChanged,
     required this.onOpenTask,
     this.userArchivedCourseIds = const {},
+    this.lateDaysBalance = 0,
+    this.onExtendDeadline,
+    this.onCancelLateDays,
   });
 
   @override
@@ -77,6 +83,9 @@ class TasksTab extends StatelessWidget {
           ...filtered.map((task) => _TaskListItem(
                 task: task,
                 onTap: () => onOpenTask(task),
+                lateDaysBalance: lateDaysBalance,
+                onExtendDeadline: onExtendDeadline != null ? () => onExtendDeadline!(task) : null,
+                onCancelLateDays: onCancelLateDays != null ? () => onCancelLateDays!(task) : null,
               )),
       ],
     );
@@ -789,10 +798,16 @@ class _StatusSheetState extends State<_StatusSheet> {
 class _TaskListItem extends StatelessWidget {
   final StudentTask task;
   final VoidCallback onTap;
+  final int lateDaysBalance;
+  final VoidCallback? onExtendDeadline;
+  final VoidCallback? onCancelLateDays;
 
   const _TaskListItem({
     required this.task,
     required this.onTap,
+    this.lateDaysBalance = 0,
+    this.onExtendDeadline,
+    this.onCancelLateDays,
   });
 
   @override
@@ -884,9 +899,91 @@ class _TaskListItem extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (task.canExtendDeadline) _buildLateDaysRow(isIos),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLateDaysRow(bool isIos) {
+    final ld = task.lateDays ?? 0;
+    final hasExtension = ld > 0;
+    final canExtendMore = ld < 7 && lateDaysBalance > 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        children: [
+          if (hasExtension) ...[
+            Icon(
+              isIos ? CupertinoIcons.clock_fill : Icons.schedule,
+              size: 12,
+              color: const Color(0xFFF6AD58),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Перенесено на $ld дн.',
+              style: const TextStyle(fontSize: 11, color: Color(0xFFF6AD58)),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: onCancelLateDays,
+              child: Text(
+                'Отменить',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[500],
+                  decoration: TextDecoration.underline,
+                  decorationColor: Colors.grey[500],
+                ),
+              ),
+            ),
+            if (canExtendMore) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onExtendDeadline,
+                child: const Text(
+                  'Ещё перенести',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF00E676),
+                    decoration: TextDecoration.underline,
+                    decorationColor: Color(0xFF00E676),
+                  ),
+                ),
+              ),
+            ],
+          ] else ...[
+            GestureDetector(
+              onTap: onExtendDeadline,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Icon(
+                      isIos ? CupertinoIcons.calendar_badge_plus : Icons.event,
+                      size: 12,
+                      color: const Color(0xFF00E676),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Перенести дедлайн',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF00E676),
+                      height: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

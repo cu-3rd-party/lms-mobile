@@ -11,6 +11,9 @@ class TaskDetails {
   final List<MaterialAttachment> solutionAttachments;
   final DateTime? submitAt;
   final bool hasSolution;
+  final bool isLateDaysEnabled;
+  final int? lateDays;
+  final int? lateDaysBalance;
 
   TaskDetails({
     required this.id,
@@ -23,9 +26,17 @@ class TaskDetails {
     List<MaterialAttachment>? solutionAttachments,
     this.submitAt,
     this.hasSolution = false,
+    this.isLateDaysEnabled = false,
+    this.lateDays,
+    this.lateDaysBalance,
   }) : solutionAttachments = solutionAttachments ?? const [];
 
-  TaskDetails copyWith({String? state}) {
+  TaskDetails copyWith({
+    String? state,
+    int? lateDays,
+    int? lateDaysBalance,
+    bool clearLateDays = false,
+  }) {
     return TaskDetails(
       id: id,
       score: score,
@@ -37,6 +48,9 @@ class TaskDetails {
       solutionAttachments: solutionAttachments,
       submitAt: submitAt,
       hasSolution: hasSolution,
+      isLateDaysEnabled: isLateDaysEnabled,
+      lateDays: clearLateDays ? null : (lateDays ?? this.lateDays),
+      lateDaysBalance: lateDaysBalance ?? this.lateDaysBalance,
     );
   }
 
@@ -60,6 +74,9 @@ class TaskDetails {
     }
     final submitAt =
         json['submitAt'] != null ? DateTime.tryParse(json['submitAt'].toString()) : null;
+    final student = json['student'];
+    final lateDaysBalance =
+        student is Map<String, dynamic> ? student['lateDaysBalance'] as int? : null;
     return TaskDetails(
       id: json['id'] ?? 0,
       score: rawScore is num ? rawScore.toDouble() : null,
@@ -71,6 +88,9 @@ class TaskDetails {
       solutionAttachments: solutionAttachments,
       submitAt: submitAt,
       hasSolution: submitAt != null,
+      isLateDaysEnabled: json['isLateDaysEnabled'] ?? false,
+      lateDays: json['lateDays'] as int?,
+      lateDaysBalance: lateDaysBalance,
     );
   }
 }
