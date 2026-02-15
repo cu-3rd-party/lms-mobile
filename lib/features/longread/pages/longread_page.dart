@@ -2089,7 +2089,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
               ),
               const Spacer(),
-              if (editButton != null) editButton,
+              ?editButton,
             ],
           ),
           if (hasUrl) ...[
