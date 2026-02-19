@@ -144,7 +144,7 @@ class ScheduleSection extends StatelessWidget {
               Text(
                 _dateFormat.format(date).toLowerCase(),
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 13,
                   color: Colors.grey[400],
                 ),
               ),
