@@ -25,6 +25,7 @@ class _WebViewLoginPageState extends State<WebViewLoginPage> {
   bool _isLoading = true;
   double _progress = 0;
   String? _error;
+  bool _authHandled = false;
 
   static const String _authUrl = 'https://my.centraluniversity.ru';
   static const String _targetCookieName = 'bff.cookie';
@@ -78,6 +79,8 @@ class _WebViewLoginPageState extends State<WebViewLoginPage> {
   }
 
   Future<void> _handleSuccessfulAuth(String cookieValue) async {
+    if (_authHandled) return;
+    _authHandled = true;
     _log.info('Saving cookie and verifying...');
 
     await apiService.setCookie(cookieValue);
@@ -86,11 +89,12 @@ class _WebViewLoginPageState extends State<WebViewLoginPage> {
     if (profile != null) {
       _log.info('Auth successful for: ${profile.fullName}');
       if (mounted) {
-        Navigator.of(context).pop();
         widget.onLogin();
+        Navigator.of(context).pop();
       }
     } else {
       _log.warning('Cookie found but profile fetch failed');
+      _authHandled = false;
       await apiService.clearCookie();
       if (mounted) {
         setState(() {
