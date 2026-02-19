@@ -182,7 +182,7 @@ class TaskScore {
       scoreSkillLevel: json['scoreSkillLevel'] as String?,
       extraScore: (json['extraScore'] as num?)?.toDouble(),
       exerciseId: json['exerciseId'] as int,
-      maxScore: json['maxScore'] as int? ?? 10,
+      maxScore: (json['maxScore'] as num?)?.toInt() ?? 10,
       activity: TaskScoreActivity.fromJson(json['activity'] as Map<String, dynamic>),
     );
   }

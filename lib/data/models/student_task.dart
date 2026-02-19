@@ -53,7 +53,7 @@ class StudentTask {
       exercise: TaskExercise.fromJson(json['exercise'] ?? {}),
       course: TaskCourse.fromJson(json['course'] ?? {}),
       isLateDaysEnabled: json['isLateDaysEnabled'] ?? false,
-      lateDays: json['lateDays'] as int?,
+      lateDays: (json['lateDays'] as num?)?.toInt(),
     );
   }
 
@@ -155,7 +155,7 @@ class TaskExercise {
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
       type: json['type'] ?? '',
-      maxScore: json['maxScore'] ?? 0,
+      maxScore: (json['maxScore'] as num?)?.toInt() ?? 0,
       deadline: json['deadline'] != null ? DateTime.parse(json['deadline']) : null,
     );
   }

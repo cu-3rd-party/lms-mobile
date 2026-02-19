@@ -18,6 +18,7 @@ const _statusLabels = <String, String>{
 class TasksTab extends StatefulWidget {
   final List<StudentTask> tasks;
   final bool isLoading;
+  final bool hasError;
   final Set<String> statusFilters;
   final void Function(Set<String>) onStatusFiltersChanged;
   final Set<int> courseFilters;
@@ -35,6 +36,7 @@ class TasksTab extends StatefulWidget {
     super.key,
     required this.tasks,
     required this.isLoading,
+    this.hasError = false,
     required this.statusFilters,
     required this.onStatusFiltersChanged,
     required this.courseFilters,
@@ -84,6 +86,30 @@ class _TasksTabState extends State<TasksTab> {
                 color: Color(0xFF00E676),
               )
             : const CircularProgressIndicator(color: Color(0xFF00E676)),
+      );
+    }
+
+    if (widget.hasError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isIos ? CupertinoIcons.exclamationmark_circle : Icons.error_outline,
+                color: Colors.redAccent,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Не удалось загрузить задания',
+                style: TextStyle(color: Colors.grey[400], fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       );
     }
 

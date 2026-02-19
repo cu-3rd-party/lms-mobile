@@ -130,7 +130,7 @@ class MaterialEstimation {
   factory MaterialEstimation.fromJson(Map<String, dynamic> json) {
     return MaterialEstimation(
       deadline: json['deadline'] != null ? DateTime.parse(json['deadline']) : null,
-      maxScore: json['maxScore'] ?? 0,
+      maxScore: (json['maxScore'] as num?)?.toInt() ?? 0,
       activityName: json['activity']?['name'],
     );
   }

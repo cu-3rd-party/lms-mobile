@@ -8,6 +8,7 @@ import 'package:cumobile/data/models/student_task.dart';
 class DeadlinesSection extends StatelessWidget {
   final List<StudentTask> tasks;
   final bool isLoading;
+  final bool hasError;
   final void Function(StudentTask task) onOpenTask;
   final Set<int> userArchivedCourseIds;
 
@@ -16,6 +17,7 @@ class DeadlinesSection extends StatelessWidget {
     required this.tasks,
     required this.isLoading,
     required this.onOpenTask,
+    this.hasError = false,
     this.userArchivedCourseIds = const {},
   });
 
@@ -83,6 +85,31 @@ class DeadlinesSection extends StatelessWidget {
                       color: Color(0xFF00E676),
                     )
                   : const CircularProgressIndicator(color: Color(0xFF00E676)),
+            ),
+          )
+        else if (hasError)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isIos ? CupertinoIcons.exclamationmark_circle : Icons.error_outline,
+                    color: Colors.redAccent,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Не удалось загрузить задания',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                  ),
+                ],
+              ),
             ),
           )
         else if (deadlineTasks.isEmpty)

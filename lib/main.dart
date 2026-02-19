@@ -7,6 +7,6 @@ import 'package:cumobile/core/services/logging_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ru_RU');
-  configureLogging();
+  await configureLogging();
   runApp(const CUMobileApp());
 }

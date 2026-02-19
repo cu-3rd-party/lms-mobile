@@ -107,7 +107,7 @@ class ThemeExercise {
     return ThemeExercise(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
-      maxScore: json['maxScore'] ?? 0,
+      maxScore: (json['maxScore'] as num?)?.toInt() ?? 0,
       deadline: json['deadline'] != null ? DateTime.parse(json['deadline']) : null,
       activity: json['activity'] != null ? ExerciseActivity.fromJson(json['activity']) : null,
     );

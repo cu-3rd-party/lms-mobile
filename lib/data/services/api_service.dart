@@ -85,7 +85,7 @@ class ApiService {
     return null;
   }
 
-  Future<List<StudentTask>> fetchTasks({
+  Future<List<StudentTask>?> fetchTasks({
     bool inProgress = true,
     bool review = false,
     bool backlog = true,
@@ -117,7 +117,7 @@ class ApiService {
     } catch (e, st) {
       _log.warning('Error fetching tasks', e, st);
     }
-    return [];
+    return null;
   }
 
   Future<List<Course>> fetchCourses() async {

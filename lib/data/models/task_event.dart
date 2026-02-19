@@ -186,7 +186,7 @@ class TaskEventEstimation {
   factory TaskEventEstimation.fromJson(Map<String, dynamic> json) {
     return TaskEventEstimation(
       deadline: json['deadline'] != null ? DateTime.tryParse(json['deadline']) : null,
-      maxScore: json['maxScore'] is int ? json['maxScore'] as int : null,
+      maxScore: (json['maxScore'] as num?)?.toInt(),
       activityName: json['activity']?['name'],
     );
   }

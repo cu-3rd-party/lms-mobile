@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -34,12 +37,14 @@ class _ProfilePageState extends State<ProfilePage> {
   String _savedUrl = '';
   bool _hasChanges = false;
   bool _isEditing = false;
+  String? _logFilePath;
 
   @override
   void initState() {
     super.initState();
     _icsUrlController.addListener(_onUrlChanged);
     _loadIcsState();
+    _checkLogFile();
   }
 
   @override
@@ -67,6 +72,21 @@ class _ProfilePageState extends State<ProfilePage> {
         _icsUrlController.text = savedUrl;
       }
     });
+  }
+
+  Future<void> _checkLogFile() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File(p.join(dir.path, 'logs', 'errors.log'));
+      if (file.existsSync() && mounted) {
+        setState(() => _logFilePath = file.path);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _openLogFile() async {
+    if (_logFilePath == null) return;
+    await OpenFilex.open(_logFilePath!);
   }
 
   Future<void> _saveIcsUrl() async {
@@ -203,6 +223,21 @@ class _ProfilePageState extends State<ProfilePage> {
           _buildInfoCard(),
           const SizedBox(height: 16),
           _buildCalendarCard(),
+          if (_logFilePath != null) ...[
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: _openLogFile,
+              child: Text(
+                'Открыть лог ошибок',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[600],
+                  decoration: TextDecoration.underline,
+                  decorationColor: Colors.grey[700],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -50,6 +50,7 @@ class _HomePageState extends State<HomePage> {
   StudentLmsProfile? _lmsProfile;
   List<StudentTask> _tasks = [];
   bool _isLoadingTasks = true;
+  bool _tasksError = false;
   final Set<int> _lateDaysLoadingIds = {};
   List<Course> _activeCourses = [];
   List<Course> _archivedCourses = [];
@@ -178,16 +179,27 @@ class _HomePageState extends State<HomePage> {
         failed: true,
         evaluated: true,
       );
-      tasks.sort(_compareTasksByDeadline);
       if (!mounted) return;
+      if (tasks == null) {
+        setState(() {
+          _isLoadingTasks = false;
+          _tasksError = true;
+        });
+        return;
+      }
+      tasks.sort(_compareTasksByDeadline);
       setState(() {
         _tasks = tasks;
         _isLoadingTasks = false;
+        _tasksError = false;
       });
     } catch (e, st) {
       _log.warning('Error loading tasks', e, st);
       if (!mounted) return;
-      setState(() => _isLoadingTasks = false);
+      setState(() {
+        _isLoadingTasks = false;
+        _tasksError = true;
+      });
     }
   }
 
@@ -586,6 +598,7 @@ class _HomePageState extends State<HomePage> {
                 key: ValueKey('deadlines_${_archivedCourses.map((c) => c.id).join(',')}'),
                 tasks: _filteredTasksForHome(),
                 isLoading: _isLoadingTasks,
+                hasError: _tasksError,
                 onOpenTask: _openTask,
                 userArchivedCourseIds: _archivedCourses.map((c) => c.id).toSet(),
               ),
@@ -616,6 +629,7 @@ class _HomePageState extends State<HomePage> {
           key: ValueKey('tasks_${_archivedCourses.map((c) => c.id).join(',')}'),
           tasks: _tasks,
           isLoading: _isLoadingTasks,
+          hasError: _tasksError,
           statusFilters: _taskStatusFilters,
           onStatusFiltersChanged: (filters) {
             setState(() {

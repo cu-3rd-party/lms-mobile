@@ -84,7 +84,7 @@ class TaskDetails {
       id: json['id'] ?? 0,
       score: rawScore is num ? rawScore.toDouble() : null,
       extraScore: rawExtraScore is num ? rawExtraScore.toDouble() : null,
-      maxScore: exercise is Map ? exercise['maxScore'] as int? : null,
+      maxScore: exercise is Map ? (exercise['maxScore'] as num?)?.toInt() : null,
       scoreSkillLevel: scoreSkillLevel,
       state: json['state']?.toString(),
       solutionUrl: solutionUrl,
@@ -92,7 +92,7 @@ class TaskDetails {
       submitAt: submitAt,
       hasSolution: submitAt != null,
       isLateDaysEnabled: json['isLateDaysEnabled'] ?? false,
-      lateDays: json['lateDays'] as int?,
+      lateDays: (json['lateDays'] as num?)?.toInt(),
       lateDaysBalance: lateDaysBalance,
       deadline: json['deadline'] != null ? DateTime.tryParse(json['deadline'].toString()) : null,
     );
