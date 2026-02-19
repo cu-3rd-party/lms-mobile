@@ -123,7 +123,7 @@ flutter build ipa --release --no-codesign
 
 rm -rf Payload
 mkdir -p Payload
-cp -R build/ios/iphoneos/Runner.app Payload/
+cp -R build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/
 
 (cd Payload/.. && zip -r Runner-unsigned.ipa Payload)
 
