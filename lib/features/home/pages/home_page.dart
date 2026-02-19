@@ -50,6 +50,7 @@ class _HomePageState extends State<HomePage> {
   StudentLmsProfile? _lmsProfile;
   List<StudentTask> _tasks = [];
   bool _isLoadingTasks = true;
+  final Set<int> _lateDaysLoadingIds = {};
   List<Course> _activeCourses = [];
   List<Course> _archivedCourses = [];
   bool _isLoadingCourses = true;
@@ -641,6 +642,7 @@ class _HomePageState extends State<HomePage> {
           onOpenTask: _openTask,
           userArchivedCourseIds: _archivedCourses.map((c) => c.id).toSet(),
           lateDaysBalance: _lmsProfile?.lateDaysBalance ?? 0,
+          lateDaysLoadingIds: _lateDaysLoadingIds,
           onExtendDeadline: _showLateDaysDialog,
           onCancelLateDays: _cancelLateDays,
         ),
@@ -944,24 +946,68 @@ class _HomePageState extends State<HomePage> {
       lateDaysBalance: balance,
     );
     if (result == null || !mounted) return;
+    setState(() => _lateDaysLoadingIds.add(task.id));
     final success = await apiService.prolongLateDays(task.id, result);
     if (!mounted) return;
     if (success) {
       await Future.wait([_loadTasks(), _loadLmsProfile()]);
+      if (mounted) setState(() => _lateDaysLoadingIds.remove(task.id));
     } else {
+      setState(() => _lateDaysLoadingIds.remove(task.id));
       _showSnack('Не удалось перенести дедлайн');
     }
   }
 
   Future<void> _cancelLateDays(StudentTask task) async {
+    if (!task.canCancelLateDays) {
+      _showCancelBlockedInfo();
+      return;
+    }
     final confirmed = await _showCancelLateDaysConfirm();
     if (confirmed != true || !mounted) return;
+    setState(() => _lateDaysLoadingIds.add(task.id));
     final success = await apiService.cancelLateDays(task.id);
     if (!mounted) return;
     if (success) {
       await Future.wait([_loadTasks(), _loadLmsProfile()]);
+      if (mounted) setState(() => _lateDaysLoadingIds.remove(task.id));
     } else {
+      setState(() => _lateDaysLoadingIds.remove(task.id));
       _showSnack('Не удалось отменить перенос');
+    }
+  }
+
+  void _showCancelBlockedInfo() {
+    const message =
+        'Невозможно отменить перенос дедлайна, так как осталось менее 24 часов.\n\n'
+        'Если вы не сдадите работу, Late Days автоматически вернутся.';
+    if (Platform.isIOS) {
+      showCupertinoDialog<void>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          content: const Text(message),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Понятно'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          content: const Text(message, style: TextStyle(color: Colors.white)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Понятно'),
+            ),
+          ],
+        ),
+      );
     }
   }
 

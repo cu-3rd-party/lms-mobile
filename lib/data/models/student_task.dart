@@ -63,8 +63,15 @@ class StudentTask {
 
   bool get canExtendDeadline {
     if (!isLateDaysEnabled) return false;
-    const blocked = {'review', 'evaluated', 'revision', 'rework', 'failed', 'rejected'};
+    const blocked = {'review', 'evaluated', 'revision', 'rework'};
     return !blocked.contains(normalizedState);
+  }
+
+  bool get canCancelLateDays {
+    if ((lateDays ?? 0) == 0) return false;
+    final d = effectiveDeadline;
+    if (d == null) return true;
+    return d.difference(DateTime.now()) > const Duration(hours: 24);
   }
 
   bool get isOverdue {

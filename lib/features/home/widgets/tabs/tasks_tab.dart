@@ -27,6 +27,7 @@ class TasksTab extends StatefulWidget {
   final void Function(StudentTask) onOpenTask;
   final Set<int> userArchivedCourseIds;
   final int lateDaysBalance;
+  final Set<int> lateDaysLoadingIds;
   final void Function(StudentTask task)? onExtendDeadline;
   final void Function(StudentTask task)? onCancelLateDays;
 
@@ -43,6 +44,7 @@ class TasksTab extends StatefulWidget {
     required this.onOpenTask,
     this.userArchivedCourseIds = const {},
     this.lateDaysBalance = 0,
+    this.lateDaysLoadingIds = const {},
     this.onExtendDeadline,
     this.onCancelLateDays,
   });
@@ -121,6 +123,7 @@ class _TasksTabState extends State<TasksTab> {
                 task: task,
                 onTap: () => widget.onOpenTask(task),
                 lateDaysBalance: widget.lateDaysBalance,
+                isLateDaysLoading: widget.lateDaysLoadingIds.contains(task.id),
                 onExtendDeadline: widget.onExtendDeadline != null ? () => widget.onExtendDeadline!(task) : null,
                 onCancelLateDays: widget.onCancelLateDays != null ? () => widget.onCancelLateDays!(task) : null,
               )),
@@ -934,6 +937,7 @@ class _TaskListItem extends StatelessWidget {
   final StudentTask task;
   final VoidCallback onTap;
   final int lateDaysBalance;
+  final bool isLateDaysLoading;
   final VoidCallback? onExtendDeadline;
   final VoidCallback? onCancelLateDays;
 
@@ -941,6 +945,7 @@ class _TaskListItem extends StatelessWidget {
     required this.task,
     required this.onTap,
     this.lateDaysBalance = 0,
+    this.isLateDaysLoading = false,
     this.onExtendDeadline,
     this.onCancelLateDays,
   });
@@ -955,7 +960,7 @@ class _TaskListItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: task.stateBorderColor, width: 1),
       ),
-      child: _buildContent(isIos),
+      child: _buildContent(isIos, context),
     );
     if (isIos) {
       return GestureDetector(onTap: onTap, child: card);
@@ -970,7 +975,7 @@ class _TaskListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildContent(bool isIos) {
+  Widget _buildContent(bool isIos, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -1027,14 +1032,9 @@ class _TaskListItem extends StatelessWidget {
                         ),
                       ),
                     ],
-                    const Spacer(),
-                    Text(
-                      'макс. ${task.exercise.maxScore}',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                    ),
                   ],
                 ),
-                if (task.canExtendDeadline) _buildLateDaysRow(isIos),
+                if (task.canExtendDeadline) _buildLateDaysRow(isIos, context),
               ],
             ),
           ),
@@ -1043,10 +1043,20 @@ class _TaskListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildLateDaysRow(bool isIos) {
+  Widget _buildLateDaysRow(bool isIos, BuildContext context) {
     final ld = task.lateDays ?? 0;
     final hasExtension = ld > 0;
     final canExtendMore = ld < 7 && lateDaysBalance > 0;
+
+    if (isLateDaysLoading) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 6),
+        child: SizedBox(
+          height: 16,
+          child: CupertinoActivityIndicator(radius: 7),
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.only(top: 6),
@@ -1065,14 +1075,16 @@ class _TaskListItem extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: onCancelLateDays,
+              onTap: task.canCancelLateDays
+                  ? onCancelLateDays
+                  : () => _showCancelBlockedInfo(context, isIos),
               child: Text(
                 'Отменить',
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[500],
+                  color: task.canCancelLateDays ? Colors.grey[500] : Colors.grey[700],
                   decoration: TextDecoration.underline,
-                  decorationColor: Colors.grey[500],
+                  decorationColor: task.canCancelLateDays ? Colors.grey[500] : Colors.grey[700],
                 ),
               ),
             ),
@@ -1122,6 +1134,40 @@ class _TaskListItem extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showCancelBlockedInfo(BuildContext context, bool isIos) {
+    const message =
+        'Невозможно отменить перенос дедлайна, так как осталось менее 24 часов.\n\n'
+        'Если вы не сдадите работу, Late Days автоматически вернутся.';
+    if (isIos) {
+      showCupertinoDialog<void>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          content: const Text(message),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Понятно'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          content: const Text(message, style: TextStyle(color: Colors.white)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Понятно'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   String _getStateLabel(StudentTask task) {

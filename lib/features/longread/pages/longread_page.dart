@@ -71,6 +71,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   final Map<int, List<TaskComment>> _commentsByTaskId = {};
   final Map<int, TaskDetails> _taskDetailsById = {};
   final Set<int> _loadingTaskIds = {};
+  final Set<int> _lateDaysLoadingTaskIds = {};
   final Map<int, String?> _taskLoadErrors = {};
   final Map<int, int> _taskTabIndex = {};
   final Map<int, TextEditingController> _commentControllers = {};
@@ -3413,7 +3414,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   Widget _buildLateDaysSummaryRow(int taskId, TaskDetails details, LongreadMaterial material) {
     if (!details.isLateDaysEnabled) return const SizedBox.shrink();
     final state = details.state ?? '';
-    const blocked = {'review', 'evaluated', 'revision', 'rework', 'failed', 'rejected'};
+    const blocked = {'review', 'evaluated', 'revision', 'rework'};
     if (blocked.contains(state)) return const SizedBox.shrink();
 
     final isIos = Platform.isIOS;
@@ -3421,6 +3422,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final hasExtension = ld > 0;
     final canExtendMore = ld < 7;
     final deadline = material.estimation?.deadline;
+    final isLateDaysLoading = _lateDaysLoadingTaskIds.contains(taskId);
 
     return Padding(
       padding: const EdgeInsets.only(top: 8),
@@ -3445,29 +3447,40 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               ],
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                if (canExtendMore)
+            if (isLateDaysLoading)
+              const SizedBox(
+                height: 34,
+                child: Center(child: CupertinoActivityIndicator()),
+              )
+            else
+              Row(
+                children: [
+                  if (canExtendMore)
+                    Expanded(
+                      child: _buildLateDaysButton(
+                        label: 'Ещё перенести',
+                        color: const Color(0xFF00E676),
+                        icon: isIos ? CupertinoIcons.calendar_badge_plus : Icons.event,
+                        onTap: () => _handleExtendLateDays(taskId, details, deadline),
+                      ),
+                    ),
+                  if (canExtendMore) const SizedBox(width: 8),
                   Expanded(
                     child: _buildLateDaysButton(
-                      label: 'Ещё перенести',
-                      color: const Color(0xFF00E676),
-                      icon: isIos ? CupertinoIcons.calendar_badge_plus : Icons.event,
-                      onTap: () => _handleExtendLateDays(taskId, details, deadline),
+                      label: 'Отменить перенос',
+                      color: Colors.redAccent,
+                      icon: isIos ? CupertinoIcons.xmark : Icons.close,
+                      onTap: () => _handleCancelLateDays(taskId),
                     ),
                   ),
-                if (canExtendMore) const SizedBox(width: 8),
-                Expanded(
-                  child: _buildLateDaysButton(
-                    label: 'Отменить перенос',
-                    color: Colors.redAccent,
-                    icon: isIos ? CupertinoIcons.xmark : Icons.close,
-                    onTap: () => _handleCancelLateDays(taskId),
-                  ),
-                ),
-              ],
-            ),
-          ] else
+                ],
+              ),
+          ] else if (isLateDaysLoading)
+            const SizedBox(
+              height: 34,
+              child: Center(child: CupertinoActivityIndicator()),
+            )
+          else
             SizedBox(
               width: double.infinity,
               child: _buildLateDaysButton(
@@ -4040,24 +4053,71 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       lateDaysBalance: balance,
     );
     if (result == null || !mounted) return;
+    setState(() => _lateDaysLoadingTaskIds.add(taskId));
     final success = await apiService.prolongLateDays(taskId, result);
     if (!mounted) return;
     if (success) {
       await _reloadTaskDetails(taskId);
+      if (mounted) setState(() => _lateDaysLoadingTaskIds.remove(taskId));
     } else {
+      setState(() => _lateDaysLoadingTaskIds.remove(taskId));
       _showError('Не удалось перенести дедлайн');
     }
   }
 
   Future<void> _handleCancelLateDays(int taskId) async {
+    final deadline = _taskDetailsById[taskId]?.deadline;
+    final canCancel = deadline == null ||
+        deadline.difference(DateTime.now()) > const Duration(hours: 24);
+    if (!canCancel) {
+      _showCancelBlocked();
+      return;
+    }
     final confirmed = await _showCancelConfirm();
     if (confirmed != true || !mounted) return;
+    setState(() => _lateDaysLoadingTaskIds.add(taskId));
     final success = await apiService.cancelLateDays(taskId);
     if (!mounted) return;
     if (success) {
       await _reloadTaskDetails(taskId);
+      if (mounted) setState(() => _lateDaysLoadingTaskIds.remove(taskId));
     } else {
+      setState(() => _lateDaysLoadingTaskIds.remove(taskId));
       _showError('Не удалось отменить перенос');
+    }
+  }
+
+  void _showCancelBlocked() {
+    const message =
+        'Невозможно отменить перенос дедлайна, так как осталось менее 24 часов.\n\n'
+        'Если вы не сдадите работу, Late Days автоматически вернутся.';
+    if (Platform.isIOS) {
+      showCupertinoDialog<void>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          content: const Text(message),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Понятно'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          content: const Text(message, style: TextStyle(color: Colors.white)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Понятно'),
+            ),
+          ],
+        ),
+      );
     }
   }
 

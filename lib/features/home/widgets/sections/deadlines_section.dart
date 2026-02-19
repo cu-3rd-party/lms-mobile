@@ -219,14 +219,6 @@ class _TaskCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const Spacer(),
-              Text(
-                'макс. ${task.exercise.maxScore}',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey[500],
-                ),
-              ),
             ],
           ),
         ],
