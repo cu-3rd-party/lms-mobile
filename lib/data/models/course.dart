@@ -40,6 +40,10 @@ class Course {
         return const Color(0xFF9C27B0);
       case 'general':
         return const Color(0xFFFF9800);
+      case 'business':
+        return const Color(0xFFE91E63);
+      case 'softSkills':
+        return const Color(0xFF00BCD4);
       case 'withoutCategory':
       default:
         return const Color(0xFF607D8B);
@@ -56,6 +60,10 @@ class Course {
         return Icons.science;
       case 'general':
         return Icons.school;
+      case 'business':
+        return Icons.business_center;
+      case 'softSkills':
+        return Icons.people;
       case 'withoutCategory':
       default:
         return Icons.category;
