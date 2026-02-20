@@ -180,14 +180,16 @@ class TaskEventEstimation {
   final DateTime? deadline;
   final int? maxScore;
   final String? activityName;
+  final double? activityWeight;
 
-  TaskEventEstimation({this.deadline, this.maxScore, this.activityName});
+  TaskEventEstimation({this.deadline, this.maxScore, this.activityName, this.activityWeight});
 
   factory TaskEventEstimation.fromJson(Map<String, dynamic> json) {
     return TaskEventEstimation(
       deadline: json['deadline'] != null ? DateTime.tryParse(json['deadline']) : null,
       maxScore: (json['maxScore'] as num?)?.toInt(),
       activityName: json['activity']?['name'],
+      activityWeight: (json['activity']?['weight'] as num?)?.toDouble(),
     );
   }
 }

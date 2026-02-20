@@ -3324,6 +3324,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         material.taskId != null ? _taskDetailsById[material.taskId!] : null;
     final deadline = taskDetails?.deadline ?? eventEstimation?.deadline ?? materialEstimation?.deadline;
     final activityName = eventEstimation?.activityName ?? materialEstimation?.activityName;
+    final activityWeight = eventEstimation?.activityWeight ?? materialEstimation?.activityWeight;
     final scoreText = _formatScore(
       events,
       eventEstimation?.maxScore,
@@ -3334,12 +3335,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         ? _formatScoreValue(taskDetails!.extraScore!)
         : '-';
     final status = _deriveStatus(events, taskDetails);
+    final weightText = activityWeight != null
+        ? '${(activityWeight * 100).toStringAsFixed(activityWeight * 100 == (activityWeight * 100).roundToDouble() ? 0 : 1)}%'
+        : '-';
 
     return Column(
       children: [
         _buildInfoRow('Дедлайн', _formatDateTime(deadline)),
         _buildInfoRow('Статус', status),
         _buildInfoRow('Тип активности', activityName ?? '-'),
+        _buildInfoRow('Вес задания', weightText),
         _buildInfoRow('Название курса', widget.courseName ?? '-'),
         _buildInfoRow('Тема', widget.themeName ?? '-'),
         _buildInfoRow('Оценка', scoreText),

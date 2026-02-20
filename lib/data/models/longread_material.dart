@@ -120,11 +120,13 @@ class MaterialEstimation {
   final DateTime? deadline;
   final int maxScore;
   final String? activityName;
+  final double? activityWeight;
 
   MaterialEstimation({
     this.deadline,
     required this.maxScore,
     this.activityName,
+    this.activityWeight,
   });
 
   factory MaterialEstimation.fromJson(Map<String, dynamic> json) {
@@ -132,6 +134,7 @@ class MaterialEstimation {
       deadline: json['deadline'] != null ? DateTime.parse(json['deadline']) : null,
       maxScore: (json['maxScore'] as num?)?.toInt() ?? 0,
       activityName: json['activity']?['name'],
+      activityWeight: (json['activity']?['weight'] as num?)?.toDouble(),
     );
   }
 
