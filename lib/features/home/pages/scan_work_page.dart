@@ -27,6 +27,7 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
   final List<ScanPageData> _pages = [];
 
   bool _isCapturing = false;
+  bool _compressImages = false;
   bool _isSaving = false;
   String? _error;
 
@@ -113,6 +114,37 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
             ],
           ),
           const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Сжать изображения',
+                              style: TextStyle(fontSize: 14, color: Colors.white),
+                            ),
+                            Text(
+                              'Уменьшает размер PDF',
+                              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                            ),
+                          ],
+                        ),
+                      ),
+                      isIos
+                          ? CupertinoSwitch(
+                              value: _compressImages,
+                              activeTrackColor: _accentColor,
+                              onChanged: (v) => setState(() => _compressImages = v),
+                            )
+                          : Switch(
+                              value: _compressImages,
+                              activeColor: _accentColor,
+                              onChanged: (v) => setState(() => _compressImages = v),
+                            ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   _buildPrimaryButton(
                     isIos: isIos,
                     onPressed: _pages.isEmpty || _isSaving ? null : _saveAsPdf,
@@ -504,7 +536,8 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
     try {
       final doc = pw.Document();
       for (final pageData in _pages) {
-        final processedBytes = await _processImageForPdf(pageData);
+        var processedBytes = await _processImageForPdf(pageData);
+        if (_compressImages) processedBytes = _compressImageBytes(processedBytes);
         final decoded = img.decodeImage(processedBytes);
         final image = pw.MemoryImage(processedBytes);
         final imgW = (decoded?.width ?? 595).toDouble();
@@ -533,6 +566,18 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
         setState(() => _isSaving = false);
       }
     }
+  }
+
+  Uint8List _compressImageBytes(Uint8List bytes) {
+    var image = img.decodeImage(bytes);
+    if (image == null) return bytes;
+    const maxDim = 1920;
+    if (image.width > maxDim || image.height > maxDim) {
+      image = image.width >= image.height
+          ? img.copyResize(image, width: maxDim)
+          : img.copyResize(image, height: maxDim);
+    }
+    return Uint8List.fromList(img.encodeJpg(image, quality: 72));
   }
 
   Future<Uint8List> _processImageForPdf(ScanPageData pageData) async {
