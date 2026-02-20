@@ -103,9 +103,9 @@ class HomeCoursesSection extends StatelessWidget {
                 final course = courses[index];
                 return CourseCard(
                   title: course.cleanName,
-                  categoryLabel: _categoryName(course.category),
+                  categoryLabel: course.categoryName,
                   categoryColor: course.categoryColor,
-                  categoryIcon: _categoryIcon(course.category, isIos),
+                  categoryIcon: course.categoryIconAdaptive,
                   onTap: () => onOpenCourse(course),
                 );
               },
@@ -115,35 +115,4 @@ class HomeCoursesSection extends StatelessWidget {
     );
   }
 
-  IconData _categoryIcon(String category, bool isIos) {
-    switch (category) {
-      case 'mathematics':
-        return isIos ? CupertinoIcons.function : Icons.functions;
-      case 'development':
-        return isIos ? CupertinoIcons.chevron_left_slash_chevron_right : Icons.code;
-      case 'stem':
-        return isIos ? CupertinoIcons.lab_flask : Icons.science;
-      case 'general':
-        return isIos ? CupertinoIcons.book : Icons.school;
-      case 'withoutCategory':
-      default:
-        return isIos ? CupertinoIcons.tag : Icons.category;
-    }
-  }
-
-  String _categoryName(String category) {
-    switch (category) {
-      case 'mathematics':
-        return 'Математика';
-      case 'development':
-        return 'Разработка';
-      case 'stem':
-        return 'Наука';
-      case 'general':
-        return 'Общее';
-      case 'withoutCategory':
-      default:
-        return 'Без категории';
-    }
-  }
 }

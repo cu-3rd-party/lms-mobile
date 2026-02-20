@@ -641,7 +641,7 @@ class _CourseListTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              _categoryIcon(course.category, isIos),
+              course.categoryIconAdaptive,
               size: 16,
               color: course.categoryColor,
             ),
@@ -659,7 +659,7 @@ class _CourseListTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _getCategoryName(course.category),
+                  course.categoryName,
                   style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                 ),
               ],
@@ -671,37 +671,6 @@ class _CourseListTile extends StatelessWidget {
     );
   }
 
-  IconData _categoryIcon(String category, bool isIos) {
-    switch (category) {
-      case 'mathematics':
-        return isIos ? CupertinoIcons.function : Icons.functions;
-      case 'development':
-        return isIos ? CupertinoIcons.chevron_left_slash_chevron_right : Icons.code;
-      case 'stem':
-        return isIos ? CupertinoIcons.lab_flask : Icons.science;
-      case 'general':
-        return isIos ? CupertinoIcons.book : Icons.school;
-      case 'withoutCategory':
-      default:
-        return isIos ? CupertinoIcons.tag : Icons.category;
-    }
-  }
-
-  String _getCategoryName(String category) {
-    switch (category) {
-      case 'mathematics':
-        return 'Математика';
-      case 'development':
-        return 'Разработка';
-      case 'stem':
-        return 'Наука';
-      case 'general':
-        return 'Общее';
-      case 'withoutCategory':
-      default:
-        return 'Без категории';
-    }
-  }
 }
 
 class _CourseGradeTile extends StatelessWidget {

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class Course {
@@ -67,6 +70,47 @@ class Course {
       case 'withoutCategory':
       default:
         return Icons.category;
+    }
+  }
+
+  String get categoryName {
+    switch (category) {
+      case 'mathematics':
+        return 'Математика';
+      case 'development':
+        return 'Разработка';
+      case 'stem':
+        return 'Наука';
+      case 'general':
+        return 'Общее';
+      case 'business':
+        return 'Бизнес';
+      case 'softSkills':
+        return 'Soft Skills';
+      case 'withoutCategory':
+      default:
+        return 'Без категории';
+    }
+  }
+
+  IconData get categoryIconAdaptive {
+    final isIos = Platform.isIOS;
+    switch (category) {
+      case 'mathematics':
+        return isIos ? CupertinoIcons.function : Icons.functions;
+      case 'development':
+        return isIos ? CupertinoIcons.chevron_left_slash_chevron_right : Icons.code;
+      case 'stem':
+        return isIos ? CupertinoIcons.lab_flask : Icons.science;
+      case 'general':
+        return isIos ? CupertinoIcons.book : Icons.school;
+      case 'business':
+        return isIos ? CupertinoIcons.briefcase : Icons.business_center;
+      case 'softSkills':
+        return isIos ? CupertinoIcons.person_2 : Icons.people;
+      case 'withoutCategory':
+      default:
+        return isIos ? CupertinoIcons.tag : Icons.category;
     }
   }
 }
