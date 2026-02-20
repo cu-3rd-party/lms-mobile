@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -46,6 +47,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedTab = 0;
   StudentProfile? _profile;
+  Uint8List? _avatarBytes;
   bool _isLoadingProfile = true;
   StudentLmsProfile? _lmsProfile;
   List<StudentTask> _tasks = [];
@@ -157,10 +159,14 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadProfile() async {
     try {
-      final profile = await apiService.fetchProfile();
+      final results = await Future.wait([
+        apiService.fetchProfile(),
+        apiService.fetchAvatar(),
+      ]);
       if (!mounted) return;
       setState(() {
-        _profile = profile;
+        _profile = results[0] as StudentProfile?;
+        _avatarBytes = results[1] as Uint8List?;
         _isLoadingProfile = false;
       });
     } catch (e, st) {
@@ -471,6 +477,7 @@ class _HomePageState extends State<HomePage> {
           title: _currentTabTitle(),
           lmsProfile: _lmsProfile,
           profile: _profile,
+          avatarBytes: _avatarBytes,
           isLoadingProfile: _isLoadingProfile,
           onOpenNotifications: _openNotifications,
           onOpenProfile: _openProfile,
@@ -553,15 +560,19 @@ class _HomePageState extends State<HomePage> {
           ? CupertinoPageRoute(
               builder: (context) => ProfilePage(
                 profile: _profile!,
+                avatarBytes: _avatarBytes,
                 onLogout: _logout,
                 onCalendarChanged: _refreshScheduleAfterCalendarChange,
+                onAvatarChanged: (bytes) => setState(() => _avatarBytes = bytes),
               ),
             )
           : MaterialPageRoute(
               builder: (context) => ProfilePage(
                 profile: _profile!,
+                avatarBytes: _avatarBytes,
                 onLogout: _logout,
                 onCalendarChanged: _refreshScheduleAfterCalendarChange,
+                onAvatarChanged: (bytes) => setState(() => _avatarBytes = bytes),
               ),
             ),
     );

@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -63,6 +65,50 @@ class ApiService {
     _cookie = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('cookie');
+  }
+
+  Future<Uint8List?> fetchAvatar() async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+      final response = await http.get(
+        Uri.parse('$baseUrl/hub/avatars/me'),
+        headers: {'Cookie': cookie},
+      );
+      if (response.statusCode == 200) return response.bodyBytes;
+    } catch (_) {}
+    return null;
+  }
+
+  Future<bool> uploadAvatar(Uint8List bytes, String filename, String mimeType) async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return false;
+      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/hub/avatars/me'));
+      request.headers['Cookie'] = cookie;
+      request.files.add(http.MultipartFile.fromBytes(
+        'File',
+        bytes,
+        filename: filename,
+        contentType: MediaType.parse(mimeType),
+      ));
+      final response = await request.send();
+      return response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204;
+    } catch (_) {}
+    return false;
+  }
+
+  Future<bool> deleteAvatar() async {
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return false;
+      final response = await http.delete(
+        Uri.parse('$baseUrl/hub/avatars/me'),
+        headers: {'Cookie': cookie},
+      );
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (_) {}
+    return false;
   }
 
   Future<StudentProfile?> fetchProfile() async {

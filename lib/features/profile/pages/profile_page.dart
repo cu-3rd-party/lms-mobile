@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -9,17 +11,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:cumobile/data/models/student_profile.dart';
+import 'package:cumobile/data/services/api_service.dart';
 
 class ProfilePage extends StatefulWidget {
   final StudentProfile profile;
+  final Uint8List? avatarBytes;
   final VoidCallback onLogout;
   final VoidCallback? onCalendarChanged;
+  final void Function(Uint8List?)? onAvatarChanged;
 
   const ProfilePage({
     super.key,
     required this.profile,
+    this.avatarBytes,
     required this.onLogout,
     this.onCalendarChanged,
+    this.onAvatarChanged,
   });
 
   @override
@@ -38,10 +45,13 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _hasChanges = false;
   bool _isEditing = false;
   String? _logFilePath;
+  Uint8List? _currentAvatarBytes;
+  bool _isAvatarLoading = false;
 
   @override
   void initState() {
     super.initState();
+    _currentAvatarBytes = widget.avatarBytes;
     _icsUrlController.addListener(_onUrlChanged);
     _loadIcsState();
     _checkLogFile();
@@ -52,6 +62,116 @@ class _ProfilePageState extends State<ProfilePage> {
     _icsUrlController.removeListener(_onUrlChanged);
     _icsUrlController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final isIos = Platform.isIOS;
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 100,
+    );
+    if (picked == null) return;
+
+    final bytes = await picked.readAsBytes();
+    if (bytes.length > 8 * 1024 * 1024) {
+      if (!mounted) return;
+      _showAvatarError('Файл слишком большой. Максимальный размер — 8 МБ.');
+      return;
+    }
+
+    final ext = picked.name.split('.').last.toLowerCase();
+    if (ext != 'jpg' && ext != 'jpeg' && ext != 'png') {
+      if (!mounted) return;
+      _showAvatarError('Поддерживаются только форматы JPG и PNG.');
+      return;
+    }
+
+    setState(() => _isAvatarLoading = true);
+    try {
+      final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
+      final success = await apiService.uploadAvatar(bytes, picked.name, mimeType);
+      if (!mounted) return;
+      if (success) {
+        setState(() => _currentAvatarBytes = bytes);
+        widget.onAvatarChanged?.call(bytes);
+      } else {
+        _showAvatarError('Не удалось загрузить аватар.');
+      }
+    } finally {
+      if (mounted) setState(() => _isAvatarLoading = false);
+    }
+  }
+
+  Future<void> _deleteAvatar() async {
+    final isIos = Platform.isIOS;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => isIos
+          ? CupertinoAlertDialog(
+              title: const Text('Удалить аватар?'),
+              actions: [
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Отмена'),
+                ),
+                CupertinoDialogAction(
+                  isDestructiveAction: true,
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Удалить'),
+                ),
+              ],
+            )
+          : AlertDialog(
+              title: const Text('Удалить аватар?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Отмена'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: Text('Удалить', style: TextStyle(color: Colors.red[400])),
+                ),
+              ],
+            ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isAvatarLoading = true);
+    try {
+      final success = await apiService.deleteAvatar();
+      if (!mounted) return;
+      if (success) {
+        setState(() => _currentAvatarBytes = null);
+        widget.onAvatarChanged?.call(null);
+      } else {
+        _showAvatarError('Не удалось удалить аватар.');
+      }
+    } finally {
+      if (mounted) setState(() => _isAvatarLoading = false);
+    }
+  }
+
+  void _showAvatarError(String message) {
+    final isIos = Platform.isIOS;
+    if (isIos) {
+      showCupertinoDialog(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('Ошибка'),
+          content: Text(message),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   void _onUrlChanged() {
@@ -183,22 +303,86 @@ class _ProfilePageState extends State<ProfilePage> {
       child: Column(
         children: [
           const SizedBox(height: 16),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: const Color(0xFF00E676).withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '${widget.profile.firstName[0]}${widget.profile.lastName[0]}',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF00E676),
+          SizedBox(
+            width: 88,
+            height: 88,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: _isAvatarLoading
+                      ? Center(
+                          child: isIos
+                              ? const CupertinoActivityIndicator(
+                                  radius: 14,
+                                  color: Color(0xFF00E676),
+                                )
+                              : const CircularProgressIndicator(
+                                  color: Color(0xFF00E676),
+                                ),
+                        )
+                      : _currentAvatarBytes != null
+                          ? ClipOval(
+                              child: Image.memory(
+                                _currentAvatarBytes!,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                '${widget.profile.firstName[0]}${widget.profile.lastName[0]}',
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF00E676),
+                                ),
+                              ),
+                            ),
                 ),
-              ),
+                if (!_isAvatarLoading) ...[
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: GestureDetector(
+                      onTap: _pickAndUploadAvatar,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF00E676),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.camera_alt, size: 15, color: Colors.black),
+                      ),
+                    ),
+                  ),
+                  if (_currentAvatarBytes != null)
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      child: GestureDetector(
+                        onTap: _deleteAvatar,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: Colors.red[400],
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.delete, size: 15, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                ],
+              ],
             ),
           ),
           const SizedBox(height: 16),
