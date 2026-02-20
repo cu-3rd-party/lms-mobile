@@ -505,15 +505,16 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
       final doc = pw.Document();
       for (final pageData in _pages) {
         final processedBytes = await _processImageForPdf(pageData);
+        final decoded = img.decodeImage(processedBytes);
         final image = pw.MemoryImage(processedBytes);
+        final imgW = (decoded?.width ?? 595).toDouble();
+        final imgH = (decoded?.height ?? 842).toDouble();
+        final scale = 842.0 / (imgW > imgH ? imgW : imgH);
         doc.addPage(
           pw.Page(
-            pageFormat: PdfPageFormat.a4,
+            pageFormat: PdfPageFormat(imgW * scale, imgH * scale),
             margin: pw.EdgeInsets.zero,
-            build: (_) => pw.Image(
-              image,
-              fit: pw.BoxFit.cover,
-            ),
+            build: (_) => pw.Image(image, fit: pw.BoxFit.fill),
           ),
         );
       }
