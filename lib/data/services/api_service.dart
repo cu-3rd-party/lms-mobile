@@ -8,6 +8,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:cumobile/core/services/demo_service.dart';
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/longread_material.dart';
@@ -68,6 +69,7 @@ class ApiService {
   }
 
   Future<Uint8List?> fetchAvatar() async {
+    if (demoService.isDemoMode) return demoService.demoAvatar();
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -81,6 +83,7 @@ class ApiService {
   }
 
   Future<bool> uploadAvatar(Uint8List bytes, String filename, String mimeType) async {
+    if (demoService.isDemoMode) return true;
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -99,6 +102,7 @@ class ApiService {
   }
 
   Future<bool> deleteAvatar() async {
+    if (demoService.isDemoMode) return true;
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -112,6 +116,7 @@ class ApiService {
   }
 
   Future<StudentProfile?> fetchProfile() async {
+    if (demoService.isDemoMode) return demoService.demoProfile();
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -138,6 +143,7 @@ class ApiService {
     bool failed = false,
     bool evaluated = false,
   }) async {
+    if (demoService.isDemoMode) return demoService.demoTasks();
     try {
       final cookie = await getCookie();
       if (cookie == null) return [];
@@ -167,6 +173,7 @@ class ApiService {
   }
 
   Future<List<Course>> fetchCourses() async {
+    if (demoService.isDemoMode) return demoService.demoCourses();
     try {
       final cookie = await getCookie();
       if (cookie == null) return [];
@@ -379,6 +386,7 @@ class ApiService {
   }
 
   Future<StudentLmsProfile?> fetchStudentLmsProfile() async {
+    if (demoService.isDemoMode) return demoService.demoLmsProfile();
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -468,6 +476,7 @@ class ApiService {
     required String content,
     List<Map<String, dynamic>> attachments = const [],
   }) async {
+    if (demoService.isDemoMode) return 9999;
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -505,6 +514,7 @@ class ApiService {
     String? solutionUrl,
     List<Map<String, dynamic>> attachments = const [],
   }) async {
+    if (demoService.isDemoMode) return true;
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -532,6 +542,7 @@ class ApiService {
   }
 
   Future<bool> startTask(int taskId) async {
+    if (demoService.isDemoMode) return true;
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -559,6 +570,7 @@ class ApiService {
     int limit = 100,
     int offset = 0,
   }) async {
+    if (demoService.isDemoMode) return demoService.demoNotifications();
     try {
       final cookie = await getCookie();
       if (cookie == null) return [];
@@ -605,6 +617,7 @@ class ApiService {
   }
 
   Future<bool> prolongLateDays(int taskId, int lateDays) async {
+    if (demoService.isDemoMode) return true;
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -629,6 +642,7 @@ class ApiService {
   }
 
   Future<bool> cancelLateDays(int taskId) async {
+    if (demoService.isDemoMode) return true;
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -652,6 +666,7 @@ class ApiService {
   }
 
   Future<StudentPerformanceResponse?> fetchStudentPerformance() async {
+    if (demoService.isDemoMode) return demoService.demoPerformance();
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -712,6 +727,7 @@ class ApiService {
   }
 
   Future<GradebookResponse?> fetchGradebook() async {
+    if (demoService.isDemoMode) return demoService.demoGradebook();
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;

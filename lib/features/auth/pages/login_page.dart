@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:cumobile/core/services/demo_service.dart';
 import 'package:cumobile/features/auth/pages/webview_login_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -42,6 +43,11 @@ class _LoginPageState extends State<LoginPage> {
               builder: (_) => WebViewLoginPage(onLogin: widget.onLogin),
             ),
     );
+  }
+
+  void _startDemo() {
+    demoService.enableDemo();
+    widget.onLogin();
   }
 
   @override
@@ -119,6 +125,34 @@ class _LoginPageState extends State<LoginPage> {
                                   color: Color(0xFF00E676),
                                 ),
                                 ),
+                            ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 44,
+                      child: isIos
+                          ? CupertinoButton(
+                              onPressed: _startDemo,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Text(
+                                'Попробовать без входа',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            )
+                          : TextButton(
+                              onPressed: _startDemo,
+                              child: Text(
+                                'Попробовать без входа',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
                             ),
                     ),
                   ],
