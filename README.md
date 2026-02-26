@@ -95,7 +95,8 @@ flutter run -d <device_id>
 flutter build ios --release
 
 # Сборка IPA для распространения
-flutter build ipa
+flutter build ipa --release --obfuscate --split-debug-info=out/ios-symbols
+
 ```
 
 ### Android
