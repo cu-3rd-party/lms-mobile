@@ -22,6 +22,7 @@ import 'package:cumobile/features/longread/pages/longread_page.dart';
 import 'package:cumobile/features/notifications/pages/notifications_page.dart';
 import 'package:cumobile/features/profile/pages/profile_page.dart';
 import 'package:cumobile/data/services/api_service.dart';
+import 'package:cumobile/core/services/demo_service.dart';
 import 'package:cumobile/data/services/ical_service.dart';
 import 'package:cumobile/features/home/widgets/sections/deadlines_section.dart';
 import 'package:cumobile/features/home/widgets/sections/home_courses_section.dart';
@@ -482,6 +483,7 @@ class _HomePageState extends State<HomePage> {
           onOpenNotifications: _openNotifications,
           onOpenProfile: _openProfile,
         ),
+        if (demoService.isDemoMode) _buildDemoBanner(),
         const SizedBox(height: 12),
         Expanded(child: _buildTabBody()),
       ],
@@ -535,6 +537,40 @@ class _HomePageState extends State<HomePage> {
     if (index == 3 && _downloadedFiles.isEmpty) {
       _loadFiles();
     }
+  }
+
+  Widget _buildDemoBanner() {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFF2D2D00),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, size: 14, color: Color(0xFFFFD600)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Демо-режим: данные не настоящие',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFFFFD600),
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: _logout,
+            child: const Text(
+              'Выйти',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFFFFD600),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _currentTabTitle() {
