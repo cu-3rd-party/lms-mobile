@@ -41,6 +41,8 @@ class Course {
         return const Color(0xFF4CAF50);
       case 'stem':
         return const Color(0xFF9C27B0);
+      case 'ml':
+        return const Color(0xFFFF5722);
       case 'general':
         return const Color(0xFFFF9800);
       case 'business':
@@ -61,6 +63,8 @@ class Course {
         return Icons.code;
       case 'stem':
         return Icons.science;
+      case 'ml':
+        return Icons.psychology;
       case 'general':
         return Icons.school;
       case 'business':
@@ -80,7 +84,9 @@ class Course {
       case 'development':
         return 'Разработка';
       case 'stem':
-        return 'Наука';
+        return 'Stem';
+      case 'ml':
+        return 'ИИ';
       case 'general':
         return 'Общее';
       case 'business':
@@ -102,6 +108,8 @@ class Course {
         return isIos ? CupertinoIcons.chevron_left_slash_chevron_right : Icons.code;
       case 'stem':
         return isIos ? CupertinoIcons.lab_flask : Icons.science;
+      case 'ml':
+        return isIos ? CupertinoIcons.sparkles : Icons.psychology;
       case 'general':
         return isIos ? CupertinoIcons.book : Icons.school;
       case 'business':
