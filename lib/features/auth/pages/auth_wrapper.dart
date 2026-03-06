@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cumobile/features/home/pages/home_page.dart';
 import 'package:cumobile/features/auth/pages/login_page.dart';
 import 'package:cumobile/data/services/api_service.dart';
+import 'package:cumobile/core/services/demo_service.dart';
 import 'package:cumobile/core/services/update_service.dart';
 
 class AuthWrapper extends StatefulWidget {
@@ -42,6 +43,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _checkAuth() async {
+    if (demoService.isDemoMode) {
+      setState(() {
+        _isLoggedIn = true;
+        _isLoading = false;
+      });
+      return;
+    }
     final cookie = await apiService.getCookie();
     setState(() {
       _isLoggedIn = cookie != null && cookie.isNotEmpty;
@@ -139,6 +147,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   void _onLogout() {
+    demoService.exitDemo();
     setState(() {
       _isLoggedIn = false;
     });
