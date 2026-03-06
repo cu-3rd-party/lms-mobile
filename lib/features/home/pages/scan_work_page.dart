@@ -139,7 +139,7 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
                             )
                           : Switch(
                               value: _compressImages,
-                              activeColor: _accentColor,
+                              activeTrackColor: _accentColor,
                               onChanged: (v) => setState(() => _compressImages = v),
                             ),
                     ],

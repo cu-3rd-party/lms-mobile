@@ -65,7 +65,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _pickAndUploadAvatar() async {
-    final isIos = Platform.isIOS;
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
@@ -104,10 +103,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _deleteAvatar() async {
-    final isIos = Platform.isIOS;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => isIos
+      builder: (ctx) => Platform.isIOS
           ? CupertinoAlertDialog(
               title: const Text('Удалить аватар?'),
               actions: [
@@ -154,8 +152,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showAvatarError(String message) {
-    final isIos = Platform.isIOS;
-    if (isIos) {
+    if (Platform.isIOS) {
       showCupertinoDialog(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
