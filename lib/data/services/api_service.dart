@@ -122,7 +122,7 @@ class ApiService {
       if (cookie == null) return null;
 
       final response = await http.get(
-        Uri.parse('$baseUrl/hub/students/me'),
+        Uri.parse('$baseUrl/student-hub/students/me'),
         headers: {'Cookie': cookie},
       );
 
