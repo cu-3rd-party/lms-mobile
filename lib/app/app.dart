@@ -7,14 +7,14 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:cumobile/features/auth/pages/auth_wrapper.dart';
 
-class CUMobileApp extends StatelessWidget {
-  const CUMobileApp({super.key});
+class LMSApp extends StatelessWidget {
+  const LMSApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     if (Platform.isIOS) {
       return CupertinoApp(
-        title: 'ЦУ',
+        title: 'LMS',
         debugShowCheckedModeBanner: false,
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
@@ -39,7 +39,7 @@ class CUMobileApp extends StatelessWidget {
     }
 
     return MaterialApp(
-      title: 'ЦУ',
+      title: 'LMS',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

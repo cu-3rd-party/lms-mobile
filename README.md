@@ -1,8 +1,8 @@
 <div align="center">
 
-# CU Mobile
+# LMS Mobile
 
-**Мобильное приложение для LMS Центрального университета**
+**Мобильное приложение LMS**
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.38-02569B?style=flat-square&logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.10-0175C2?style=flat-square&logo=dart&logoColor=white)](https://dart.dev)

@@ -486,7 +486,7 @@ class _ProfilePageState extends State<ProfilePage> {
           if (widget.profile.telegram != null)
             _buildRow('Telegram', '@${widget.profile.telegram}'),
           if (widget.profile.universityEmail != null)
-            _buildRow('Email CU', widget.profile.universityEmail!),
+            _buildRow('Email LMS', widget.profile.universityEmail!),
           const SizedBox(height: 12),
           if (otherEmails.isNotEmpty) ...[
             Text(

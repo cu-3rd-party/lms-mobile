@@ -8,5 +8,5 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ru_RU');
   await configureLogging();
-  runApp(const CUMobileApp());
+  runApp(const LMSApp());
 }
