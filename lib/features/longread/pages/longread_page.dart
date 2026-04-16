@@ -3426,7 +3426,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final ld = details.lateDays ?? 0;
     final hasExtension = ld > 0;
     final canExtendMore = ld < 7;
-    final deadline = material.estimation?.deadline;
+    final deadline = details.deadline ?? material.estimation?.deadline;
     final isLateDaysLoading = _lateDaysLoadingTaskIds.contains(taskId);
 
     return Padding(
