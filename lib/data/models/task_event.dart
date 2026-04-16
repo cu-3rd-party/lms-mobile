@@ -139,7 +139,7 @@ class TaskEventContent {
 
     return TaskEventContent(
       state: json['state'],
-      score: json['score'] != null ? TaskEventScore.fromJson(json['score']) : null,
+      score: TaskEventScore.tryParse(json['score']),
       estimation: estimation,
       attachments: attachments,
       solutionUrl: solutionUrl,
@@ -173,6 +173,14 @@ class TaskEventScore {
       level: json['level']?.toString(),
       value: parsedValue,
     );
+  }
+
+  static TaskEventScore? tryParse(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is num) return TaskEventScore(value: raw.toDouble());
+    if (raw is Map<String, dynamic>) return TaskEventScore.fromJson(raw);
+    if (raw is Map) return TaskEventScore.fromJson(Map<String, dynamic>.from(raw));
+    return null;
   }
 }
 
