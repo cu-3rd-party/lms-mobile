@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
@@ -486,7 +486,11 @@ class _ProfilePageState extends State<ProfilePage> {
           if (widget.profile.telegram != null)
             _buildRow('Telegram', '@${widget.profile.telegram}'),
           if (widget.profile.universityEmail != null)
-            _buildRow('Email LMS', widget.profile.universityEmail!),
+            _buildRow(
+              'Email LMS',
+              widget.profile.universityEmail!,
+              onTap: () => _copyToClipboard(widget.profile.universityEmail!),
+            ),
           const SizedBox(height: 12),
           if (otherEmails.isNotEmpty) ...[
             Text(
@@ -766,28 +770,66 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-            ),
+  Widget _buildRow(String label, String value, {VoidCallback? onTap}) {
+    final row = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 13, color: Colors.white),
-            ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 13, color: Colors.white),
           ),
+        ),
+        if (onTap != null) ...[
+          const SizedBox(width: 8),
+          Icon(Icons.copy, size: 14, color: Colors.grey[500]),
         ],
+      ],
+    );
+    final padded = Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: row,
+    );
+    if (onTap == null) return padded;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: padded,
+    );
+  }
+
+  Future<void> _copyToClipboard(String value) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    await HapticFeedback.selectionClick();
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger != null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Скопировано: $value'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: const Color(0xFF1E1E1E),
+        ),
+      );
+      return;
+    }
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (ctx) => const CupertinoAlertDialog(
+        content: Text('Скопировано'),
       ),
     );
+    Future.delayed(const Duration(milliseconds: 900), () {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+    });
   }
 
   static String _translateEducationLevel(String level) {
