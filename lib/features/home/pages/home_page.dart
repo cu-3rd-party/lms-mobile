@@ -843,7 +843,7 @@ class _HomePageState extends State<HomePage> {
             );
             if (!mounted) return;
             setState(() => _isLoadingTasks = true);
-            await _loadTasks();
+            await Future.wait([_loadTasks(), _loadLmsProfile()]);
             return;
           }
         }
