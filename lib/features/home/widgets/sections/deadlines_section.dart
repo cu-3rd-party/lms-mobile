@@ -25,11 +25,17 @@ class DeadlinesSection extends StatelessWidget {
     return course.isArchived || userArchivedCourseIds.contains(course.id);
   }
 
+  bool _isSeminar(StudentTask task) {
+    final name = task.exercise.name.toLowerCase();
+    return name.contains('семинар') || name.contains('seminar');
+  }
+
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
     final deadlineTasks = tasks
         .where((task) => !_isCourseHidden(task.course))
+        .where((task) => !_isSeminar(task))
         .where(
           (task) =>
               task.normalizedState == 'backlog' ||
