@@ -67,9 +67,8 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     Center(
                       child: SvgPicture.asset(
-                        'assets/icons/cuIconLogo.svg',
+                        'assets/icons/logo.svg',
                         height: 96,
-                        colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
                       ),
                     ),
                     const SizedBox(height: 16),

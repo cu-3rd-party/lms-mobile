@@ -87,11 +87,12 @@ flutter:
     - assets/icons/level-basic.svg
     - assets/icons/level-medium.svg
     - assets/icons/level-advanced.svg
-    - assets/icons/cuIconLogo.svg
+    - assets/icons/logo.svg
 
 flutter_launcher_icons:
   android: true
   ios: true
+  remove_alpha_ios: true
   adaptive_icon_background: "#121212"
   adaptive_icon_foreground: "assets/icons/icon.png"
   image_path: "assets/icons/icon.png"
