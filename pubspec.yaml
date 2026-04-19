@@ -61,6 +61,13 @@ dependencies:
   image: ^4.1.7
   pdf: ^3.11.0
 
+dependency_overrides:
+  # path_provider_foundation 2.6.0 перешёл на FFI через objective_c,
+  # но сборка нативных ассетов падает на iOS Simulator в Flutter 3.38
+  # (dylib собирается с platform=iOS device). Откатываем на последнюю
+  # MethodChannel-версию до миграции.
+  path_provider_foundation: 2.4.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
