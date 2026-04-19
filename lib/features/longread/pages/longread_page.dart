@@ -23,6 +23,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:cumobile/core/services/file_rename_service.dart';
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/longread_material.dart';
 import 'package:cumobile/data/models/task_comment.dart';
@@ -469,15 +470,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     final body = _isLoading
         ? Center(
             child: isIos
-                ? const CupertinoActivityIndicator(
+                ? CupertinoActivityIndicator(
                     radius: 14,
-                    color: Color(0xFF00E676),
+                    color: c.accent,
                   )
-                : const CircularProgressIndicator(color: Color(0xFF00E676)),
+                : CircularProgressIndicator(color: c.accent),
           )
         : _materials.isEmpty
             ? Center(
@@ -486,13 +488,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   children: [
                     Icon(
                       isIos ? CupertinoIcons.folder : Icons.folder_open,
-                      color: Colors.grey[600],
+                      color: c.textTertiary,
                       size: 48,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Нет материалов',
-                      style: TextStyle(color: Colors.grey[500]),
+                      style: TextStyle(color: c.textTertiary),
                     ),
                   ],
                 ),
@@ -507,13 +509,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   controller: _searchController,
                   placeholder: 'Поиск...',
                   placeholderStyle: TextStyle(
-                    color: Colors.grey[500],
+                    color: c.textTertiary,
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
                     height: 1.2,
                   ),
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: c.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
                     height: 1.2,
@@ -521,7 +523,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   autofocus: true,
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A2A),
+                    color: c.surfaceVariant,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   onChanged: _onSearchChanged,
@@ -543,14 +545,14 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                     child: Icon(
                       CupertinoIcons.chevron_up,
                       size: 18,
-                      color: _searchMatchCount > 0 ? Colors.white : Colors.grey[600],
+                      color: _searchMatchCount > 0 ? c.textPrimary : c.textTertiary,
                     ),
                   ),
                   Text(
                     _searchMatchCount == 0
                         ? '0/0'
                         : '${_activeMatchIndex + 1}/$_searchMatchCount',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                    style: TextStyle(fontSize: 12, color: c.textTertiary),
                   ),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
@@ -558,7 +560,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                     child: Icon(
                       CupertinoIcons.chevron_down,
                       size: 18,
-                      color: _searchMatchCount > 0 ? Colors.white : Colors.grey[600],
+                      color: _searchMatchCount > 0 ? c.textPrimary : c.textTertiary,
                     ),
                   ),
                   CupertinoButton(
@@ -576,24 +578,24 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             ],
           ),
         ),
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         child: SafeArea(top: false, bottom: false, child: body),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         leading: IconButton(
-          icon: Icon(_isSearching ? Icons.close : Icons.arrow_back, color: Colors.white),
+          icon: Icon(_isSearching ? Icons.close : Icons.arrow_back, color: c.textPrimary),
           onPressed: _isSearching ? _closeSearch : () => Navigator.pop(context),
         ),
         title: _isSearching
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: c.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                   height: 1.2,
@@ -602,7 +604,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 decoration: InputDecoration(
                   hintText: 'Поиск...',
                   hintStyle: TextStyle(
-                    color: Colors.grey[500],
+                    color: c.textTertiary,
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
                     height: 1.2,
@@ -615,7 +617,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               )
             : Text(
                 widget.longread.name,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+                style: TextStyle(color: c.textPrimary, fontSize: 16),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -624,7 +626,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         actions: [
           if (_isSearching) ...[
             IconButton(
-              icon: const Icon(Icons.keyboard_arrow_up, color: Colors.white),
+              icon: Icon(Icons.keyboard_arrow_up, color: c.textPrimary),
               onPressed: _searchMatchCount > 0 ? _goToPreviousMatch : null,
               tooltip: 'Предыдущее совпадение',
             ),
@@ -635,18 +637,18 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   _searchMatchCount == 0
                       ? '0/0'
                       : '${_activeMatchIndex + 1}/$_searchMatchCount',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  style: TextStyle(fontSize: 12, color: c.textTertiary),
                 ),
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+              icon: Icon(Icons.keyboard_arrow_down, color: c.textPrimary),
               onPressed: _searchMatchCount > 0 ? _goToNextMatch : null,
               tooltip: 'Следующее совпадение',
             ),
           ] else
             IconButton(
-              icon: const Icon(Icons.search, color: Colors.white),
+              icon: Icon(Icons.search, color: c.textPrimary),
               onPressed: () => setState(() => _isSearching = true),
             ),
         ],
@@ -881,17 +883,18 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             'https://my.centraluniversity.ru/learn/courses/view/actual/$courseId/themes/$themeId/longreads/$longreadId',
           )
         : null;
+    final c = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Icons.info_outline, color: Colors.grey[400], size: 18),
+          Icon(Icons.info_outline, color: c.textTertiary, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -901,7 +904,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 Text(
                   'Тесты пока не поддерживаются. '
                   'Можно пройти тест на сайте.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[300]),
+                  style: TextStyle(fontSize: 12, color: c.textSecondary),
                 ),
                 if (link != null)
                   TextButton(
@@ -929,6 +932,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget _buildMarkdownCard(LongreadMaterial material) {
+    final c = AppColors.of(context);
     final content = _highlightedHtmlByMaterialId[material.id] ??
         _normalizeHtmlColors(material.viewContent ?? '');
 
@@ -945,9 +949,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               final matchIndex = int.tryParse(indexAttr ?? '');
               final text = extensionContext.element?.text ?? '';
               final isActive = matchIndex != null && matchIndex == _activeMatchIndex;
-              final background = (isActive
-                      ? const Color(0xFF00E676)
-                      : const Color(0xFF00E676))
+              final background = c.accent
                   .withValues(alpha: isActive ? 0.35 : 0.2);
               final key = matchIndex != null && matchIndex < _searchMatchKeys.length
                   ? _searchMatchKeys[matchIndex]
@@ -960,7 +962,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                     key: key,
                     style: baseStyle.copyWith(
                       backgroundColor: background,
-                      color: baseStyle.color ?? Colors.white,
+                      color: baseStyle.color ?? c.textPrimary,
                     ),
                   );
                 },
@@ -1002,9 +1004,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                         children: [
                           Text(
                             (language ?? 'code').toUpperCase(),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 10,
-                              color: Colors.grey[500],
+                              color: Color(0xFF9E9E9E),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -1017,7 +1019,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                   ? CupertinoIcons.doc_on_doc
                                   : Icons.copy,
                               size: 12,
-                              color: Colors.grey[500],
+                              color: const Color(0xFF9E9E9E),
                             ),
                             tooltip: 'Копировать код',
                           ),
@@ -1058,11 +1060,11 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               margin: Margins.zero,
               padding: HtmlPaddings.zero,
               fontSize: FontSize(14),
-              color: Colors.white,
+              color: c.textPrimary,
               lineHeight: LineHeight(1.5),
             ),
             "mark": Style(
-              backgroundColor: const Color(0xFF00E676).withValues(alpha: 0.2),
+              backgroundColor: c.accent.withValues(alpha: 0.2),
             ),
             "a": Style(
               color: widget.themeColor,
@@ -1074,24 +1076,24 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             "hr": Style(
               margin: Margins.symmetric(vertical: 8),
               height: Height(1),
-              border: Border(bottom: BorderSide(color: Colors.white, width: 1)),
+              border: Border(bottom: BorderSide(color: c.divider, width: 1)),
             ),
             "code": Style(
-              backgroundColor: const Color(0xFF2A2A2A),
+              backgroundColor: c.surfaceVariant,
               color: const Color(0xFFE6DB74),
               fontFamily: 'monospace',
               fontSize: FontSize(13),
               padding: HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
             ),
             "blockquote": Style(
-              backgroundColor: const Color(0xFF1A1A2E),
-              border: const Border(left: BorderSide(color: Color(0xFF00E676), width: 3)),
+              backgroundColor: c.surfaceVariant,
+              border: Border(left: BorderSide(color: c.accent, width: 3)),
               padding: HtmlPaddings.only(left: 12, top: 8, bottom: 8, right: 8),
               margin: Margins.only(bottom: 12, top: 8),
             ),
             "strong": Style(
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: c.textPrimary,
             ),
             "em": Style(
               fontStyle: FontStyle.italic,
@@ -1364,6 +1366,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget _buildCodingCard(LongreadMaterial material, {required bool hasMarkdown}) {
+    final c = AppColors.of(context);
     final shouldShowDescription =
         (material.viewContent ?? '').isNotEmpty && !hasMarkdown;
     return Column(
@@ -1371,11 +1374,11 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       children: [
         if (shouldShowDescription) _buildMarkdownCard(material),
         if (material.attachments.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
             child: Text(
               'Файлы задания',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
+              style: TextStyle(fontSize: 13, color: c.textTertiary),
             ),
           ),
           ...material.attachments.asMap().entries.map(
@@ -1409,6 +1412,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget _buildTaskTabs(LongreadMaterial material) {
+    final c = AppColors.of(context);
     final taskId = material.taskId!;
     final events = _eventsByTaskId[taskId] ?? [];
     final comments = _commentsByTaskId[taskId] ?? [];
@@ -1435,8 +1439,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             ],
             CupertinoSlidingSegmentedControl<int>(
               groupValue: selectedIndex,
-              thumbColor: const Color(0xFF1E1E1E),
-              backgroundColor: const Color(0xFF121212),
+              thumbColor: c.surface,
+              backgroundColor: c.background,
               children: const {
                 0: Padding(
                   padding: EdgeInsets.symmetric(vertical: 6, horizontal: 10),
@@ -1458,7 +1462,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             ),
             const SizedBox(height: 8),
             Container(
-              color: const Color(0xFF121212),
+              color: c.background,
               child: selectedIndex == 1
                   ? _buildCommentsTab(taskId, comments, isLoading)
                   : selectedIndex == 2
@@ -1486,8 +1490,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               child: TabBar(
                 isScrollable: false,
                 dividerColor: Colors.transparent,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.grey[500],
+                labelColor: c.textPrimary,
+                unselectedLabelColor: c.textTertiary,
                 indicatorColor: widget.themeColor,
                 indicatorWeight: 3,
                 indicatorSize: TabBarIndicatorSize.tab,
@@ -1520,7 +1524,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                         content = _buildSolutionTab(taskId, material, events, isLoading);
                     }
                     return Container(
-                      color: const Color(0xFF121212),
+                      color: c.background,
                       child: content,
                     );
                   },
@@ -1571,11 +1575,11 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           ],
           Center(
             child: Platform.isIOS
-                ? const CupertinoActivityIndicator(
+                ? CupertinoActivityIndicator(
                     radius: 14,
-                    color: Color(0xFF00E676),
+                    color: AppColors.of(context).accent,
                   )
-                : const CircularProgressIndicator(color: Color(0xFF00E676)),
+                : CircularProgressIndicator(color: AppColors.of(context).accent),
           ),
         ],
       );
@@ -1583,6 +1587,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
     final error = _taskLoadErrors[taskId];
     if (error != null) {
+      final c = AppColors.of(context);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1600,7 +1605,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               children: [
                 Text(
                   error,
-                  style: TextStyle(color: Colors.grey[500]),
+                  style: TextStyle(color: c.textTertiary),
                 ),
                 const SizedBox(height: 12),
                 Platform.isIOS
@@ -1635,7 +1640,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           Center(
             child: Text(
               'История пока пуста',
-              style: TextStyle(color: Colors.grey[500]),
+              style: TextStyle(color: AppColors.of(context).textTertiary),
             ),
           )
         else
@@ -1658,6 +1663,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     int taskId,
     List<MaterialAttachment> existingAttachments,
   ) {
+    final c = AppColors.of(context);
     final urlController = _solutionUrlControllerFor(taskId);
     final error = _solutionErrors[taskId];
     final isIos = Platform.isIOS;
@@ -1683,15 +1689,15 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             !isUploading &&
             !hasFailed;
         final borderColor = (error != null || (hasUrl && !isUrlValid))
-            ? Colors.redAccent
-            : Colors.grey[700]!.withValues(alpha: 0.7);
+            ? c.danger
+            : c.border.withValues(alpha: 0.7);
 
         final urlField = isIos
             ? CupertinoTextField(
                 controller: urlController,
                 placeholder: 'Ссылка на решение (опционально)',
-                placeholderStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+                placeholderStyle: TextStyle(color: c.textTertiary, fontSize: 12),
+                style: TextStyle(color: c.textPrimary, fontSize: 13),
                 cursorColor: widget.themeColor,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                 decoration: const BoxDecoration(),
@@ -1701,16 +1707,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               )
             : TextField(
                 controller: urlController,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+                style: TextStyle(color: c.textPrimary, fontSize: 13),
                 keyboardType: TextInputType.url,
                 textInputAction: TextInputAction.done,
                 onChanged: (_) => _clearSolutionError(taskId),
                 decoration: InputDecoration(
                   isDense: true,
                   filled: true,
-                  fillColor: const Color(0xFF242424),
+                  fillColor: c.surfaceVariant,
                   labelText: 'Ссылка на решение (опционально)',
-                  labelStyle: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  labelStyle: TextStyle(color: c.textTertiary, fontSize: 12),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: borderColor),
@@ -1730,7 +1736,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: c.surface,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: borderColor),
               ),
@@ -1742,7 +1748,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                     const SizedBox(height: 10),
                     Text(
                       'Прикрепленные файлы',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      style: TextStyle(fontSize: 12, color: c.textTertiary),
                     ),
                     const SizedBox(height: 6),
                     Wrap(
@@ -1756,9 +1762,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF242424),
+                              color: c.surfaceVariant,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey[800]!),
+                              border: Border.all(color: c.border),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1773,8 +1779,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                   constraints: const BoxConstraints(maxWidth: 180),
                                   child: Text(
                                     existing[i].name,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: c.textPrimary,
                                       fontSize: 11,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -1792,8 +1798,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                     Icons.close,
                                     size: 14,
                                     color: isSending || isUploading
-                                        ? Colors.grey[600]
-                                        : Colors.grey[400],
+                                        ? c.textDisabled
+                                        : c.textSecondary,
                                   ),
                                 ),
                               ],
@@ -1806,12 +1812,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF242424),
+                              color: c.surfaceVariant,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: pending[i].status == _AttachmentUploadStatus.failed
-                                    ? Colors.redAccent
-                                    : Colors.grey[800]!,
+                                    ? c.danger
+                                    : c.border,
                               ),
                             ),
                             child: Row(
@@ -1821,10 +1827,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                   Icons.attach_file,
                                   size: 14,
                                   color: pending[i].status == _AttachmentUploadStatus.failed
-                                      ? Colors.redAccent
+                                      ? c.danger
                                       : pending[i].status == _AttachmentUploadStatus.uploaded
                                           ? widget.themeColor
-                                          : Colors.grey,
+                                          : c.textTertiary,
                                 ),
                                 const SizedBox(width: 6),
                                 ConstrainedBox(
@@ -1835,8 +1841,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                     children: [
                                       Text(
                                         pending[i].name,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: c.textPrimary,
                                           fontSize: 11,
                                         ),
                                         overflow: TextOverflow.ellipsis,
@@ -1844,8 +1850,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                       if (pending[i].status == _AttachmentUploadStatus.failed)
                                         Text(
                                           pending[i].error ?? 'Ошибка загрузки',
-                                          style: const TextStyle(
-                                            color: Colors.redAccent,
+                                          style: TextStyle(
+                                            color: c.danger,
                                             fontSize: 9,
                                           ),
                                           overflow: TextOverflow.ellipsis,
@@ -1868,7 +1874,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                           width: 40,
                                           child: LinearProgressIndicator(
                                             value: pending[i].progress,
-                                            backgroundColor: Colors.grey[800],
+                                            backgroundColor: c.border,
                                             color: widget.themeColor,
                                           ),
                                         )
@@ -1876,7 +1882,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                   Text(
                                     _formatBytes(pending[i].length),
                                     style: TextStyle(
-                                      color: Colors.grey[500],
+                                      color: c.textTertiary,
                                       fontSize: 10,
                                     ),
                                   ),
@@ -1893,8 +1899,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                     Icons.close,
                                     size: 14,
                                     color: pending[i].status == _AttachmentUploadStatus.uploading
-                                        ? Colors.grey[600]
-                                        : Colors.grey[400],
+                                        ? c.textDisabled
+                                        : c.textSecondary,
                                   ),
                                 ),
                               ],
@@ -1911,7 +1917,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                           onPressed:
                               isSending ? null : () => _pickSolutionAttachments(taskId),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          color: const Color(0xFF2A2A2A),
+                          color: c.surfaceVariant,
                           minimumSize: const Size(32, 32),
                           borderRadius: BorderRadius.circular(8),
                           child: Row(
@@ -1920,14 +1926,14 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                               Icon(
                                 CupertinoIcons.paperclip,
                                 size: 16,
-                                color: isSending ? Colors.grey[600] : widget.themeColor,
+                                color: isSending ? c.textDisabled : widget.themeColor,
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 'Файл',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isSending ? Colors.grey[600] : Colors.white,
+                                  color: isSending ? c.textDisabled : c.textPrimary,
                                 ),
                               ),
                             ],
@@ -1940,17 +1946,17 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                           icon: Icon(
                             Icons.attach_file,
                             size: 16,
-                            color: isSending ? Colors.grey[600] : widget.themeColor,
+                            color: isSending ? c.textDisabled : widget.themeColor,
                           ),
                           label: Text(
                             'Файл',
                             style: TextStyle(
                               fontSize: 12,
-                              color: isSending ? Colors.grey[600] : Colors.white,
+                              color: isSending ? c.textDisabled : c.textPrimary,
                             ),
                           ),
                           style: TextButton.styleFrom(
-                            backgroundColor: const Color(0xFF2A2A2A),
+                            backgroundColor: c.surfaceVariant,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 8,
@@ -1964,20 +1970,20 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                           onPressed: isEnabled ? () => _submitSolution(taskId) : null,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           color:
-                              isEnabled ? widget.themeColor : const Color(0xFF3A3A3A),
+                              isEnabled ? widget.themeColor : c.surfaceVariant,
                           minimumSize: const Size(32, 32),
                           borderRadius: BorderRadius.circular(8),
                           child: isSending
-                              ? const CupertinoActivityIndicator(
+                              ? CupertinoActivityIndicator(
                                   radius: 9,
-                                  color: CupertinoColors.black,
+                                  color: c.onAccent,
                                 )
-                              : const Text(
+                              : Text(
                                   'Отправить решение',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.black,
+                                    color: c.onAccent,
                                   ),
                                 ),
                         )
@@ -1986,8 +1992,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                           onPressed: isEnabled ? () => _submitSolution(taskId) : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                isEnabled ? widget.themeColor : Colors.grey[700],
-                            foregroundColor: Colors.black,
+                                isEnabled ? widget.themeColor : c.surfaceVariant,
+                            foregroundColor: c.onAccent,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
                               vertical: 8,
@@ -2000,12 +2006,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child: isSending
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 14,
                               height: 14,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.black,
+                                color: c.onAccent,
                               ),
                             )
                             : const Text('Отправить решение'),
@@ -2019,13 +2025,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               const SizedBox(height: 6),
               Text(
                 error,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 11),
+                style: TextStyle(color: c.danger, fontSize: 11),
               ),
             ],
             const SizedBox(height: 6),
             Text(
               'Можно менять решение до дедлайна, после — отправим его на проверку',
-              style: TextStyle(color: Colors.grey[500], fontSize: 11),
+              style: TextStyle(color: c.textTertiary, fontSize: 11),
             ),
           ],
         );
@@ -2040,6 +2046,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     bool isEditing,
   ) {
     if (details == null) return null;
+    final c = AppColors.of(context);
     final hasUrl = details.solutionUrl?.isNotEmpty ?? false;
     final attachments = details.solutionAttachments;
     if (!hasUrl && attachments.isEmpty) return null;
@@ -2050,19 +2057,19 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 color: widget.themeColor,
                 onPressed: () => _startSolutionEdit(taskId, details),
-                child: const Text(
+                child: Text(
                   'Изменить решение',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    color: c.onAccent,
                   ),
                 ),
               )
             : ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: widget.themeColor,
-                  foregroundColor: Colors.black,
+                  foregroundColor: c.onAccent,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   textStyle:
                       const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
@@ -2076,18 +2083,18 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[800]!),
+        border: Border.all(color: c.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text(
+              Text(
                 'Текущее решение',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               ?editButton,
@@ -2105,7 +2112,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2A),
+                  color: c.surfaceVariant,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
@@ -2133,7 +2140,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             const SizedBox(height: 10),
             Text(
               'Прикрепленные файлы',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 12, color: c.textTertiary),
             ),
             const SizedBox(height: 6),
             ...attachments.map(
@@ -2176,6 +2183,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     List<TaskComment> comments,
     bool isLoading,
   ) {
+    final c = AppColors.of(context);
     final composer = _buildCommentComposer(taskId);
     final displayComments = comments.reversed.toList();
     if (isLoading) {
@@ -2186,11 +2194,11 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           const SizedBox(height: 12),
           Center(
             child: Platform.isIOS
-                ? const CupertinoActivityIndicator(
+                ? CupertinoActivityIndicator(
                     radius: 14,
-                    color: Color(0xFF00E676),
+                    color: c.accent,
                   )
-                : const CircularProgressIndicator(color: Color(0xFF00E676)),
+                : CircularProgressIndicator(color: c.accent),
           ),
         ],
       );
@@ -2204,7 +2212,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         if (displayComments.isEmpty)
           Text(
             'Комментариев нет',
-            style: TextStyle(color: Colors.grey[500]),
+            style: TextStyle(color: c.textTertiary),
           )
         else
           ListView.separated(
@@ -2216,7 +2224,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               return Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E1E1E),
+                  color: c.surface,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
@@ -2224,12 +2232,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   children: [
                     Text(
                       comment.sender.name,
-                      style: const TextStyle(fontSize: 12, color: Colors.white),
+                      style: TextStyle(fontSize: 12, color: c.textPrimary),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       _formatDateTime(comment.createdAt),
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      style: TextStyle(fontSize: 11, color: c.textTertiary),
                     ),
                     if (comment.content.trim().isNotEmpty) ...[
                       const SizedBox(height: 8),
@@ -2241,18 +2249,18 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                             margin: Margins.zero,
                             padding: HtmlPaddings.zero,
                             fontSize: FontSize(13),
-                            color: Colors.white,
+                            color: c.textPrimary,
                             lineHeight: LineHeight(1.4),
                           ),
                           "a": Style(
                             color: widget.themeColor,
                             textDecoration: TextDecoration.underline,
                           ),
-                          "table": Style(color: Colors.white),
-                          "tr": Style(color: Colors.white),
-                          "td": Style(color: Colors.white),
-                          "div": Style(color: Colors.white),
-                          "span": Style(color: Colors.white),
+                          "table": Style(color: c.textPrimary),
+                          "tr": Style(color: c.textPrimary),
+                          "td": Style(color: c.textPrimary),
+                          "div": Style(color: c.textPrimary),
+                          "span": Style(color: c.textPrimary),
                         },
                         onLinkTap: (url, context, attributes) async {
                           if (url != null) {
@@ -2282,6 +2290,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget _buildCommentComposer(int taskId) {
+    final c = AppColors.of(context);
     final controller = _commentControllerFor(taskId);
     final error = _commentErrors[taskId];
     final isIos = Platform.isIOS;
@@ -2315,11 +2324,11 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           final hasUploadedAttachments = pending.any(_isAttachmentReady);
           final placeholder = isFocused ? '' : 'Напишите комментарий';
           final borderColor = error != null
-              ? Colors.redAccent
+              ? c.danger
               : isFocused
                   ? widget.themeColor.withValues(alpha: 0.8)
-                  : Colors.grey[700]!;
-          final fillColor = hasText ? const Color(0xFF242424) : const Color(0xFF1E1E1E);
+                  : c.border;
+          final fillColor = hasText ? c.surfaceVariant : c.surface;
           final isEnabled =
               (hasText || hasUploadedAttachments) && !isSending && !isUploading;
           _log.fine(
@@ -2346,8 +2355,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                               controller: controller,
                               placeholder: placeholder,
                               placeholderStyle:
-                                  TextStyle(color: Colors.grey[600], fontSize: 12),
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  TextStyle(color: c.textTertiary, fontSize: 12),
+                              style: TextStyle(color: c.textPrimary, fontSize: 13),
                               cursorColor: widget.themeColor,
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
@@ -2359,7 +2368,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                             )
                           : TextField(
                               controller: controller,
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              style: TextStyle(color: c.textPrimary, fontSize: 13),
                               textAlignVertical: TextAlignVertical.center,
                               minLines: 1,
                               maxLines: 4,
@@ -2368,7 +2377,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                               cursorColor: widget.themeColor,
                               decoration: InputDecoration.collapsed(
                                 hintText: placeholder,
-                                hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                hintStyle: TextStyle(color: c.textTertiary, fontSize: 12),
                               ),
                             ),
                     ),
@@ -2380,7 +2389,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                         child: Icon(
                           CupertinoIcons.paperclip,
                           size: 18,
-                          color: isSending ? Colors.grey[600] : Colors.grey[400],
+                          color: isSending ? c.textDisabled : c.textSecondary,
                         ),
                       )
                     else
@@ -2389,7 +2398,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                         icon: Icon(
                           Icons.attach_file,
                           size: 18,
-                          color: isSending ? Colors.grey[600] : Colors.grey[400],
+                          color: isSending ? c.textDisabled : c.textSecondary,
                         ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -2403,19 +2412,19 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                                 const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             color: isEnabled
                                 ? widget.themeColor
-                                : const Color(0xFF3A3A3A),
+                                : c.surfaceVariant,
                             minimumSize: Size.zero,
                             child: isSending
-                                ? const CupertinoActivityIndicator(
+                                ? CupertinoActivityIndicator(
                                     radius: 9,
-                                    color: CupertinoColors.black,
+                                    color: c.onAccent,
                                   )
-                                : const Text(
+                                : Text(
                                     'Отправить',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.black,
+                                      color: c.onAccent,
                                     ),
                                   ),
                           )
@@ -2424,8 +2433,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isEnabled
                                   ? widget.themeColor
-                                  : Colors.grey[700],
-                              foregroundColor: Colors.black,
+                                  : c.surfaceVariant,
+                              foregroundColor: c.onAccent,
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               textStyle:
@@ -2434,12 +2443,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             child: isSending
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 14,
                                     height: 14,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: Colors.black,
+                                      color: c.onAccent,
                                     ),
                                   )
                                 : const Text('Отправить'),
@@ -2455,7 +2464,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 const SizedBox(height: 6),
                 Text(
                   error,
-                  style: const TextStyle(color: Colors.redAccent, fontSize: 11),
+                  style: TextStyle(color: c.danger, fontSize: 11),
                 ),
               ],
             ],
@@ -2470,6 +2479,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     List<_PendingCommentAttachment> pending, {
     Map<int, List<_PendingCommentAttachment>>? storage,
   }) {
+    final c = AppColors.of(context);
     final targetStorage = storage ?? _pendingCommentAttachments;
     return Wrap(
       spacing: 6,
@@ -2479,7 +2489,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
+              color: c.surface,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -2493,8 +2503,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                           : Icons.insert_drive_file,
                   size: 14,
                   color: pending[i].status == _AttachmentUploadStatus.failed
-                      ? Colors.redAccent
-                      : Colors.grey,
+                      ? c.danger
+                      : c.textTertiary,
                 ),
                 const SizedBox(width: 6),
                 ConstrainedBox(
@@ -2505,14 +2515,14 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                     children: [
                       Text(
                         pending[i].name,
-                        style: const TextStyle(color: Colors.white, fontSize: 11),
+                        style: TextStyle(color: c.textPrimary, fontSize: 11),
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (pending[i].status == _AttachmentUploadStatus.failed)
                         Text(
                           pending[i].error ?? 'Ошибка загрузки',
                           style:
-                              const TextStyle(color: Colors.redAccent, fontSize: 9),
+                              TextStyle(color: c.danger, fontSize: 9),
                           overflow: TextOverflow.ellipsis,
                         ),
                     ],
@@ -2533,14 +2543,14 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                           width: 40,
                           child: LinearProgressIndicator(
                             value: pending[i].progress,
-                            backgroundColor: Colors.grey[800],
+                            backgroundColor: c.border,
                             color: widget.themeColor,
                           ),
                         )
                 else
                   Text(
                     _formatBytes(pending[i].length),
-                    style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                    style: TextStyle(color: c.textTertiary, fontSize: 10),
                   ),
                 const SizedBox(width: 6),
                 GestureDetector(
@@ -2554,7 +2564,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   child: Icon(
                     Icons.close,
                     size: 14,
-                    color: Colors.grey[400],
+                    color: c.textSecondary,
                   ),
                 ),
               ],
@@ -2829,7 +2839,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                       const SizedBox(width: 8),
                       Text(
                         _formatRelative(now, file.statSync().modified),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        style: TextStyle(color: AppColors.of(context).textTertiary, fontSize: 12),
                       ),
                     ],
                   ),
@@ -2846,46 +2856,49 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
     return showModalBottomSheet<File>(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: AppColors.of(context).surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Text(
-                'Недавние сканы',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
+      builder: (context) {
+        final c = AppColors.of(context);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  'Недавние сканы',
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-            ...items.map(
-              (file) => ListTile(
-                title: Text(
-                  _stripDupSuffix(p.basename(file.path)),
-                  style: const TextStyle(color: Colors.white),
-                  overflow: TextOverflow.ellipsis,
+              ...items.map(
+                (file) => ListTile(
+                  title: Text(
+                    _stripDupSuffix(p.basename(file.path)),
+                    style: TextStyle(color: c.textPrimary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    _formatRelative(now, file.statSync().modified),
+                    style: TextStyle(color: c.textTertiary, fontSize: 12),
+                  ),
+                  onTap: () => Navigator.pop(context, file),
                 ),
-                subtitle: Text(
-                  _formatRelative(now, file.statSync().modified),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                ),
-                onTap: () => Navigator.pop(context, file),
               ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.insert_drive_file, color: Colors.white),
-              title: const Text('Выбрать другой файл', style: TextStyle(color: Colors.white)),
-              onTap: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
+              ListTile(
+                leading: Icon(Icons.insert_drive_file, color: c.textPrimary),
+                title: Text('Выбрать другой файл', style: TextStyle(color: c.textPrimary)),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -3308,13 +3321,14 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     bool isLoading,
   ) {
     if (isLoading && events.isEmpty) {
+      final c = AppColors.of(context);
       return Center(
         child: Platform.isIOS
-            ? const CupertinoActivityIndicator(
+            ? CupertinoActivityIndicator(
                 radius: 14,
-                color: Color(0xFF00E676),
+                color: c.accent,
               )
-            : const CircularProgressIndicator(color: Color(0xFF00E676)),
+            : CircularProgressIndicator(color: c.accent),
       );
     }
 
@@ -3354,6 +3368,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget _buildTaskSummary(LongreadMaterial material) {
+    final c = AppColors.of(context);
     final taskId = material.taskId!;
     final events = _eventsByTaskId[taskId] ?? [];
     final details = _taskDetailsById[taskId];
@@ -3378,7 +3393,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -3396,20 +3411,20 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 const SizedBox(width: 12),
                 Text(
                   levelText,
-                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                  style: TextStyle(fontSize: 12, color: c.textPrimary),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 8),
-          _buildSummaryRow('Оценка', Text(scoreText, style: _summaryValueStyle)),
+          _buildSummaryRow('Оценка', Text(scoreText, style: TextStyle(fontSize: 12, color: c.textPrimary))),
           const SizedBox(height: 8),
           _buildSummaryRow(
             'Доп. балл',
-            Text(extraScoreText, style: _summaryValueStyle),
+            Text(extraScoreText, style: TextStyle(fontSize: 12, color: c.textPrimary)),
           ),
           const SizedBox(height: 8),
-          _buildSummaryRow('Статус', Text(statusText, style: _summaryValueStyle)),
+          _buildSummaryRow('Статус', Text(statusText, style: TextStyle(fontSize: 12, color: c.textPrimary))),
           if (details != null) _buildLateDaysSummaryRow(taskId, details, material),
         ],
       ),
@@ -3429,12 +3444,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final deadline = details.deadline ?? material.estimation?.deadline;
     final isLateDaysLoading = _lateDaysLoadingTaskIds.contains(taskId);
 
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Divider(color: Colors.grey[800], height: 1),
+          Divider(color: c.divider, height: 1),
           const SizedBox(height: 8),
           if (hasExtension) ...[
             Row(
@@ -3464,7 +3480,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                     Expanded(
                       child: _buildLateDaysButton(
                         label: 'Ещё перенести',
-                        color: const Color(0xFF00E676),
+                        color: c.accent,
                         icon: isIos ? CupertinoIcons.calendar_badge_plus : Icons.event,
                         onTap: () => _handleExtendLateDays(taskId, details, deadline),
                       ),
@@ -3473,7 +3489,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   Expanded(
                     child: _buildLateDaysButton(
                       label: 'Отменить перенос',
-                      color: Colors.redAccent,
+                      color: c.danger,
                       icon: isIos ? CupertinoIcons.xmark : Icons.close,
                       onTap: () => _handleCancelLateDays(taskId),
                     ),
@@ -3490,7 +3506,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               width: double.infinity,
               child: _buildLateDaysButton(
                 label: 'Перенести дедлайн',
-                color: const Color(0xFF00E676),
+                color: c.accent,
                 icon: isIos ? CupertinoIcons.calendar_badge_plus : Icons.event,
                 onTap: () => _handleExtendLateDays(taskId, details, deadline),
               ),
@@ -3529,10 +3545,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     );
   }
 
-  static const TextStyle _summaryValueStyle =
-      TextStyle(fontSize: 12, color: Colors.white);
-
   Widget _buildSummaryRow(String label, Widget value) {
+    final c = AppColors.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3540,7 +3554,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           width: 120,
           child: Text(
             label,
-            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            style: TextStyle(fontSize: 12, color: c.textTertiary),
           ),
         ),
         Expanded(child: value),
@@ -3549,9 +3563,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget _buildLevelIcon(int level, int? selectedLevel) {
+    final c = AppColors.of(context);
     final isSelected = selectedLevel == level;
     final color = _scoreLevelColor(level);
-    const defaultColor = Colors.white;
+    final defaultColor = c.textPrimary;
     final asset = switch (level) {
       1 => 'assets/icons/level-basic.svg',
       2 => 'assets/icons/level-medium.svg',
@@ -3593,6 +3608,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget _buildEventCard(int taskId, TaskEvent event) {
+    final c = AppColors.of(context);
     final authorName = _eventAuthorName(event);
     final isSystem = _isSystemEvent(event);
     final initials = isSystem ? 'СП' : _initials(authorName);
@@ -3602,7 +3618,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -3613,7 +3629,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             height: 36,
             decoration: BoxDecoration(
               color: isSystem
-                  ? Colors.grey[800]
+                  ? c.surfaceVariant
                   : widget.themeColor.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
@@ -3623,7 +3639,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: isSystem ? Colors.grey[300] : widget.themeColor,
+                  color: isSystem ? c.textSecondary : widget.themeColor,
                 ),
               ),
             ),
@@ -3642,12 +3658,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                         children: [
                           Text(
                             authorName,
-                            style: const TextStyle(fontSize: 13, color: Colors.white),
+                            style: TextStyle(fontSize: 13, color: c.textPrimary),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             _formatDateTime(event.occurredOn),
-                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                            style: TextStyle(fontSize: 11, color: c.textTertiary),
                           ),
                         ],
                       ),
@@ -3659,7 +3675,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                           if (scoreText.isNotEmpty)
                             Text(
                               scoreText,
-                              style: TextStyle(fontSize: 12, color: Colors.grey[300]),
+                              style: TextStyle(fontSize: 12, color: c.textSecondary),
                             ),
                           if (statusBadge != null) ...[
                             if (scoreText.isNotEmpty) const SizedBox(height: 4),
@@ -3674,7 +3690,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   const SizedBox(height: 8),
                   Text(
                     bodyText,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[300]),
+                    style: TextStyle(fontSize: 12, color: c.textSecondary),
                   ),
                 ],
                 if (event.content.solutionUrl != null &&
@@ -3686,7 +3702,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   const SizedBox(height: 8),
                   Text(
                     'Прикрепленные файлы:',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                    style: TextStyle(fontSize: 12, color: c.textSecondary),
                   ),
                   const SizedBox(height: 6),
                   ...event.content.attachments.map(
@@ -3702,11 +3718,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget _buildSolutionLink(TaskEvent event) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     final content = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: c.surfaceVariant,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -3785,12 +3802,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget? _eventStatusBadge(TaskEvent event) {
+    final c = AppColors.of(context);
     if (event.type == 'taskEvaluated') {
-      return _statusBadge('Сдано', const Color(0xFF00E676));
+      return _statusBadge('Сдано', c.accent);
     }
     final state = event.content.taskState ?? event.content.state;
     if (event.type == 'taskCreated' && state == 'backlog') {
-      return _statusBadge('Бэклог', Colors.grey);
+      return _statusBadge('Бэклог', c.textTertiary);
     }
     return null;
   }
@@ -3982,11 +4000,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget _buildStartTaskButton(int taskId, bool isStarting) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: c.surfaceVariant,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -3995,7 +4014,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           Text(
             'Задание в бэклоге',
             style: TextStyle(
-              color: Colors.grey[400],
+              color: c.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -4007,11 +4026,11 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   borderRadius: BorderRadius.circular(12),
                   onPressed: isStarting ? null : () => _startTask(taskId),
                   child: isStarting
-                      ? const CupertinoActivityIndicator(color: Colors.white)
-                      : const Text(
+                      ? CupertinoActivityIndicator(color: c.onAccent)
+                      : Text(
                           'Начать задание',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: c.onAccent,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -4020,19 +4039,19 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   onPressed: isStarting ? null : () => _startTask(taskId),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: widget.themeColor,
-                    foregroundColor: Colors.white,
+                    foregroundColor: c.onAccent,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: isStarting
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: c.onAccent,
                           ),
                         )
                       : const Text(
@@ -4112,16 +4131,19 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     } else {
       showDialog<void>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
-          content: const Text(message, style: TextStyle(color: Colors.white)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Понятно'),
-            ),
-          ],
-        ),
+        builder: (ctx) {
+          final c = AppColors.of(ctx);
+          return AlertDialog(
+            backgroundColor: c.surface,
+            content: Text(message, style: TextStyle(color: c.textPrimary)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Понятно'),
+              ),
+            ],
+          );
+        },
       );
     }
   }
@@ -4148,20 +4170,23 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     }
     return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Отменить перенос дедлайна?', style: TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Нет', style: TextStyle(color: Colors.grey[400])),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Отменить', style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
+      builder: (context) {
+        final c = AppColors.of(context);
+        return AlertDialog(
+          backgroundColor: c.surface,
+          title: Text('Отменить перенос дедлайна?', style: TextStyle(color: c.textPrimary)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Нет', style: TextStyle(color: c.textTertiary)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Отменить', style: TextStyle(color: c.danger)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -4187,6 +4212,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Widget _buildInfoRow(String label, String value) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -4196,13 +4222,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             width: 140,
             child: Text(
               label,
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 12, color: c.textTertiary),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 12, color: Colors.white),
+              style: TextStyle(fontSize: 12, color: c.textPrimary),
             ),
           ),
         ],

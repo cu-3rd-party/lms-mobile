@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:logging/logging.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/services/api_service.dart';
 
 class WebViewLoginPage extends StatefulWidget {
@@ -217,8 +218,8 @@ class _WebViewLoginPageState extends State<WebViewLoginPage> {
             right: 0,
             child: LinearProgressIndicator(
               value: _progress > 0 ? _progress : null,
-              backgroundColor: Colors.grey[800],
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00E676)),
+              backgroundColor: AppColors.of(context).border,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.of(context).accent),
             ),
           ),
         if (_error != null)

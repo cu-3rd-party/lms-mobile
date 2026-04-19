@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
+
 enum AttachmentCardSize { regular, compact }
 
 class AttachmentCard extends StatelessWidget {
@@ -31,6 +33,7 @@ class AttachmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     final isCompact = size == AttachmentCardSize.compact;
     final iconSize = isCompact ? 32.0 : 40.0;
@@ -39,7 +42,7 @@ class AttachmentCard extends StatelessWidget {
     final fontSize = isCompact ? 12.0 : 13.0;
     final iconFontSize = 10.0;
     final downloadIconSize = isCompact ? 18.0 : 20.0;
-    final backgroundColor = isCompact ? const Color(0xFF2A2A2A) : const Color(0xFF1E1E1E);
+    final backgroundColor = isCompact ? c.surfaceVariant : c.surface;
 
     final content = Container(
       margin: EdgeInsets.only(bottom: isCompact ? 6 : 8),
@@ -77,7 +80,7 @@ class AttachmentCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: fontSize,
                   fontWeight: FontWeight.w500,
-                  color: Colors.white,
+                  color: c.textPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -92,8 +95,8 @@ class AttachmentCard extends StatelessWidget {
                     : LinearProgressIndicator(
                         value: progress,
                         minHeight: 3,
-                        color: const Color(0xFF00E676),
-                        backgroundColor: const Color(0xFF3A3A3A),
+                        color: c.accent,
+                        backgroundColor: c.border,
                       ),
               ),
             ] else if (formattedSize != null && formattedSize!.isNotEmpty) ...[
@@ -102,7 +105,7 @@ class AttachmentCard extends StatelessWidget {
                 formattedSize!,
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[500],
+                  color: c.textTertiary,
                 ),
               ),
             ],
@@ -111,7 +114,7 @@ class AttachmentCard extends StatelessWidget {
               isDownloaded
                   ? (isIos ? CupertinoIcons.check_mark_circled : Icons.check_circle)
                   : (isIos ? CupertinoIcons.arrow_down_circle : Icons.download),
-              color: isDownloaded ? const Color(0xFF00E676) : Colors.grey[500],
+              color: isDownloaded ? c.accent : c.textTertiary,
               size: downloadIconSize,
             ),
           ],
@@ -139,6 +142,7 @@ class _CupertinoProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (value == null) {
       return const CupertinoActivityIndicator(radius: 8);
     }
@@ -148,7 +152,7 @@ class _CupertinoProgressBar extends StatelessWidget {
         return Container(
           height: 3,
           decoration: BoxDecoration(
-            color: const Color(0xFF3A3A3A),
+            color: c.border,
             borderRadius: BorderRadius.circular(3),
           ),
           child: Align(
@@ -156,7 +160,7 @@ class _CupertinoProgressBar extends StatelessWidget {
             child: Container(
               width: width * value!.clamp(0.0, 1.0),
               decoration: BoxDecoration(
-                color: const Color(0xFF00E676),
+                color: c.accent,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),

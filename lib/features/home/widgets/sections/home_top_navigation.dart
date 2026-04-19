@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/student_lms_profile.dart';
 import 'package:cumobile/data/models/student_profile.dart';
 
@@ -30,6 +31,7 @@ class HomeTopNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -37,17 +39,17 @@ class HomeTopNavigation extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: c.textPrimary,
               ),
             ),
           ),
           if (lmsProfile != null) ...[
             Text(
               'Late Days: ${lmsProfile!.lateDaysBalance}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+              style: TextStyle(fontSize: 12, color: c.textTertiary),
             ),
             const SizedBox(width: 12),
           ],
@@ -55,12 +57,12 @@ class HomeTopNavigation extends StatelessWidget {
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: onOpenNotifications,
-              child: const Icon(CupertinoIcons.bell, color: Colors.white),
+              child: Icon(CupertinoIcons.bell, color: c.textPrimary),
             )
           else
             IconButton(
               onPressed: onOpenNotifications,
-              icon: const Icon(Icons.notifications_none, color: Colors.white),
+              icon: Icon(Icons.notifications_none, color: c.textPrimary),
               tooltip: 'Уведомления',
             ),
           GestureDetector(
@@ -71,22 +73,22 @@ class HomeTopNavigation extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: profile != null
-                    ? const Color(0xFF00E676).withValues(alpha: 0.2)
-                    : const Color(0xFF1E1E1E),
-                border: Border.all(color: const Color(0xFF00E676), width: 2),
+                    ? c.accent.withValues(alpha: 0.2)
+                    : c.surface,
+                border: Border.all(color: c.accent, width: 2),
               ),
               child: isLoadingProfile
                   ? SizedBox(
                       width: 16,
                       height: 16,
                       child: isIos
-                          ? const CupertinoActivityIndicator(
+                          ? CupertinoActivityIndicator(
                               radius: 8,
-                              color: Color(0xFF00E676),
+                              color: c.accent,
                             )
-                          : const CircularProgressIndicator(
+                          : CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Color(0xFF00E676),
+                              color: c.accent,
                             ),
                     )
                   : avatarBytes != null
@@ -102,15 +104,15 @@ class HomeTopNavigation extends StatelessWidget {
                           child: profile != null
                               ? Text(
                                   '${profile!.firstName[0]}${profile!.lastName[0]}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF00E676),
+                                    color: c.accent,
                                   ),
                                 )
                               : Icon(
                                   isIos ? CupertinoIcons.person : Icons.person,
-                                  color: Colors.grey[500],
+                                  color: c.textTertiary,
                                   size: 20,
                                 ),
                         ),

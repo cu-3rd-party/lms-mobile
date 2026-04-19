@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/student_performance.dart';
 import 'package:cumobile/data/services/api_service.dart';
 
@@ -119,22 +120,23 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
 
     if (isIos) {
       return CupertinoPageScaffold(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         navigationBar: CupertinoNavigationBar(
-          backgroundColor: const Color(0xFF121212),
+          backgroundColor: c.background,
           border: null,
           leading: CupertinoButton(
             padding: EdgeInsets.zero,
             onPressed: () => Navigator.pop(context),
-            child: const Icon(CupertinoIcons.back, color: Color(0xFF00E676)),
+            child: Icon(CupertinoIcons.back, color: c.accent),
           ),
           middle: Text(
             widget.course.cleanName,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(color: c.textPrimary, fontSize: 16),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -144,16 +146,16 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: c.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF00E676)),
+          icon: Icon(Icons.arrow_back, color: c.accent),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           widget.course.cleanName,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: c.textPrimary, fontSize: 16),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -163,14 +165,15 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   }
 
   Widget _buildBody(bool isIos) {
+    final c = AppColors.of(context);
     if (_isLoading) {
       return Center(
         child: isIos
-            ? const CupertinoActivityIndicator(
+            ? CupertinoActivityIndicator(
                 radius: 14,
-                color: Color(0xFF00E676),
+                color: c.accent,
               )
-            : const CircularProgressIndicator(color: Color(0xFF00E676)),
+            : CircularProgressIndicator(color: c.accent),
       );
     }
 
@@ -188,12 +191,13 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   }
 
   Widget _buildTotalGradeCard() {
+    final c = AppColors.of(context);
     final gradeColor = _getGradeColor(widget.course.total);
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -221,12 +225,12 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Итоговая оценка',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: c.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -246,10 +250,11 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   }
 
   Widget _buildTabSelector(bool isIos) {
+    final c = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -261,7 +266,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: _selectedTab == 0
-                      ? const Color(0xFF00E676).withValues(alpha: 0.2)
+                      ? c.accent.withValues(alpha: 0.2)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -272,9 +277,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                     fontSize: 14,
                     fontWeight:
                         _selectedTab == 0 ? FontWeight.bold : FontWeight.normal,
-                    color: _selectedTab == 0
-                        ? const Color(0xFF00E676)
-                        : Colors.grey[500],
+                    color: _selectedTab == 0 ? c.accent : c.textTertiary,
                   ),
                 ),
               ),
@@ -287,7 +290,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: _selectedTab == 1
-                      ? const Color(0xFF00E676).withValues(alpha: 0.2)
+                      ? c.accent.withValues(alpha: 0.2)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -298,9 +301,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                     fontSize: 14,
                     fontWeight:
                         _selectedTab == 1 ? FontWeight.bold : FontWeight.normal,
-                    color: _selectedTab == 1
-                        ? const Color(0xFF00E676)
-                        : Colors.grey[500],
+                    color: _selectedTab == 1 ? c.accent : c.textTertiary,
                   ),
                 ),
               ),
@@ -312,6 +313,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   }
 
   Widget _buildScoresTab(bool isIos) {
+    final c = AppColors.of(context);
     final activities = _getAvailableActivities();
     final exercises = _getFilteredExercises();
     final bottomInset = MediaQuery.of(context).padding.bottom;
@@ -324,7 +326,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
               ? Center(
                   child: Text(
                     'Нет заданий',
-                    style: TextStyle(color: Colors.grey[500]),
+                    style: TextStyle(color: c.textTertiary),
                   ),
                 )
               : ListView.builder(
@@ -341,6 +343,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   }
 
   Widget _buildActivityFilter(List<String> activities, bool isIos) {
+    final c = AppColors.of(context);
     return Container(
       height: 36,
       margin: const EdgeInsets.only(top: 12, bottom: 4),
@@ -361,13 +364,11 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF00E676).withValues(alpha: 0.2)
-                      : const Color(0xFF1E1E1E),
+                      ? c.accent.withValues(alpha: 0.2)
+                      : c.surface,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFF00E676)
-                        : Colors.transparent,
+                    color: isSelected ? c.accent : Colors.transparent,
                   ),
                 ),
                 alignment: Alignment.center,
@@ -375,7 +376,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                   displayName,
                   style: TextStyle(
                     fontSize: 12,
-                    color: isSelected ? const Color(0xFF00E676) : Colors.grey[400],
+                    color: isSelected ? c.accent : c.textTertiary,
                   ),
                 ),
               ),
@@ -387,6 +388,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   }
 
   Widget _buildExerciseTile(ExerciseWithScore item) {
+    final c = AppColors.of(context);
     final scoreColor = _getScoreColor(item.scoreValue, item.maxScore);
     final hasScore = item.score != null;
 
@@ -394,7 +396,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -407,7 +409,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                   item.themeName,
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey[500],
+                    color: c.textTertiary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -435,9 +437,9 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
           const SizedBox(height: 6),
           Text(
             item.exercise.name,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: Colors.white,
+              color: c.textPrimary,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -447,7 +449,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
             item.activityName,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey[400],
+              color: c.textTertiary,
             ),
           ),
         ],
@@ -456,6 +458,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   }
 
   Widget _buildPerformanceTab(bool isIos) {
+    final c = AppColors.of(context);
     final summaries = _getActivitySummaries();
     final totalContribution =
         summaries.fold<double>(0, (sum, s) => sum + s.totalContribution);
@@ -467,7 +470,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
+            color: c.surface,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -478,27 +481,27 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                   _buildHeaderCell('Кол-во', flex: 1),
                   _buildHeaderCell('Ср. балл', flex: 1),
                   const SizedBox(width: 8),
-                  const Text('x', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text('x', style: TextStyle(color: c.textTertiary, fontSize: 12)),
                   const SizedBox(width: 8),
                   _buildHeaderCell('Вес', flex: 1),
                   const SizedBox(width: 8),
-                  const Text('=', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text('=', style: TextStyle(color: c.textTertiary, fontSize: 12)),
                   const SizedBox(width: 8),
                   _buildHeaderCell('Итого', flex: 1),
                 ],
               ),
-              const Divider(color: Color(0xFF2E2E2E), height: 16),
+              Divider(color: c.divider, height: 16),
               ...summaries.map((summary) => _buildSummaryRow(summary)),
               if (summaries.isNotEmpty) ...[
-                const Divider(color: Color(0xFF2E2E2E), height: 16),
+                Divider(color: c.divider, height: 16),
                 Row(
                   children: [
                     Expanded(
                       flex: 3,
                       child: Text(
                         'Итого',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: c.textPrimary,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -536,13 +539,14 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   }
 
   Widget _buildHeaderCell(String text, {required int flex}) {
+    final c = AppColors.of(context);
     return Expanded(
       flex: flex,
       child: Text(
         text,
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: Colors.grey[500],
+          color: c.textTertiary,
           fontSize: 11,
           fontWeight: FontWeight.w500,
         ),
@@ -551,6 +555,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   }
 
   Widget _buildSummaryRow(ActivitySummary summary) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -559,7 +564,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
             flex: 3,
             child: Text(
               summary.activityName,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: TextStyle(color: c.textPrimary, fontSize: 12),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -569,7 +574,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
             child: Text(
               summary.count.toString(),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: TextStyle(color: c.textPrimary, fontSize: 12),
             ),
           ),
           Expanded(
@@ -584,18 +589,18 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
             ),
           ),
           const SizedBox(width: 8),
-          const Text('x', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text('x', style: TextStyle(color: c.textTertiary, fontSize: 12)),
           const SizedBox(width: 8),
           Expanded(
             flex: 1,
             child: Text(
               _formatDecimal(summary.weight, 2),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: TextStyle(color: c.textPrimary, fontSize: 12),
             ),
           ),
           const SizedBox(width: 8),
-          const Text('=', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text('=', style: TextStyle(color: c.textTertiary, fontSize: 12)),
           const SizedBox(width: 8),
           Expanded(
             flex: 1,
@@ -615,15 +620,17 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   }
 
   Color _getGradeColor(int grade) {
-    if (grade >= 8) return const Color(0xFF00E676);
+    final c = AppColors.of(context);
+    if (grade >= 8) return c.accent;
     if (grade >= 6) return const Color(0xFFFFCA28);
     if (grade >= 4) return const Color(0xFFFF9800);
     return const Color(0xFFEF5350);
   }
 
   Color _getScoreColor(double score, int maxScore) {
+    final c = AppColors.of(context);
     final percentage = maxScore > 0 ? (score / maxScore) : 0.0;
-    if (percentage >= 0.8) return const Color(0xFF00E676);
+    if (percentage >= 0.8) return c.accent;
     if (percentage >= 0.6) return const Color(0xFFFFCA28);
     if (percentage >= 0.4) return const Color(0xFFFF9800);
     return const Color(0xFFEF5350);

@@ -23,6 +23,7 @@ import 'package:cumobile/features/notifications/pages/notifications_page.dart';
 import 'package:cumobile/features/profile/pages/profile_page.dart';
 import 'package:cumobile/data/services/api_service.dart';
 import 'package:cumobile/core/services/demo_service.dart';
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/services/ical_service.dart';
 import 'package:cumobile/features/home/widgets/sections/deadlines_section.dart';
 import 'package:cumobile/features/home/widgets/sections/home_courses_section.dart';
@@ -383,7 +384,7 @@ class _HomePageState extends State<HomePage> {
           return CupertinoPopupSurface(
             child: Container(
               height: 320,
-              color: const Color(0xFF121212),
+              color: AppColors.of(context).background,
               child: Column(
                 children: [
                   Padding(
@@ -418,6 +419,8 @@ class _HomePageState extends State<HomePage> {
         },
       );
     } else {
+      final c = AppColors.of(context);
+      final brightness = Theme.of(context).brightness;
       picked = await showDatePicker(
         context: context,
         initialDate: _scheduleDate,
@@ -426,10 +429,9 @@ class _HomePageState extends State<HomePage> {
         locale: const Locale('ru', 'RU'),
         builder: (context, child) => Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF00E676),
-              surface: Color(0xFF1E1E1E),
-            ),
+            colorScheme: brightness == Brightness.dark
+                ? ColorScheme.dark(primary: c.accent, surface: c.surface)
+                : ColorScheme.light(primary: c.accent, surface: c.surface),
           ),
           child: child!,
         ),
@@ -453,6 +455,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     final navItems = [
       BottomNavigationBarItem(
         icon: Icon(isIos ? CupertinoIcons.house : Icons.home),
@@ -490,7 +493,7 @@ class _HomePageState extends State<HomePage> {
     );
     if (isIos) {
       return CupertinoPageScaffold(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         child: SafeArea(
           bottom: false,
           child: Column(
@@ -506,9 +509,9 @@ class _HomePageState extends State<HomePage> {
                   ),
                   child: CupertinoTabBar(
                     currentIndex: _selectedTab,
-                    backgroundColor: const Color(0xFF121212),
-                    activeColor: const Color(0xFF00E676),
-                    inactiveColor: Colors.grey[500]!,
+                    backgroundColor: c.background,
+                    activeColor: c.accent,
+                    inactiveColor: c.iconSecondary,
                     onTap: _onTabChanged,
                     items: navItems,
                   ),
@@ -520,12 +523,13 @@ class _HomePageState extends State<HomePage> {
       );
     }
     return Scaffold(
+      backgroundColor: c.background,
       body: SafeArea(child: bodyContent),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedTab,
-        backgroundColor: const Color(0xFF121212),
-        selectedItemColor: const Color(0xFF00E676),
-        unselectedItemColor: Colors.grey[500],
+        backgroundColor: c.background,
+        selectedItemColor: c.accent,
+        unselectedItemColor: c.iconSecondary,
         onTap: _onTabChanged,
         items: navItems,
       ),
@@ -774,16 +778,17 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _openTask(StudentTask task) async {
     if (!mounted) return;
+    final accent = AppColors.of(context).accent;
     if (Platform.isIOS) {
       showCupertinoDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const CupertinoAlertDialog(
+        builder: (context) => CupertinoAlertDialog(
           content: Padding(
-            padding: EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: 8),
             child: CupertinoActivityIndicator(
               radius: 14,
-              color: Color(0xFF00E676),
+              color: accent,
             ),
           ),
         ),
@@ -792,8 +797,8 @@ class _HomePageState extends State<HomePage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFF00E676)),
+        builder: (context) => Center(
+          child: CircularProgressIndicator(color: accent),
         ),
       );
     }
@@ -1056,11 +1061,12 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     } else {
+      final c = AppColors.of(context);
       showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
-          content: const Text(message, style: TextStyle(color: Colors.white)),
+          backgroundColor: c.surface,
+          content: Text(message, style: TextStyle(color: c.textPrimary)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -1092,19 +1098,20 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     }
+    final c = AppColors.of(context);
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Отменить перенос дедлайна?', style: TextStyle(color: Colors.white)),
+        backgroundColor: c.surface,
+        title: Text('Отменить перенос дедлайна?', style: TextStyle(color: c.textPrimary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Нет', style: TextStyle(color: Colors.grey[400])),
+            child: Text('Нет', style: TextStyle(color: c.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Отменить', style: TextStyle(color: Colors.redAccent)),
+            child: Text('Отменить', style: TextStyle(color: c.danger)),
           ),
         ],
       ),
@@ -1223,24 +1230,27 @@ class _HomePageState extends State<HomePage> {
           )
         : showDialog<bool>(
             context: context,
-            builder: (context) => AlertDialog(
-              backgroundColor: const Color(0xFF1E1E1E),
-              title: const Text('Удалить все файлы?', style: TextStyle(color: Colors.white)),
-              content: Text(
-                'Будет удалено ${_downloadedFiles.length} файлов. Это действие нельзя отменить.',
-                style: TextStyle(color: Colors.grey[400]),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text('Отмена', style: TextStyle(color: Colors.grey[400])),
+            builder: (context) {
+              final c = AppColors.of(context);
+              return AlertDialog(
+                backgroundColor: c.surface,
+                title: Text('Удалить все файлы?', style: TextStyle(color: c.textPrimary)),
+                content: Text(
+                  'Будет удалено ${_downloadedFiles.length} файлов. Это действие нельзя отменить.',
+                  style: TextStyle(color: c.textSecondary),
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Удалить', style: TextStyle(color: Colors.redAccent)),
-                ),
-              ],
-            ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text('Отмена', style: TextStyle(color: c.textSecondary)),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text('Удалить', style: TextStyle(color: c.danger)),
+                  ),
+                ],
+              );
+            },
           ));
     if (confirmed != true) return;
 

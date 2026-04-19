@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:cumobile/core/theme/app_colors.dart';
+
 class FilesTab extends StatelessWidget {
   final List<FileSystemEntity> files;
   final bool isLoading;
@@ -34,17 +36,18 @@ class FilesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final sortedFiles = files.whereType<File>().toList()
       ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
     final isIos = Platform.isIOS;
     if (isLoading && sortedFiles.isEmpty) {
       return Center(
         child: isIos
-            ? const CupertinoActivityIndicator(
+            ? CupertinoActivityIndicator(
                 radius: 14,
-                color: Color(0xFF00E676),
+                color: c.accent,
               )
-            : const CircularProgressIndicator(color: Color(0xFF00E676)),
+            : CircularProgressIndicator(color: c.accent),
       );
     }
 
@@ -55,12 +58,12 @@ class FilesTab extends StatelessWidget {
           Icon(
             isIos ? CupertinoIcons.folder : Icons.folder_open,
             size: 64,
-            color: Colors.grey[700],
+            color: c.textDisabled,
           ),
           const SizedBox(height: 16),
           Text(
             'Нет скачанных файлов',
-            style: TextStyle(color: Colors.grey[500], fontSize: 16),
+            style: TextStyle(color: c.textTertiary, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -73,13 +76,13 @@ class FilesTab extends StatelessWidget {
                   ? CupertinoButton.filled(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       onPressed: onStartScan,
-                      child: const Text('Начать скан', style: TextStyle(color: Colors.black)),
+                      child: Text('Начать скан', style: TextStyle(color: c.onAccent)),
                     )
                   : ElevatedButton(
                       onPressed: onStartScan,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00E676),
-                        foregroundColor: Colors.black,
+                        backgroundColor: c.accent,
+                        foregroundColor: c.onAccent,
                       ),
                       child: const Text('Начать скан'),
                     ),
@@ -103,7 +106,7 @@ class FilesTab extends StatelessWidget {
 
       return RefreshIndicator(
         onRefresh: () async => onRefresh(),
-        color: const Color(0xFF00E676),
+        color: c.accent,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -132,7 +135,7 @@ class FilesTab extends StatelessWidget {
             children: [
               Text(
                 '${sortedFiles.length} файлов • ${_formatFileSize(totalSize)}',
-                style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                style: TextStyle(fontSize: 13, color: c.textTertiary),
               ),
               const Spacer(),
               if (selectedFiles.isNotEmpty)
@@ -142,21 +145,21 @@ class FilesTab extends StatelessWidget {
                         onPressed: onDeleteSelected,
                         child: Row(
                           children: [
-                            const Icon(CupertinoIcons.delete, size: 18, color: Colors.redAccent),
+                            Icon(CupertinoIcons.delete, size: 18, color: c.danger),
                             const SizedBox(width: 6),
                             Text(
                               'Удалить (${selectedFiles.length})',
-                              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                              style: TextStyle(color: c.danger, fontSize: 12),
                             ),
                           ],
                         ),
                       )
                     : TextButton.icon(
                         onPressed: onDeleteSelected,
-                        icon: const Icon(Icons.delete, size: 18, color: Colors.redAccent),
+                        icon: Icon(Icons.delete, size: 18, color: c.danger),
                         label: Text(
                           'Удалить (${selectedFiles.length})',
-                          style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                          style: TextStyle(color: c.danger, fontSize: 12),
                         ),
                       )
               else
@@ -169,22 +172,22 @@ class FilesTab extends StatelessWidget {
                             Icon(
                               CupertinoIcons.delete_solid,
                               size: 18,
-                              color: Colors.grey[500],
+                              color: c.textTertiary,
                             ),
                             const SizedBox(width: 6),
                             Text(
                               'Удалить все',
-                              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                              style: TextStyle(color: c.textTertiary, fontSize: 12),
                             ),
                           ],
                         ),
                       )
                     : TextButton.icon(
                         onPressed: onDeleteAll,
-                        icon: Icon(Icons.delete_sweep, size: 18, color: Colors.grey[500]),
+                        icon: Icon(Icons.delete_sweep, size: 18, color: c.textTertiary),
                         label: Text(
                           'Удалить все',
-                          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                          style: TextStyle(color: c.textTertiary, fontSize: 12),
                         ),
                       ),
             ],
@@ -218,7 +221,7 @@ class FilesTab extends StatelessWidget {
                 )
               : RefreshIndicator(
                   onRefresh: () async => onRefresh(),
-                  color: const Color(0xFF00E676),
+                  color: c.accent,
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: sortedFiles.length,
@@ -257,15 +260,16 @@ class _TemplatesButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (isIos) {
       return CupertinoButton(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(10),
         onPressed: onOpenTemplates,
-        child: const Text(
+        child: Text(
           'Шаблоны имён',
-          style: TextStyle(color: Color(0xFF00E676), fontSize: 14),
+          style: TextStyle(color: c.accent, fontSize: 14),
         ),
       );
     }
@@ -273,8 +277,8 @@ class _TemplatesButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: onOpenTemplates,
       style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFF00E676),
-        side: const BorderSide(color: Color(0xFF00E676)),
+        foregroundColor: c.accent,
+        side: BorderSide(color: c.accent),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
       icon: const Icon(Icons.description_outlined, size: 18),
@@ -291,6 +295,7 @@ class _TemplatesCallout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final radius = BorderRadius.circular(12);
     return Material(
       color: Colors.transparent,
@@ -300,9 +305,9 @@ class _TemplatesCallout extends StatelessWidget {
         onTap: onOpenTemplates,
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
+            color: c.surface,
             borderRadius: radius,
-            border: Border.all(color: Colors.grey[800]!),
+            border: Border.all(color: c.border),
           ),
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -311,12 +316,12 @@ class _TemplatesCallout extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00E676).withValues(alpha: 0.16),
+                  color: c.accent.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   isIos ? CupertinoIcons.doc_text : Icons.description_outlined,
-                  color: const Color(0xFF00E676),
+                  color: c.accent,
                   size: 20,
                 ),
               ),
@@ -325,10 +330,10 @@ class _TemplatesCallout extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Шаблоны имён файлов',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: c.textPrimary,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
@@ -336,14 +341,14 @@ class _TemplatesCallout extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       'Автопереименование вложений',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                      style: TextStyle(color: c.textTertiary, fontSize: 12),
                     ),
                   ],
                 ),
               ),
               Icon(
                 isIos ? CupertinoIcons.chevron_right : Icons.chevron_right,
-                color: Colors.grey[600],
+                color: c.textTertiary,
                 size: 18,
               ),
             ],
@@ -362,6 +367,7 @@ class _ScanCallout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final radius = BorderRadius.circular(12);
     return Material(
       color: Colors.transparent,
@@ -371,9 +377,9 @@ class _ScanCallout extends StatelessWidget {
         onTap: onStartScan,
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
+            color: c.surface,
             borderRadius: radius,
-            border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.2)),
+            border: Border.all(color: c.accent.withValues(alpha: 0.2)),
           ),
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -382,12 +388,12 @@ class _ScanCallout extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00E676).withValues(alpha: 0.16),
+                  color: c.accent.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   isIos ? CupertinoIcons.viewfinder : Icons.document_scanner_outlined,
-                  color: const Color(0xFF00E676),
+                  color: c.accent,
                   size: 22,
                 ),
               ),
@@ -396,10 +402,10 @@ class _ScanCallout extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Сканировать работу',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: c.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -411,16 +417,16 @@ class _ScanCallout extends StatelessWidget {
                   ? CupertinoButton.filled(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       onPressed: onStartScan,
-                      child: const Text(
+                      child: Text(
                         'Начать',
-                        style: TextStyle(color: Colors.black),
+                        style: TextStyle(color: c.onAccent),
                       ),
                     )
                   : ElevatedButton(
                       onPressed: onStartScan,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00E676),
-                        foregroundColor: Colors.black,
+                        backgroundColor: c.accent,
+                        foregroundColor: c.onAccent,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
                       child: const Text('Начать'),
@@ -450,6 +456,7 @@ class _FileListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     final stat = file.statSync();
     final name = _visibleName(file);
@@ -459,11 +466,11 @@ class _FileListItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: isSelected
-            ? const Color(0xFF00E676).withValues(alpha: 0.1)
-            : const Color(0xFF1E1E1E),
+            ? c.accent.withValues(alpha: 0.1)
+            : c.surface,
         borderRadius: BorderRadius.circular(12),
         border: isSelected
-            ? Border.all(color: const Color(0xFF00E676), width: 1)
+            ? Border.all(color: c.accent, width: 1)
             : null,
       ),
       child: Padding(
@@ -475,16 +482,16 @@ class _FileListItem extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                color: c.accent.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Center(
                 child: Text(
                   ext.length > 4 ? ext.substring(0, 4) : ext,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF00E676),
+                    color: c.accent,
                   ),
                 ),
               ),
@@ -496,10 +503,10 @@ class _FileListItem extends StatelessWidget {
                 children: [
                   Text(
                     name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white,
+                      color: c.textPrimary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -507,7 +514,7 @@ class _FileListItem extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${_formatFileSize(stat.size)} • ${DateFormat('dd.MM.yyyy HH:mm').format(stat.modified)}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    style: TextStyle(fontSize: 11, color: c.textTertiary),
                   ),
                 ],
               ),
@@ -518,9 +525,9 @@ class _FileListItem extends StatelessWidget {
                   ? CupertinoButton(
                       padding: EdgeInsets.zero,
                       onPressed: onDelete,
-                      child: const Icon(
+                      child: Icon(
                         CupertinoIcons.delete,
-                        color: Colors.redAccent,
+                        color: c.danger,
                         size: 20,
                       ),
                     )
@@ -528,7 +535,7 @@ class _FileListItem extends StatelessWidget {
                       onPressed: onDelete,
                       icon: Icon(
                         isIos ? CupertinoIcons.delete : Icons.delete,
-                        color: Colors.redAccent,
+                        color: c.danger,
                         size: 20,
                       ),
                       padding: EdgeInsets.zero,
@@ -538,7 +545,7 @@ class _FileListItem extends StatelessWidget {
               Icon(
                 isIos ? CupertinoIcons.arrow_up_right_square : Icons.open_in_new,
                 size: 18,
-                color: Colors.grey[600],
+                color: c.textTertiary,
               ),
           ],
         ),

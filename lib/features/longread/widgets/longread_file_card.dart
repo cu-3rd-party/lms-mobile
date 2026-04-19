@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
+
 class LongreadFileCard extends StatelessWidget {
   final String fileName;
   final String extension;
@@ -29,11 +31,12 @@ class LongreadFileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     final content = Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -65,10 +68,10 @@ class LongreadFileCard extends StatelessWidget {
                 children: [
                   Text(
                     fileName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white,
+                      color: c.textPrimary,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -79,7 +82,7 @@ class LongreadFileCard extends StatelessWidget {
                       formattedSize,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[500],
+                        color: c.textTertiary,
                       ),
                     ),
                   ],
@@ -90,8 +93,8 @@ class LongreadFileCard extends StatelessWidget {
                         : LinearProgressIndicator(
                             value: progress,
                             minHeight: 4,
-                            color: const Color(0xFF00E676),
-                            backgroundColor: const Color(0xFF2A2A2A),
+                            color: c.accent,
+                            backgroundColor: c.surfaceVariant,
                           ),
                     const SizedBox(height: 6),
                     Row(
@@ -100,13 +103,13 @@ class LongreadFileCard extends StatelessWidget {
                           progress == null
                               ? 'Загрузка...'
                               : '${(progress! * 100).toStringAsFixed(0)}%',
-                          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          style: TextStyle(fontSize: 11, color: c.textTertiary),
                         ),
                         const Spacer(),
                         if (speed.isNotEmpty)
                           Text(
                             speed,
-                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                            style: TextStyle(fontSize: 11, color: c.textTertiary),
                           ),
                       ],
                     ),
@@ -121,7 +124,7 @@ class LongreadFileCard extends StatelessWidget {
                     isDownloaded
                         ? (isIos ? CupertinoIcons.check_mark_circled : Icons.check_circle)
                         : (isIos ? CupertinoIcons.arrow_down_circle : Icons.download),
-                    color: isDownloaded ? const Color(0xFF00E676) : Colors.grey[500],
+                    color: isDownloaded ? c.accent : c.textTertiary,
                     size: 24,
                   ),
           ],
@@ -146,6 +149,7 @@ class _CupertinoProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (value == null) {
       return const CupertinoActivityIndicator(radius: 8);
     }
@@ -155,7 +159,7 @@ class _CupertinoProgressBar extends StatelessWidget {
         return Container(
           height: 4,
           decoration: BoxDecoration(
-            color: const Color(0xFF2A2A2A),
+            color: c.surfaceVariant,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Align(
@@ -163,7 +167,7 @@ class _CupertinoProgressBar extends StatelessWidget {
             child: Container(
               width: width * value!.clamp(0.0, 1.0),
               decoration: BoxDecoration(
-                color: const Color(0xFF00E676),
+                color: c.accent,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),

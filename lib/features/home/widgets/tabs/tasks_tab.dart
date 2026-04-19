@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/student_task.dart';
 
 const _statusLabels = <String, String>{
@@ -78,14 +79,15 @@ class _TasksTabState extends State<TasksTab> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     if (widget.isLoading) {
       return Center(
         child: isIos
-            ? const CupertinoActivityIndicator(
+            ? CupertinoActivityIndicator(
                 radius: 14,
-                color: Color(0xFF00E676),
+                color: c.accent,
               )
-            : const CircularProgressIndicator(color: Color(0xFF00E676)),
+            : CircularProgressIndicator(color: c.accent),
       );
     }
 
@@ -98,13 +100,13 @@ class _TasksTabState extends State<TasksTab> {
             children: [
               Icon(
                 isIos ? CupertinoIcons.exclamationmark_circle : Icons.error_outline,
-                color: Colors.redAccent,
+                color: c.danger,
                 size: 48,
               ),
               const SizedBox(height: 16),
               Text(
                 'Не удалось загрузить задания',
-                style: TextStyle(color: Colors.grey[400], fontSize: 16),
+                style: TextStyle(color: c.textSecondary, fontSize: 16),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -126,20 +128,20 @@ class _TasksTabState extends State<TasksTab> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
+              color: c.surface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
                 Icon(
                   isIos ? CupertinoIcons.check_mark_circled : Icons.check_circle,
-                  color: Colors.grey[600],
+                  color: c.textTertiary,
                   size: 20,
                 ),
                 const SizedBox(width: 12),
                 Text(
                   'Нет заданий по выбранным фильтрам',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                  style: TextStyle(color: c.textTertiary, fontSize: 14),
                 ),
               ],
             ),
@@ -158,12 +160,13 @@ class _TasksTabState extends State<TasksTab> {
   }
 
   Widget _buildSegmentControl(bool isIos) {
+    final c = AppColors.of(context);
     final activeCount = _countForSegment(_activeStates);
     final archiveCount = _countForSegment(_archiveStates);
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(4),
@@ -175,7 +178,7 @@ class _TasksTabState extends State<TasksTab> {
               label: 'Активные',
               count: activeCount,
               index: 0,
-              accentColor: const Color(0xFF00E676),
+              accentColor: c.accent,
             ),
           ),
           const SizedBox(width: 4),
@@ -185,7 +188,7 @@ class _TasksTabState extends State<TasksTab> {
               label: 'Архив',
               count: archiveCount,
               index: 1,
-              accentColor: const Color(0xFF9E9E9E),
+              accentColor: c.textTertiary,
             ),
           ),
         ],
@@ -200,8 +203,9 @@ class _TasksTabState extends State<TasksTab> {
     required int index,
     required Color accentColor,
   }) {
+    final c = AppColors.of(context);
     final selected = _segment == index;
-    final color = selected ? accentColor : Colors.grey[600]!;
+    final color = selected ? accentColor : c.textTertiary;
 
     return GestureDetector(
       onTap: () => setState(() => _segment = index),
@@ -227,14 +231,14 @@ class _TasksTabState extends State<TasksTab> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                color: selected ? Colors.white : Colors.grey[500],
+                color: selected ? c.textPrimary : c.textTertiary,
               ),
             ),
             const SizedBox(width: 5),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                color: selected ? accentColor.withValues(alpha: 0.2) : Colors.grey[800],
+                color: selected ? accentColor.withValues(alpha: 0.2) : c.surfaceVariant,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -242,7 +246,7 @@ class _TasksTabState extends State<TasksTab> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: selected ? accentColor : Colors.grey[500],
+                  color: selected ? accentColor : c.textTertiary,
                 ),
               ),
             ),
@@ -260,6 +264,7 @@ class _TasksTabState extends State<TasksTab> {
   }
 
   Widget _buildTaskFilters(BuildContext context) {
+    final c = AppColors.of(context);
     final counts = _taskCountsByState();
     final courseCounts = _taskCountsByCourse();
     final courseNames = _courseNamesById();
@@ -279,12 +284,12 @@ class _TasksTabState extends State<TasksTab> {
               onPressed: _resetFilters,
               icon: Icon(
                 Platform.isIOS ? CupertinoIcons.refresh : Icons.refresh,
-                color: Colors.grey[400],
+                color: c.textSecondary,
                 size: 18,
               ),
               label: Text(
                 'Сбросить все',
-                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                style: TextStyle(color: c.textSecondary, fontSize: 12),
               ),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -404,26 +409,27 @@ class _StatusDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     return GestureDetector(
       onTap: () => _openStatusSheet(context),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: c.surface,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
             Icon(
               isIos ? CupertinoIcons.slider_horizontal_3 : Icons.filter_list,
-              color: Colors.grey[500],
+              color: c.textTertiary,
               size: 18,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 _selectedStatusLabel(),
-                style: const TextStyle(fontSize: 13, color: Colors.white),
+                style: TextStyle(fontSize: 13, color: c.textPrimary),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -431,7 +437,7 @@ class _StatusDropdown extends StatelessWidget {
             const SizedBox(width: 8),
             Icon(
               isIos ? CupertinoIcons.chevron_down : Icons.keyboard_arrow_down,
-              color: Colors.grey[500],
+              color: c.textTertiary,
               size: 18,
             ),
           ],
@@ -465,7 +471,7 @@ class _StatusDropdown extends StatelessWidget {
     }
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: AppColors.of(context).surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -492,17 +498,18 @@ class _TaskSearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
           Icon(
             isIos ? CupertinoIcons.search : Icons.search,
-            color: Colors.grey[500],
+            color: c.textTertiary,
             size: 18,
           ),
           const SizedBox(width: 8),
@@ -516,8 +523,8 @@ class _TaskSearchField extends StatelessWidget {
                       ),
                     ),
                     placeholder: 'Поиск по заданиям...',
-                    placeholderStyle: TextStyle(color: Colors.grey[500]),
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    placeholderStyle: TextStyle(color: c.textTertiary),
+                    style: TextStyle(color: c.textPrimary, fontSize: 13),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: const BoxDecoration(),
                     onChanged: onChanged,
@@ -529,10 +536,10 @@ class _TaskSearchField extends StatelessWidget {
                         selection: TextSelection.collapsed(offset: value.length),
                       ),
                     ),
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: TextStyle(color: c.textPrimary, fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'Поиск по заданиям...',
-                      hintStyle: TextStyle(color: Colors.grey[500]),
+                      hintStyle: TextStyle(color: c.textTertiary),
                       border: InputBorder.none,
                       isDense: true,
                     ),
@@ -546,7 +553,7 @@ class _TaskSearchField extends StatelessWidget {
               onPressed: () => onChanged(''),
               icon: Icon(
                 isIos ? CupertinoIcons.xmark_circle_fill : Icons.clear,
-                color: Colors.grey[500],
+                color: c.textTertiary,
                 size: 16,
               ),
               tooltip: 'Очистить',
@@ -572,26 +579,27 @@ class _CourseDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return GestureDetector(
       onTap: () => _openCourseSheet(context),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: c.surface,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
             Icon(
               Platform.isIOS ? CupertinoIcons.book : Icons.menu_book,
-              color: Colors.grey[500],
+              color: c.textTertiary,
               size: 18,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 _selectedCourseLabel(),
-                style: const TextStyle(fontSize: 13, color: Colors.white),
+                style: TextStyle(fontSize: 13, color: c.textPrimary),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -599,7 +607,7 @@ class _CourseDropdown extends StatelessWidget {
             const SizedBox(width: 8),
             Icon(
               Platform.isIOS ? CupertinoIcons.chevron_down : Icons.keyboard_arrow_down,
-              color: Colors.grey[500],
+              color: c.textTertiary,
               size: 18,
             ),
           ],
@@ -641,7 +649,7 @@ class _CourseDropdown extends StatelessWidget {
     }
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: AppColors.of(context).background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -704,6 +712,7 @@ class _CourseSheetState extends State<_CourseSheet> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     final courseIds = widget.courseNames.keys.toList()
       ..sort((a, b) => (widget.courseNames[a] ?? '').compareTo(widget.courseNames[b] ?? ''));
     final maxListHeight = MediaQuery.of(context).size.height * 0.5;
@@ -719,20 +728,20 @@ class _CourseSheetState extends State<_CourseSheet> {
             height: 4,
             margin: const EdgeInsets.only(top: 8, bottom: 8),
             decoration: BoxDecoration(
-              color: Colors.grey[700],
+              color: c.border,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 4),
-            child: const Align(
+            child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Фильтр по курсам',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: c.textPrimary,
                 ),
               ),
             ),
@@ -742,15 +751,15 @@ class _CourseSheetState extends State<_CourseSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Все курсы',
-                      style: TextStyle(fontSize: 13, color: Colors.white),
+                      style: TextStyle(fontSize: 13, color: c.textPrimary),
                     ),
                   ),
                   CupertinoSwitch(
                     value: _localFilters.isEmpty,
-                    activeTrackColor: const Color(0xFF00E676),
+                    activeTrackColor: c.accent,
                     onChanged: (_) => _clearFilters(),
                   ),
                 ],
@@ -760,12 +769,12 @@ class _CourseSheetState extends State<_CourseSheet> {
             CheckboxListTile(
               value: _localFilters.isEmpty,
               dense: true,
-              activeColor: const Color(0xFF00E676),
-              checkColor: Colors.black,
+              activeColor: c.accent,
+              checkColor: c.onAccent,
               controlAffinity: ListTileControlAffinity.leading,
-              title: const Text(
+              title: Text(
                 'Все курсы',
-                style: TextStyle(fontSize: 13, color: Colors.white),
+                style: TextStyle(fontSize: 13, color: c.textPrimary),
               ),
               onChanged: (_) => _clearFilters(),
             ),
@@ -787,12 +796,12 @@ class _CourseSheetState extends State<_CourseSheet> {
                         Expanded(
                           child: Text(
                             '$name ($count)',
-                            style: const TextStyle(fontSize: 13, color: Colors.white),
+                            style: TextStyle(fontSize: 13, color: c.textPrimary),
                           ),
                         ),
                         CupertinoSwitch(
                           value: isSelected,
-                          activeTrackColor: const Color(0xFF00E676),
+                          activeTrackColor: c.accent,
                           onChanged: (_) => _toggleFilter(courseId),
                         ),
                       ],
@@ -802,12 +811,12 @@ class _CourseSheetState extends State<_CourseSheet> {
                 return CheckboxListTile(
                   value: isSelected,
                   dense: true,
-                  activeColor: const Color(0xFF00E676),
-                  checkColor: Colors.black,
+                  activeColor: c.accent,
+                  checkColor: c.onAccent,
                   controlAffinity: ListTileControlAffinity.leading,
                   title: Text(
                     '$name ($count)',
-                    style: const TextStyle(fontSize: 13, color: Colors.white),
+                    style: TextStyle(fontSize: 13, color: c.textPrimary),
                   ),
                   onChanged: (_) => _toggleFilter(courseId),
                 );
@@ -874,6 +883,7 @@ class _StatusSheetState extends State<_StatusSheet> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     return SafeArea(
       top: false,
       child: Column(
@@ -884,20 +894,20 @@ class _StatusSheetState extends State<_StatusSheet> {
           height: 4,
           margin: const EdgeInsets.only(top: 8, bottom: 8),
           decoration: BoxDecoration(
-            color: Colors.grey[700],
+            color: c.border,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
         Padding(
           padding: const EdgeInsets.only(left: 16, right: 16, bottom: 4),
-          child: const Align(
+          child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'Фильтр по статусу',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: c.textPrimary,
               ),
             ),
           ),
@@ -923,6 +933,7 @@ class _StatusSheetState extends State<_StatusSheet> {
   }
 
   Widget _buildStatusTile(String label, String state, int count, bool isIos) {
+    final c = AppColors.of(context);
     final isSelected = _localFilters.contains(state);
     if (isIos) {
       return Padding(
@@ -932,12 +943,12 @@ class _StatusSheetState extends State<_StatusSheet> {
             Expanded(
               child: Text(
                 '$label ($count)',
-                style: const TextStyle(fontSize: 13, color: Colors.white),
+                style: TextStyle(fontSize: 13, color: c.textPrimary),
               ),
             ),
             CupertinoSwitch(
               value: isSelected,
-              activeTrackColor: const Color(0xFF00E676),
+              activeTrackColor: c.accent,
               onChanged: (value) => _toggleFilter(state),
             ),
           ],
@@ -947,12 +958,12 @@ class _StatusSheetState extends State<_StatusSheet> {
     return CheckboxListTile(
       value: isSelected,
       dense: true,
-      activeColor: const Color(0xFF00E676),
-      checkColor: Colors.black,
+      activeColor: c.accent,
+      checkColor: c.onAccent,
       controlAffinity: ListTileControlAffinity.leading,
       title: Text(
         '$label ($count)',
-        style: const TextStyle(fontSize: 13, color: Colors.white),
+        style: TextStyle(fontSize: 13, color: c.textPrimary),
       ),
       onChanged: (value) => _toggleFilter(state),
     );
@@ -979,10 +990,11 @@ class _TaskListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     final card = Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: task.stateBorderColor, width: 1),
       ),
@@ -1002,6 +1014,7 @@ class _TaskListItem extends StatelessWidget {
   }
 
   Widget _buildContent(bool isIos, BuildContext context) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -1013,16 +1026,16 @@ class _TaskListItem extends StatelessWidget {
               children: [
                 Text(
                   task.exercise.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: c.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   task.course.cleanName,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 12, color: c.textTertiary),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -1047,14 +1060,14 @@ class _TaskListItem extends StatelessWidget {
                       Icon(
                         isIos ? CupertinoIcons.time : Icons.access_time,
                         size: 12,
-                        color: task.isOverdue ? Colors.redAccent : Colors.grey[500],
+                        color: task.isOverdue ? c.danger : c.textTertiary,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         task.formattedDeadline,
                         style: TextStyle(
                           fontSize: 11,
-                          color: task.isOverdue ? Colors.redAccent : Colors.grey[500],
+                          color: task.isOverdue ? c.danger : c.textTertiary,
                         ),
                       ),
                     ],
@@ -1070,6 +1083,7 @@ class _TaskListItem extends StatelessWidget {
   }
 
   Widget _buildLateDaysRow(bool isIos, BuildContext context) {
+    final c = AppColors.of(context);
     final ld = task.lateDays ?? 0;
     final hasExtension = ld > 0;
     final canExtendMore = ld < 7 && lateDaysBalance > 0;
@@ -1084,6 +1098,8 @@ class _TaskListItem extends StatelessWidget {
       );
     }
 
+    const warnColor = Color(0xFFF6AD58);
+
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Row(
@@ -1092,12 +1108,12 @@ class _TaskListItem extends StatelessWidget {
             Icon(
               isIos ? CupertinoIcons.clock_fill : Icons.schedule,
               size: 12,
-              color: const Color(0xFFF6AD58),
+              color: warnColor,
             ),
             const SizedBox(width: 4),
             Text(
               'Перенесено на $ld дн.',
-              style: const TextStyle(fontSize: 11, color: Color(0xFFF6AD58)),
+              style: const TextStyle(fontSize: 11, color: warnColor),
             ),
             const SizedBox(width: 8),
             GestureDetector(
@@ -1108,9 +1124,9 @@ class _TaskListItem extends StatelessWidget {
                 'Отменить',
                 style: TextStyle(
                   fontSize: 11,
-                  color: task.canCancelLateDays ? Colors.grey[500] : Colors.grey[700],
+                  color: task.canCancelLateDays ? c.textTertiary : c.textDisabled,
                   decoration: TextDecoration.underline,
-                  decorationColor: task.canCancelLateDays ? Colors.grey[500] : Colors.grey[700],
+                  decorationColor: task.canCancelLateDays ? c.textTertiary : c.textDisabled,
                 ),
               ),
             ),
@@ -1118,13 +1134,13 @@ class _TaskListItem extends StatelessWidget {
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: onExtendDeadline,
-                child: const Text(
+                child: Text(
                   'Ещё перенести',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF00E676),
+                    color: c.accent,
                     decoration: TextDecoration.underline,
-                    decorationColor: Color(0xFF00E676),
+                    decorationColor: c.accent,
                   ),
                 ),
               ),
@@ -1141,15 +1157,15 @@ class _TaskListItem extends StatelessWidget {
                     child: Icon(
                       isIos ? CupertinoIcons.calendar_badge_plus : Icons.event,
                       size: 12,
-                      color: const Color(0xFF00E676),
+                      color: c.accent,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Text(
+                  Text(
                     'Перенести дедлайн',
                     style: TextStyle(
                       fontSize: 11,
-                      color: Color(0xFF00E676),
+                      color: c.accent,
                       height: 1,
                     ),
                   ),
@@ -1180,11 +1196,12 @@ class _TaskListItem extends StatelessWidget {
         ),
       );
     } else {
+      final c = AppColors.of(context);
       showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
-          content: const Text(message, style: TextStyle(color: Colors.white)),
+          backgroundColor: c.surface,
+          content: Text(message, style: TextStyle(color: c.textPrimary)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),

@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cumobile/core/services/file_rename_service.dart';
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/student_performance.dart';
 import 'package:cumobile/data/services/api_service.dart';
 
@@ -15,8 +16,6 @@ class FileRenameSettingsPage extends StatefulWidget {
 }
 
 class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
-  static const _accentColor = Color(0xFF00E676);
-
   List<FileRenameRule> _rules = [];
   Map<int, String> _courseNames = {};
 
@@ -49,10 +48,11 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
 
     final body = Container(
-      color: const Color(0xFF121212),
+      color: c.background,
       child: _rules.isEmpty ? _buildEmptyState(isIos) : _buildRulesList(isIos),
     );
 
@@ -60,11 +60,11 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
       return CupertinoPageScaffold(
         navigationBar: CupertinoNavigationBar(
           middle: const Text('Шаблоны имён файлов'),
-          backgroundColor: const Color(0xFF121212),
+          backgroundColor: c.background,
           trailing: CupertinoButton(
             padding: EdgeInsets.zero,
             onPressed: () => _showAddDialog(isIos),
-            child: const Icon(CupertinoIcons.add, color: _accentColor),
+            child: Icon(CupertinoIcons.add, color: c.accent),
           ),
         ),
         child: SafeArea(child: body),
@@ -72,14 +72,14 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: c.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         elevation: 0,
         title: const Text('Шаблоны имён файлов'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: _accentColor),
+            icon: Icon(Icons.add, color: c.accent),
             onPressed: () => _showAddDialog(isIos),
           ),
         ],
@@ -89,6 +89,7 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
   }
 
   Widget _buildEmptyState(bool isIos) {
+    final c = AppColors.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -98,13 +99,13 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
             Icon(
               isIos ? CupertinoIcons.doc_text : Icons.description_outlined,
               size: 64,
-              color: Colors.grey[700],
+              color: c.textDisabled,
             ),
             const SizedBox(height: 16),
             Text(
               'Нет шаблонов',
               style: TextStyle(
-                color: Colors.grey[400],
+                color: c.textSecondary,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -113,7 +114,7 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
             Text(
               'Шаблоны позволяют автоматически переименовывать файлы при прикреплении к заданиям.',
               style: TextStyle(
-                color: Colors.grey[600],
+                color: c.textTertiary,
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -129,8 +130,8 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
                     icon: const Icon(Icons.add),
                     label: const Text('Добавить шаблон'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _accentColor,
-                      foregroundColor: Colors.black,
+                      backgroundColor: c.accent,
+                      foregroundColor: c.onAccent,
                     ),
                   ),
           ],
@@ -152,14 +153,15 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
   }
 
   Widget _buildRuleCard(FileRenameRule rule, bool isIos) {
+    final c = AppColors.of(context);
     final activityText = rule.activityType ?? 'Все типы';
     final courseText = _courseNames[rule.courseId] ?? 'Курс #${rule.courseId}';
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[800]!),
+        border: Border.all(color: c.border),
       ),
       child: Row(
         children: [
@@ -167,14 +169,14 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: _accentColor.withValues(alpha: 0.15),
+              color: c.accent.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(
               child: Text(
                 '.${rule.fileExtension}',
-                style: const TextStyle(
-                  color: _accentColor,
+                style: TextStyle(
+                  color: c.accent,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -188,8 +190,8 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
               children: [
                 Text(
                   '${rule.targetName}.${rule.fileExtension}',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: c.textPrimary,
                     fontWeight: FontWeight.w600,
                 fontSize: 15,
               ),
@@ -198,7 +200,7 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
             Text(
               '$courseText • $activityText',
               style: TextStyle(
-                color: Colors.grey[500],
+                color: c.textTertiary,
                 fontSize: 12,
               ),
             ),
@@ -209,7 +211,7 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
             onPressed: () => _deleteRule(rule),
             icon: Icon(
               isIos ? CupertinoIcons.trash : Icons.delete_outline,
-              color: Colors.redAccent,
+              color: c.danger,
               size: 22,
             ),
           ),
@@ -240,6 +242,7 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
 
   Future<bool?> _confirmDelete() async {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
 
     if (isIos) {
       return showCupertinoDialog<bool>(
@@ -264,24 +267,27 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
 
     return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Удалить шаблон?', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Это действие нельзя отменить.',
-          style: TextStyle(color: Colors.grey),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Отмена', style: TextStyle(color: Colors.grey[400])),
+      builder: (context) {
+        final cc = AppColors.of(context);
+        return AlertDialog(
+          backgroundColor: cc.surface,
+          title: Text('Удалить шаблон?', style: TextStyle(color: cc.textPrimary)),
+          content: Text(
+            'Это действие нельзя отменить.',
+            style: TextStyle(color: cc.textSecondary),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Удалить', style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('Отмена', style: TextStyle(color: cc.textTertiary)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('Удалить', style: TextStyle(color: c.danger)),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -296,8 +302,6 @@ class _AddRuleDialog extends StatefulWidget {
 }
 
 class _AddRuleDialogState extends State<_AddRuleDialog> {
-  static const _accentColor = Color(0xFF00E676);
-
   final _extensionController = TextEditingController();
   final _targetNameController = TextEditingController();
   List<StudentPerformanceCourse> _courses = [];
@@ -322,6 +326,7 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     if (widget.isIos) {
       return CupertinoAlertDialog(
         title: const Text('Новый шаблон'),
@@ -344,17 +349,17 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
     }
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1E1E),
-      title: const Text('Новый шаблон', style: TextStyle(color: Colors.white)),
+      backgroundColor: c.surface,
+      title: Text('Новый шаблон', style: TextStyle(color: c.textPrimary)),
       content: _buildForm(widget.isIos),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Отмена', style: TextStyle(color: Colors.grey[400])),
+          child: Text('Отмена', style: TextStyle(color: c.textTertiary)),
         ),
         TextButton(
           onPressed: _submit,
-          child: const Text('Добавить', style: TextStyle(color: _accentColor)),
+          child: Text('Добавить', style: TextStyle(color: c.accent)),
         ),
       ],
     );
@@ -394,14 +399,15 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
     required String hint,
     TextInputType? keyboardType,
   }) {
+    final c = AppColors.of(context);
     if (isIos) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xCCFFFFFF),
+            style: TextStyle(
+              color: c.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -419,16 +425,16 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
+      style: TextStyle(color: c.textPrimary, fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Color(0xCCFFFFFF), fontSize: 12),
+        labelStyle: TextStyle(color: c.textSecondary, fontSize: 12),
         hintText: hint,
-        hintStyle: TextStyle(color: Colors.grey[700]),
+        hintStyle: TextStyle(color: c.textDisabled),
         isDense: true,
         contentPadding: const EdgeInsets.all(10),
         filled: true,
-        fillColor: const Color(0xFF2A2A2A),
+        fillColor: c.surfaceVariant,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,
@@ -486,14 +492,15 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
     required bool isLoading,
     VoidCallback? onTap,
   }) {
+    final c = AppColors.of(context);
     if (isIos) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xCCFFFFFF),
+            style: TextStyle(
+              color: c.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -503,16 +510,16 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: c.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[700]!),
+                border: Border.all(color: c.border),
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       value,
-                      style: TextStyle(color: enabled ? Colors.white : Colors.grey[500], fontSize: 14),
+                      style: TextStyle(color: enabled ? c.textPrimary : c.textTertiary, fontSize: 14),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -527,7 +534,7 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
                     Icon(
                       CupertinoIcons.chevron_down,
                       size: 16,
-                      color: enabled ? CupertinoColors.systemGrey : CupertinoColors.inactiveGray,
+                      color: enabled ? c.textSecondary : c.textDisabled,
                     ),
                 ],
               ),
@@ -542,7 +549,7 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
       children: [
         Text(
           label,
-          style: const TextStyle(color: Color(0xCCFFFFFF), fontSize: 12),
+          style: TextStyle(color: c.textSecondary, fontSize: 12),
         ),
         const SizedBox(height: 4),
         InkWell(
@@ -551,9 +558,9 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF2A2A2A),
+              color: c.surfaceVariant,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[800]!),
+              border: Border.all(color: c.border),
             ),
             child: Row(
               children: [
@@ -561,7 +568,7 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
                   child: Text(
                     value,
                     style: TextStyle(
-                      color: enabled ? Colors.white : Colors.grey[600],
+                      color: enabled ? c.textPrimary : c.textTertiary,
                       fontSize: 14,
                     ),
                     maxLines: 1,
@@ -569,18 +576,18 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
                   ),
                 ),
                 if (isLoading)
-                  const SizedBox(
+                  SizedBox(
                     height: 16,
                     width: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: _accentColor,
+                      color: c.accent,
                     ),
                   )
                 else
                   Icon(
                     Icons.arrow_drop_down,
-                    color: enabled ? Colors.grey[400] : Colors.grey[700],
+                    color: enabled ? c.textTertiary : c.textDisabled,
                   ),
               ],
             ),
@@ -682,47 +689,50 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
 
     final selected = await showModalBottomSheet<StudentPerformanceCourse>(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: AppColors.of(context).surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey[800],
-                borderRadius: BorderRadius.circular(2),
+      builder: (context) {
+        final c = AppColors.of(context);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: c.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const Text(
-              'Выберите курс',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            SizedBox(
-              height: 360,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _courses.length,
-                itemBuilder: (context, index) {
-                  final course = _courses[index];
-                  return ListTile(
-                    title: Text(
-                      course.cleanName,
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    onTap: () => Navigator.pop(context, course),
-                  );
-                },
+              Text(
+                'Выберите курс',
+                style: TextStyle(color: c.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
               ),
-            ),
-          ],
-        ),
-      ),
+              SizedBox(
+                height: 360,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _courses.length,
+                  itemBuilder: (context, index) {
+                    final course = _courses[index];
+                    return ListTile(
+                      title: Text(
+                        course.cleanName,
+                        style: TextStyle(color: c.textPrimary),
+                      ),
+                      onTap: () => Navigator.pop(context, course),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
 
     if (selected != null) {
@@ -769,47 +779,50 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
 
     final selected = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: AppColors.of(context).surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey[800],
-                borderRadius: BorderRadius.circular(2),
+      builder: (context) {
+        final c = AppColors.of(context);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: c.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const Text(
-              'Тип активности',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            SizedBox(
-              height: 320,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final activity = options[index];
-                  return ListTile(
-                    title: Text(
-                      activity == allActivitiesValue ? 'Все типы' : activity,
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    onTap: () => Navigator.pop(context, activity),
-                  );
-                },
+              Text(
+                'Тип активности',
+                style: TextStyle(color: c.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
               ),
-            ),
-          ],
-        ),
-      ),
+              SizedBox(
+                height: 320,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (context, index) {
+                    final activity = options[index];
+                    return ListTile(
+                      title: Text(
+                        activity == allActivitiesValue ? 'Все типы' : activity,
+                        style: TextStyle(color: c.textPrimary),
+                      ),
+                      onTap: () => Navigator.pop(context, activity),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
 
     if (selected != null) {

@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:cumobile/core/services/demo_service.dart';
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/features/auth/pages/webview_login_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -53,6 +54,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     final content = SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -69,6 +71,9 @@ class _LoginPageState extends State<LoginPage> {
                       child: SvgPicture.asset(
                         'assets/icons/logo.svg',
                         height: 96,
+                        colorFilter: c.brightness == Brightness.light
+                            ? ColorFilter.mode(c.textPrimary, BlendMode.srcIn)
+                            : null,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -76,7 +81,7 @@ class _LoginPageState extends State<LoginPage> {
                       'Авторизация',
                       style: TextStyle(
                         fontSize: 18,
-                        color: Colors.grey[400],
+                        color: c.textSecondary,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -85,7 +90,7 @@ class _LoginPageState extends State<LoginPage> {
                       'Авторизуйтесь через браузер, мы сохраним сессию автоматически.',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[500],
+                        color: c.textTertiary,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -97,33 +102,33 @@ class _LoginPageState extends State<LoginPage> {
                       child: isIos
                           ? CupertinoButton(
                               onPressed: _openWebViewLogin,
-                              color: const Color(0xFF2D2D2D),
+                              color: c.surfaceVariant,
                               padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: const Text(
+                              child: Text(
                                 'Войти через браузер',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
-                                  color: Colors.white,
+                                  color: c.textPrimary,
                                 ),
                               ),
                             )
                           : OutlinedButton(
                               onPressed: _openWebViewLogin,
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFF00E676)),
+                                side: BorderSide(color: c.accent),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'Войти через браузер',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
-                                  color: Color(0xFF00E676),
+                                  color: c.accent,
                                 ),
-                                ),
+                              ),
                             ),
                     ),
                     const SizedBox(height: 12),
@@ -138,7 +143,7 @@ class _LoginPageState extends State<LoginPage> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w400,
-                                  color: Colors.grey[500],
+                                  color: c.textTertiary,
                                 ),
                               ),
                             )
@@ -149,7 +154,7 @@ class _LoginPageState extends State<LoginPage> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w400,
-                                  color: Colors.grey[500],
+                                  color: c.textTertiary,
                                 ),
                               ),
                             ),
@@ -162,7 +167,7 @@ class _LoginPageState extends State<LoginPage> {
               'Версия $_appVersion',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[600],
+                color: c.textTertiary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -172,10 +177,13 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
 
-    return isIos ? CupertinoPageScaffold(child: content) : Scaffold(body: content);
+    return isIos
+        ? CupertinoPageScaffold(backgroundColor: c.background, child: content)
+        : Scaffold(backgroundColor: c.background, body: content);
   }
 
   Widget _buildSteps(bool isIos) {
+    final c = AppColors.of(context);
     final steps = [
       'Нажмите «Войти через браузер».',
       'Войдите в LMS в открывшемся окне.',
@@ -185,9 +193,9 @@ class _LoginPageState extends State<LoginPage> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[800]!),
+        border: Border.all(color: c.border),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -198,12 +206,16 @@ class _LoginPageState extends State<LoginPage> {
               Icon(
                 isIos ? CupertinoIcons.info : Icons.info_outline,
                 size: 16,
-                color: const Color(0xFF00E676),
+                color: c.accent,
               ),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'Как войти',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
             ],
           ),
@@ -213,7 +225,7 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
                     '${entry.key + 1}. ${entry.value}',
-                    style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                    style: TextStyle(color: c.textSecondary, fontSize: 13),
                   ),
                 ),
               ),

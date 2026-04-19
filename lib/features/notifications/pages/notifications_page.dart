@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/notification_item.dart';
 import 'package:cumobile/data/services/api_service.dart';
@@ -67,15 +68,16 @@ class _NotificationsPageState extends State<NotificationsPage>
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     final body = _isLoading
         ? Center(
             child: isIos
-                ? const CupertinoActivityIndicator(
+                ? CupertinoActivityIndicator(
                     radius: 14,
-                    color: Color(0xFF00E676),
+                    color: c.accent,
                   )
-                : const CircularProgressIndicator(color: Color(0xFF00E676)),
+                : CircularProgressIndicator(color: c.accent),
           )
         : (isIos
             ? _buildCupertinoBody()
@@ -92,28 +94,28 @@ class _NotificationsPageState extends State<NotificationsPage>
         navigationBar: const CupertinoNavigationBar(
           middle: Text('Уведомления'),
         ),
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         child: SafeArea(top: false, bottom: false, child: body),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: c.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Уведомления',
-          style: TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: c.textPrimary, fontSize: 16),
         ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: const Color(0xFF00E676),
+          indicatorColor: c.accent,
           indicatorWeight: 2,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.grey[500],
+          labelColor: c.textPrimary,
+          unselectedLabelColor: c.textTertiary,
           dividerColor: Colors.transparent,
           tabs: const [
             Tab(text: 'Учеба'),
@@ -126,14 +128,15 @@ class _NotificationsPageState extends State<NotificationsPage>
   }
 
   Widget _buildCupertinoBody() {
+    final c = AppColors.of(context);
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: CupertinoSlidingSegmentedControl<int>(
             groupValue: _selectedSegment,
-            thumbColor: const Color(0xFF1E1E1E),
-            backgroundColor: const Color(0xFF121212),
+            thumbColor: c.surface,
+            backgroundColor: c.background,
             children: const {
               0: Padding(
                 padding: EdgeInsets.symmetric(vertical: 6, horizontal: 12),
@@ -158,6 +161,7 @@ class _NotificationsPageState extends State<NotificationsPage>
   }
 
   Widget _buildList(String category) {
+    final c = AppColors.of(context);
     final items = category == 'Education' ? _educationItems : _otherItems;
     final bottomInset = MediaQuery.of(context).padding.bottom;
     if (items.isEmpty) {
@@ -171,7 +175,7 @@ class _NotificationsPageState extends State<NotificationsPage>
               child: Center(
                 child: Text(
                   'Нет уведомлений',
-                  style: TextStyle(color: Colors.grey[500]),
+                  style: TextStyle(color: c.textTertiary),
                 ),
               ),
             ),
@@ -180,7 +184,7 @@ class _NotificationsPageState extends State<NotificationsPage>
       }
       return RefreshIndicator(
         onRefresh: _loadNotifications,
-        color: const Color(0xFF00E676),
+        color: c.accent,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
@@ -189,7 +193,7 @@ class _NotificationsPageState extends State<NotificationsPage>
               child: Center(
                 child: Text(
                   'Нет уведомлений',
-                  style: TextStyle(color: Colors.grey[500]),
+                  style: TextStyle(color: c.textTertiary),
                 ),
               ),
             ),
@@ -222,7 +226,7 @@ class _NotificationsPageState extends State<NotificationsPage>
     }
     return RefreshIndicator(
       onRefresh: _loadNotifications,
-      color: const Color(0xFF00E676),
+      color: c.accent,
       child: ListView.separated(
         padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
         itemBuilder: (context, index) => _buildCard(items[index]),
@@ -233,11 +237,12 @@ class _NotificationsPageState extends State<NotificationsPage>
   }
 
   Widget _buildCard(NotificationItem item) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -247,13 +252,13 @@ class _NotificationsPageState extends State<NotificationsPage>
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF00E676).withValues(alpha: 0.2),
+              color: c.accent.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               _iconFor(item.icon, item.category),
               size: 18,
-              color: const Color(0xFF00E676),
+              color: c.accent,
             ),
           ),
           const SizedBox(width: 12),
@@ -263,22 +268,22 @@ class _NotificationsPageState extends State<NotificationsPage>
               children: [
                 Text(
                   item.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: c.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _dateFormat.format(item.createdAt.toLocal()),
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 11, color: c.textTertiary),
                 ),
                 if (item.description.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(
                     item.description.trim(),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[300]),
+                    style: TextStyle(fontSize: 12, color: c.textSecondary),
                   ),
                 ],
                 if (item.link != null && item.link!.uri.isNotEmpty) ...[
@@ -290,15 +295,15 @@ class _NotificationsPageState extends State<NotificationsPage>
                         Icon(
                           isIos ? CupertinoIcons.link : Icons.link,
                           size: 14,
-                          color: Colors.grey[400],
+                          color: c.textTertiary,
                         ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             item.link!.label.isNotEmpty ? item.link!.label : item.link!.uri,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF00E676),
+                              color: c.accent,
                               decoration: TextDecoration.underline,
                             ),
                             maxLines: 1,
@@ -353,6 +358,8 @@ class _NotificationsPageState extends State<NotificationsPage>
   }
 
   void _openLongread(int longreadId) {
+    final c = AppColors.of(context);
+    final themeColor = c.accent;
     final longread = Longread(
       id: longreadId,
       type: '',
@@ -366,13 +373,13 @@ class _NotificationsPageState extends State<NotificationsPage>
           ? CupertinoPageRoute(
               builder: (context) => LongreadPage(
                 longread: longread,
-                themeColor: const Color(0xFF00E676),
+                themeColor: themeColor,
               ),
             )
           : MaterialPageRoute(
               builder: (context) => LongreadPage(
                 longread: longread,
-                themeColor: const Color(0xFF00E676),
+                themeColor: themeColor,
               ),
             ),
     );

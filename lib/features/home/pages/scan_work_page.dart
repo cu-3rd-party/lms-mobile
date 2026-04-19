@@ -13,6 +13,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:image/image.dart' as img;
 
+import 'package:cumobile/core/theme/app_colors.dart';
+
 class ScanWorkPage extends StatefulWidget {
   const ScanWorkPage({super.key});
 
@@ -21,7 +23,6 @@ class ScanWorkPage extends StatefulWidget {
 }
 
 class _ScanWorkPageState extends State<ScanWorkPage> {
-  static const _accentColor = Color(0xFF00E676);
   final _picker = ImagePicker();
   final _nameController = TextEditingController();
   final List<ScanPageData> _pages = [];
@@ -51,8 +52,9 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     final body = Container(
-      color: const Color(0xFF121212),
+      color: c.background,
       child: SafeArea(
         top: false,
         child: Column(
@@ -70,7 +72,7 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
                     const SizedBox(height: 12),
                     Text(
                       _error!,
-                      style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                      style: TextStyle(color: c.danger, fontSize: 12),
                     ),
                   ],
                   const SizedBox(height: 80),
@@ -79,12 +81,12 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
             ),
             Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              decoration: const BoxDecoration(
-                color: Color(0xFF121212),
+              decoration: BoxDecoration(
+                color: c.background,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black54,
-                    offset: Offset(0, -2),
+                    color: c.shadow,
+                    offset: const Offset(0, -2),
                     blurRadius: 6,
                   ),
                 ],
@@ -120,13 +122,13 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Сжать изображения',
-                              style: TextStyle(fontSize: 14, color: Colors.white),
+                              style: TextStyle(fontSize: 14, color: c.textPrimary),
                             ),
                             Text(
                               'Уменьшает размер PDF',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                              style: TextStyle(fontSize: 12, color: c.textTertiary),
                             ),
                           ],
                         ),
@@ -134,12 +136,12 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
                       isIos
                           ? CupertinoSwitch(
                               value: _compressImages,
-                              activeTrackColor: _accentColor,
+                              activeTrackColor: c.accent,
                               onChanged: (v) => setState(() => _compressImages = v),
                             )
                           : Switch(
                               value: _compressImages,
-                              activeTrackColor: _accentColor,
+                              activeTrackColor: c.accent,
                               onChanged: (v) => setState(() => _compressImages = v),
                             ),
                     ],
@@ -160,18 +162,18 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
 
     if (isIos) {
       return CupertinoPageScaffold(
-        navigationBar: const CupertinoNavigationBar(
-          middle: Text('Сканирование'),
-          backgroundColor: Color(0xFF121212),
+        navigationBar: CupertinoNavigationBar(
+          middle: const Text('Сканирование'),
+          backgroundColor: c.background,
         ),
         child: body,
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: c.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         elevation: 0,
         title: const Text('Сканирование работы'),
       ),
@@ -180,12 +182,13 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
   }
 
   Widget _buildScanHero(bool isIos) {
+    final c = AppColors.of(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _accentColor.withValues(alpha: 0.25)),
+        border: Border.all(color: c.accent.withValues(alpha: 0.25)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,12 +197,12 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: _accentColor.withValues(alpha: 0.16),
+              color: c.accent.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               isIos ? CupertinoIcons.viewfinder : Icons.document_scanner_outlined,
-              color: _accentColor,
+              color: c.accent,
               size: 22,
             ),
           ),
@@ -208,10 +211,10 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Сканирование работ',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: c.textPrimary,
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
                   ),
@@ -219,7 +222,7 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
                 const SizedBox(height: 4),
                 Text(
                   'Снимите страницы, мы соберём их в один PDF и сохраним во вкладке Файлы.',
-                  style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                  style: TextStyle(color: c.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -230,19 +233,20 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
   }
 
   Widget _buildNameField(bool isIos) {
+    final c = AppColors.of(context);
     final baseDecoration = InputDecoration(
       filled: true,
-      fillColor: const Color(0xFF1E1E1E),
+      fillColor: c.surface,
       labelText: 'Имя файла',
-      labelStyle: TextStyle(color: Colors.grey[400]),
+      labelStyle: TextStyle(color: c.textSecondary),
       hintText: 'Например, Работа_по_математике',
-      hintStyle: TextStyle(color: Colors.grey[600]),
+      hintStyle: TextStyle(color: c.textTertiary),
       enabledBorder: OutlineInputBorder(
-        borderSide: BorderSide(color: Colors.grey[800]!),
+        borderSide: BorderSide(color: c.border),
         borderRadius: BorderRadius.circular(12),
       ),
       focusedBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: _accentColor),
+        borderSide: BorderSide(color: c.accent),
         borderRadius: BorderRadius.circular(12),
       ),
     );
@@ -253,7 +257,7 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
         if (!isIos)
           TextField(
             controller: _nameController,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: c.textPrimary),
             decoration: baseDecoration,
           )
         else
@@ -262,50 +266,51 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
             placeholder: 'Имя файла',
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
+              color: c.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[800]!),
+              border: Border.all(color: c.border),
             ),
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: c.textPrimary),
           ),
         const SizedBox(height: 6),
         Text(
           'PDF будет сохранён в разделе Файлы и доступен для вложений в комментариях.',
-          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+          style: TextStyle(color: c.textTertiary, fontSize: 12),
         ),
       ],
     );
   }
 
   Widget _buildPages(bool isIos) {
+    final c = AppColors.of(context);
     if (_pages.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: c.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[800]!),
+          border: Border.all(color: c.border),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
               isIos ? CupertinoIcons.square_on_square : Icons.layers_outlined,
-              color: Colors.grey[600],
+              color: c.textTertiary,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Пока нет страниц',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Добавьте первую страницу, чтобы собрать PDF.',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                    style: TextStyle(color: c.textTertiary, fontSize: 13),
                   ),
                 ],
               ),
@@ -318,9 +323,9 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Страницы',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         ReorderableListView.builder(
@@ -343,7 +348,7 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
                   index: index,
                   child: Icon(
                     Icons.drag_handle,
-                    color: Colors.grey[600],
+                    color: c.textTertiary,
                   ),
                 ),
               ),
@@ -359,6 +364,7 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
     required VoidCallback? onPressed,
     required String label,
   }) {
+    final c = AppColors.of(context);
     if (isIos) {
       return CupertinoButton.filled(
         onPressed: onPressed,
@@ -367,10 +373,10 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (_isSaving) ...[
-              const CupertinoActivityIndicator(color: Colors.black, radius: 9),
+              CupertinoActivityIndicator(color: c.onAccent, radius: 9),
               const SizedBox(width: 8),
             ],
-            Text(label, style: const TextStyle(color: Colors.black)),
+            Text(label, style: TextStyle(color: c.onAccent)),
           ],
         ),
       );
@@ -381,25 +387,25 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _accentColor,
-          foregroundColor: Colors.black,
+          backgroundColor: c.accent,
+          foregroundColor: c.onAccent,
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         child: _isSaving
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
+                children: [
                   SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.black,
+                      color: c.onAccent,
                     ),
                   ),
-                  SizedBox(width: 8),
-                  Text('Сохраняем...'),
+                  const SizedBox(width: 8),
+                  const Text('Сохраняем...'),
                 ],
               )
             : Text(label),
@@ -413,11 +419,12 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
     required String label,
     required IconData icon,
   }) {
+    final c = AppColors.of(context);
     if (isIos) {
       return CupertinoButton(
         onPressed: onPressed,
         padding: const EdgeInsets.symmetric(vertical: 12),
-        color: Colors.grey[850],
+        color: c.surfaceVariant,
         borderRadius: BorderRadius.circular(12),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -426,10 +433,10 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
               const CupertinoActivityIndicator(radius: 8),
               const SizedBox(width: 8),
             ] else ...[
-              Icon(icon, color: Colors.white, size: 18),
+              Icon(icon, color: c.textPrimary, size: 18),
               const SizedBox(width: 8),
             ],
-            Text(label, style: const TextStyle(color: Colors.white)),
+            Text(label, style: TextStyle(color: c.textPrimary)),
           ],
         ),
       );
@@ -440,23 +447,23 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
       child: OutlinedButton.icon(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: Colors.grey[700]!),
+          side: BorderSide(color: c.border),
           padding: const EdgeInsets.symmetric(vertical: 13),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         icon: _isCapturing
-            ? const SizedBox(
+            ? SizedBox(
                 width: 18,
                 height: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white,
+                  color: c.textPrimary,
                 ),
               )
-            : Icon(icon, color: Colors.white),
+            : Icon(icon, color: c.textPrimary),
         label: Text(
           label,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: c.textPrimary),
         ),
       ),
     );
@@ -743,6 +750,7 @@ class _ScanPreviewTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final radius = BorderRadius.circular(12);
     final hasEdits = pageData.hasEdits;
     return Material(
@@ -753,9 +761,9 @@ class _ScanPreviewTile extends StatelessWidget {
         borderRadius: radius,
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
+            color: c.surface,
             borderRadius: radius,
-            border: Border.all(color: Colors.grey[800]!),
+            border: Border.all(color: c.border),
           ),
           child: Row(
             children: [
@@ -764,7 +772,7 @@ class _ScanPreviewTile extends StatelessWidget {
                 height: 104,
                 margin: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.grey[900],
+                  color: c.surfaceVariant,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 clipBehavior: Clip.hardEdge,
@@ -784,25 +792,25 @@ class _ScanPreviewTile extends StatelessWidget {
                   children: [
                     Text(
                       'Страница $index',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: c.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       _formatSize(pageData.file.lengthSync()),
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                      style: TextStyle(color: c.textTertiary, fontSize: 12),
                     ),
                     if (hasEdits) ...[
                       const SizedBox(height: 4),
                       Row(
                         children: [
                           if (pageData.rotationDegrees != 0)
-                            _buildEditBadge(Icons.rotate_right, '${pageData.rotationDegrees.toStringAsFixed(1)}°'),
+                            _buildEditBadge(c, Icons.rotate_right, '${pageData.rotationDegrees.toStringAsFixed(1)}°'),
                           if (pageData.cropRect != null) ...[
                             if (pageData.rotationDegrees != 0) const SizedBox(width: 6),
-                            _buildEditBadge(Icons.crop, null),
+                            _buildEditBadge(c, Icons.crop, null),
                           ],
                         ],
                       ),
@@ -814,13 +822,13 @@ class _ScanPreviewTile extends StatelessWidget {
                 onPressed: onEdit,
                 icon: Icon(
                   Icons.edit_outlined,
-                  color: hasEdits ? const Color(0xFF00E676) : Colors.grey[500],
+                  color: hasEdits ? c.accent : c.textTertiary,
                 ),
               ),
               dragHandle,
               IconButton(
                 onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                icon: Icon(Icons.delete_outline, color: c.danger),
               ),
             ],
           ),
@@ -829,23 +837,23 @@ class _ScanPreviewTile extends StatelessWidget {
     );
   }
 
-  Widget _buildEditBadge(IconData icon, String? label) {
+  Widget _buildEditBadge(AppColors c, IconData icon, String? label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFF00E676).withValues(alpha: 0.15),
+        color: c.accent.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: const Color(0xFF00E676)),
+          Icon(icon, size: 12, color: c.accent),
           if (label != null) ...[
             const SizedBox(width: 3),
             Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF00E676),
+              style: TextStyle(
+                color: c.accent,
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
               ),
@@ -909,7 +917,6 @@ class _ImageEditorPage extends StatefulWidget {
 enum _DragHandle { none, topLeft, topRight, bottomLeft, bottomRight, top, bottom, left, right, move }
 
 class _ImageEditorPageState extends State<_ImageEditorPage> {
-  static const _accentColor = Color(0xFF00E676);
   static const _handleSize = 44.0;
   static const _edgeHandleSize = 32.0;
 
@@ -949,9 +956,10 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
 
     final body = Container(
-      color: const Color(0xFF121212),
+      color: c.background,
       child: SafeArea(
         top: false,
         child: Column(
@@ -960,8 +968,8 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
               child: _uiImage == null
                   ? Center(
                       child: isIos
-                          ? const CupertinoActivityIndicator(color: _accentColor)
-                          : const CircularProgressIndicator(color: _accentColor),
+                          ? CupertinoActivityIndicator(color: c.accent)
+                          : CircularProgressIndicator(color: c.accent),
                     )
                   : _buildImageArea(),
             ),
@@ -975,7 +983,7 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
       return CupertinoPageScaffold(
         navigationBar: CupertinoNavigationBar(
           middle: const Text('Редактирование'),
-          backgroundColor: const Color(0xFF121212),
+          backgroundColor: c.background,
           leading: CupertinoButton(
             padding: EdgeInsets.zero,
             onPressed: () => Navigator.of(context).pop(),
@@ -994,24 +1002,24 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: c.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         elevation: 0,
         title: const Text('Редактирование'),
         actions: [
           _isSaving
-              ? const Padding(
-                  padding: EdgeInsets.all(16),
+              ? Padding(
+                  padding: const EdgeInsets.all(16),
                   child: SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: _accentColor),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: c.accent),
                   ),
                 )
               : TextButton(
                   onPressed: _save,
-                  child: const Text('Готово', style: TextStyle(color: _accentColor)),
+                  child: Text('Готово', style: TextStyle(color: c.accent)),
                 ),
         ],
       ),
@@ -1044,13 +1052,14 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
           _cropRect.bottom * displayHeight,
         );
 
+        final c = AppColors.of(context);
         return Center(
           child: Container(
             key: _imageKey,
             width: displayWidth,
             height: displayHeight,
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[800]!),
+              border: Border.all(color: c.border),
             ),
             clipBehavior: Clip.hardEdge,
             child: Stack(
@@ -1081,7 +1090,10 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
 
   Widget _buildCropPreview(Rect cropPixelRect) {
     return CustomPaint(
-      painter: _CropOverlayPainter(cropRect: cropPixelRect),
+      painter: _CropOverlayPainter(
+        cropRect: cropPixelRect,
+        accentColor: AppColors.of(context).accent,
+      ),
     );
   }
 
@@ -1091,7 +1103,11 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
         // Dark overlay outside crop area
         CustomPaint(
           size: Size(displayWidth, displayHeight),
-          painter: _CropOverlayPainter(cropRect: cropPixelRect, isSelecting: true),
+          painter: _CropOverlayPainter(
+            cropRect: cropPixelRect,
+            isSelecting: true,
+            accentColor: AppColors.of(context).accent,
+          ),
         ),
         // Corner handles
         _buildHandle(_DragHandle.topLeft, cropPixelRect.topLeft),
@@ -1110,6 +1126,7 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
   }
 
   Widget _buildHandle(_DragHandle handle, Offset position) {
+    final c = AppColors.of(context);
     return Positioned(
       left: position.dx - _handleSize / 2,
       top: position.dy - _handleSize / 2,
@@ -1120,7 +1137,7 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
         child: Container(
           width: _handleSize,
           height: _handleSize,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: Colors.transparent,
           ),
           child: Center(
@@ -1128,7 +1145,7 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
               width: 20,
               height: 20,
               decoration: BoxDecoration(
-                color: _accentColor,
+                color: c.accent,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: Colors.white, width: 2),
               ),
@@ -1140,6 +1157,7 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
   }
 
   Widget _buildEdgeHandle(_DragHandle handle, Offset position, bool isHorizontal) {
+    final c = AppColors.of(context);
     return Positioned(
       left: position.dx - (isHorizontal ? _edgeHandleSize : _edgeHandleSize / 2),
       top: position.dy - (isHorizontal ? _edgeHandleSize / 2 : _edgeHandleSize),
@@ -1156,7 +1174,7 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
               width: isHorizontal ? 40 : 6,
               height: isHorizontal ? 6 : 40,
               decoration: BoxDecoration(
-                color: _accentColor,
+                color: c.accent,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -1298,14 +1316,15 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
   }
 
   Widget _buildToolbar(bool isIos) {
+    final c = AppColors.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E1E1E),
+      decoration: BoxDecoration(
+        color: c.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black54,
-            offset: Offset(0, -2),
+            color: c.shadow,
+            offset: const Offset(0, -2),
             blurRadius: 6,
           ),
         ],
@@ -1317,7 +1336,7 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
             children: [
               Icon(
                 isIos ? CupertinoIcons.rotate_left : Icons.rotate_left,
-                color: Colors.grey[400],
+                color: c.textTertiary,
                 size: 20,
               ),
               Expanded(
@@ -1326,21 +1345,21 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
                         value: _rotationDegrees,
                         min: -180,
                         max: 180,
-                        activeColor: _accentColor,
+                        activeColor: c.accent,
                         onChanged: (v) => setState(() => _rotationDegrees = v),
                       )
                     : Slider(
                         value: _rotationDegrees,
                         min: -180,
                         max: 180,
-                        activeColor: _accentColor,
-                        inactiveColor: Colors.grey[700],
+                        activeColor: c.accent,
+                        inactiveColor: c.border,
                         onChanged: (v) => setState(() => _rotationDegrees = v),
                       ),
               ),
               Icon(
                 isIos ? CupertinoIcons.rotate_right : Icons.rotate_right,
-                color: Colors.grey[400],
+                color: c.textTertiary,
                 size: 20,
               ),
             ],
@@ -1351,7 +1370,7 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
               Text(
                 '${_rotationDegrees.toStringAsFixed(1)}°',
                 style: TextStyle(
-                  color: _rotationDegrees != 0 ? _accentColor : Colors.grey[500],
+                  color: _rotationDegrees != 0 ? c.accent : c.textTertiary,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1392,7 +1411,7 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
             const SizedBox(height: 12),
             Text(
               'Выделите область для обрезки',
-              style: TextStyle(color: Colors.grey[400], fontSize: 13),
+              style: TextStyle(color: c.textTertiary, fontSize: 13),
             ),
           ],
         ],
@@ -1401,6 +1420,7 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
   }
 
   Widget _buildQuickRotateButton(bool isIos, double degrees, {String? label}) {
+    final c = AppColors.of(context);
     final isActive = _rotationDegrees == degrees;
     final text = label ?? '${degrees > 0 ? '+' : ''}${degrees.toInt()}°';
     return GestureDetector(
@@ -1408,14 +1428,14 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isActive ? _accentColor.withValues(alpha: 0.2) : Colors.grey[800],
+          color: isActive ? c.accent.withValues(alpha: 0.2) : c.surfaceVariant,
           borderRadius: BorderRadius.circular(6),
-          border: isActive ? Border.all(color: _accentColor, width: 1) : null,
+          border: isActive ? Border.all(color: c.accent, width: 1) : null,
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: isActive ? _accentColor : Colors.grey[400],
+            color: isActive ? c.accent : c.textTertiary,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -1431,13 +1451,14 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
     required VoidCallback onTap,
     bool isActive = false,
   }) {
-    final color = isActive ? _accentColor : Colors.white;
+    final c = AppColors.of(context);
+    final color = isActive ? c.accent : c.textPrimary;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? _accentColor.withValues(alpha: 0.15) : Colors.transparent,
+          color: isActive ? c.accent.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -1526,9 +1547,11 @@ class _ImageEditorPageState extends State<_ImageEditorPage> {
 class _CropOverlayPainter extends CustomPainter {
   final Rect cropRect;
   final bool isSelecting;
+  final Color accentColor;
 
   _CropOverlayPainter({
     required this.cropRect,
+    required this.accentColor,
     this.isSelecting = false,
   });
 
@@ -1544,7 +1567,7 @@ class _CropOverlayPainter extends CustomPainter {
     canvas.drawPath(path, overlayPaint);
 
     final borderPaint = Paint()
-      ..color = isSelecting ? Colors.white : const Color(0xFF00E676)
+      ..color = isSelecting ? Colors.white : accentColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -1552,7 +1575,7 @@ class _CropOverlayPainter extends CustomPainter {
 
     if (!isSelecting) {
       final cornerPaint = Paint()
-        ..color = const Color(0xFF00E676)
+        ..color = accentColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 4;
 
@@ -1574,6 +1597,8 @@ class _CropOverlayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CropOverlayPainter oldDelegate) {
-    return oldDelegate.cropRect != cropRect || oldDelegate.isSelecting != isSelecting;
+    return oldDelegate.cropRect != cropRect ||
+        oldDelegate.isSelecting != isSelecting ||
+        oldDelegate.accentColor != accentColor;
   }
 }

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/student_performance.dart';
 
@@ -73,13 +74,14 @@ class _CoursesTabState extends State<CoursesTab> {
   }
 
   Widget _buildSegmentedControl(bool isIos) {
+    final c = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: isIos
           ? CupertinoSlidingSegmentedControl<int>(
               groupValue: _selectedSegment,
-              backgroundColor: const Color(0xFF1E1E1E),
-              thumbColor: const Color(0xFF00E676).withValues(alpha: 0.3),
+              backgroundColor: c.surface,
+              thumbColor: c.accent.withValues(alpha: 0.3),
               children: const {
                 0: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -102,7 +104,7 @@ class _CoursesTabState extends State<CoursesTab> {
             )
           : Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: c.surface,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -117,6 +119,7 @@ class _CoursesTabState extends State<CoursesTab> {
   }
 
   Widget _buildSegmentButton(int index, String label) {
+    final c = AppColors.of(context);
     final isSelected = _selectedSegment == index;
     return Expanded(
       child: GestureDetector(
@@ -125,7 +128,7 @@ class _CoursesTabState extends State<CoursesTab> {
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFF00E676).withValues(alpha: 0.2)
+                ? c.accent.withValues(alpha: 0.2)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
@@ -135,7 +138,7 @@ class _CoursesTabState extends State<CoursesTab> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? const Color(0xFF00E676) : Colors.grey[500],
+              color: isSelected ? c.accent : c.textTertiary,
             ),
           ),
         ),
@@ -144,14 +147,15 @@ class _CoursesTabState extends State<CoursesTab> {
   }
 
   Widget _buildCoursesContent(bool isIos) {
+    final c = AppColors.of(context);
     if (widget.isLoading) {
       return Center(
         child: isIos
-            ? const CupertinoActivityIndicator(
+            ? CupertinoActivityIndicator(
                 radius: 14,
-                color: Color(0xFF00E676),
+                color: c.accent,
               )
-            : const CircularProgressIndicator(color: Color(0xFF00E676)),
+            : CircularProgressIndicator(color: c.accent),
       );
     }
 
@@ -160,9 +164,9 @@ class _CoursesTabState extends State<CoursesTab> {
       children: [
         Row(
           children: [
-            const Text(
+            Text(
               'Активные курсы',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary),
             ),
             const Spacer(),
             isIos
@@ -174,12 +178,12 @@ class _CoursesTabState extends State<CoursesTab> {
                         Icon(
                           _isEditing ? CupertinoIcons.check_mark : CupertinoIcons.pencil,
                           size: 16,
-                          color: const Color(0xFF00E676),
+                          color: c.accent,
                         ),
                         const SizedBox(width: 6),
                         Text(
                           _isEditing ? 'Готово' : 'Редактировать',
-                          style: const TextStyle(color: Color(0xFF00E676), fontSize: 12),
+                          style: TextStyle(color: c.accent, fontSize: 12),
                         ),
                       ],
                     ),
@@ -189,11 +193,11 @@ class _CoursesTabState extends State<CoursesTab> {
                     icon: Icon(
                       _isEditing ? Icons.check : Icons.edit,
                       size: 16,
-                      color: const Color(0xFF00E676),
+                      color: c.accent,
                     ),
                     label: Text(
                       _isEditing ? 'Готово' : 'Редактировать',
-                      style: const TextStyle(color: Color(0xFF00E676), fontSize: 12),
+                      style: TextStyle(color: c.accent, fontSize: 12),
                     ),
                   ),
           ],
@@ -224,7 +228,7 @@ class _CoursesTabState extends State<CoursesTab> {
                       tooltip: 'В архив',
                       icon: Icon(
                         isIos ? CupertinoIcons.archivebox : Icons.archive,
-                        color: Colors.grey[500],
+                        color: c.textTertiary,
                         size: 20,
                       ),
                       onPressed: () => widget.onArchive(course),
@@ -233,7 +237,7 @@ class _CoursesTabState extends State<CoursesTab> {
                       index: index,
                       child: Icon(
                         isIos ? CupertinoIcons.line_horizontal_3 : Icons.drag_handle,
-                        color: Colors.grey[600],
+                        color: c.textTertiary,
                       ),
                     ),
                   ],
@@ -249,21 +253,21 @@ class _CoursesTabState extends State<CoursesTab> {
               onTap: () => widget.onOpenCourse(course),
               trailing: Icon(
                 isIos ? CupertinoIcons.chevron_forward : Icons.chevron_right,
-                color: Colors.grey[600],
+                color: c.textTertiary,
               ),
             ),
           ),
         const SizedBox(height: 16),
         Row(
           children: [
-            const Text(
+            Text(
               'Архив',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: c.textPrimary),
             ),
             const SizedBox(width: 8),
             Text(
               '${widget.archivedCourses.length}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 12, color: c.textTertiary),
             ),
           ],
         ),
@@ -286,14 +290,14 @@ class _CoursesTabState extends State<CoursesTab> {
                           tooltip: 'Вернуть',
                           icon: Icon(
                             isIos ? CupertinoIcons.archivebox_fill : Icons.unarchive,
-                            color: Colors.grey[500],
+                            color: c.textTertiary,
                             size: 20,
                           ),
                           onPressed: () => widget.onRestore(course),
                         ))
                   : Icon(
                       isIos ? CupertinoIcons.chevron_forward : Icons.chevron_right,
-                      color: Colors.grey[600],
+                      color: c.textTertiary,
                     ),
             ),
           ),
@@ -302,14 +306,15 @@ class _CoursesTabState extends State<CoursesTab> {
   }
 
   Widget _buildGradeSheetContent(bool isIos) {
+    final c = AppColors.of(context);
     if (widget.isLoadingPerformance) {
       return Center(
         child: isIos
-            ? const CupertinoActivityIndicator(
+            ? CupertinoActivityIndicator(
                 radius: 14,
-                color: Color(0xFF00E676),
+                color: c.accent,
               )
-            : const CircularProgressIndicator(color: Color(0xFF00E676)),
+            : CircularProgressIndicator(color: c.accent),
       );
     }
 
@@ -326,13 +331,13 @@ class _CoursesTabState extends State<CoursesTab> {
             Icon(
               isIos ? CupertinoIcons.doc_chart : Icons.assessment,
               size: 48,
-              color: Colors.grey[600],
+              color: c.textTertiary,
             ),
             const SizedBox(height: 16),
             Text(
               'Нет данных об оценках',
               style: TextStyle(
-                color: Colors.grey[500],
+                color: c.textTertiary,
                 fontSize: 16,
               ),
             ),
@@ -355,6 +360,7 @@ class _CoursesTabState extends State<CoursesTab> {
   }
 
   Widget _buildSemesterCard(GradebookSemester semester, bool isIos) {
+    final c = AppColors.of(context);
     final key = '${semester.year}-${semester.semesterNumber}';
     final isExpanded = _expandedSemesters.contains(key);
     final regularGrades = semester.regularGrades;
@@ -367,7 +373,7 @@ class _CoursesTabState extends State<CoursesTab> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -390,13 +396,13 @@ class _CoursesTabState extends State<CoursesTab> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                      color: c.accent.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
                       isIos ? CupertinoIcons.calendar : Icons.calendar_today,
                       size: 16,
-                      color: const Color(0xFF00E676),
+                      color: c.accent,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -406,10 +412,10 @@ class _CoursesTabState extends State<CoursesTab> {
                       children: [
                         Text(
                           semester.title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Colors.white,
+                            color: c.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -417,7 +423,7 @@ class _CoursesTabState extends State<CoursesTab> {
                           '${regularGrades.length} предметов',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[500],
+                            color: c.textTertiary,
                           ),
                         ),
                       ],
@@ -427,14 +433,14 @@ class _CoursesTabState extends State<CoursesTab> {
                     isExpanded
                         ? (isIos ? CupertinoIcons.chevron_up : Icons.expand_less)
                         : (isIos ? CupertinoIcons.chevron_down : Icons.expand_more),
-                    color: Colors.grey[500],
+                    color: c.textTertiary,
                   ),
                 ],
               ),
             ),
           ),
           if (isExpanded) ...[
-            const Divider(color: Color(0xFF2E2E2E), height: 1),
+            Divider(color: c.divider, height: 1),
             ...regularGrades.map((grade) => _buildGradeRow(grade)),
             if (electiveGrades.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -444,7 +450,7 @@ class _CoursesTabState extends State<CoursesTab> {
                   'Факультативы',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[500],
+                    color: c.textTertiary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -458,6 +464,7 @@ class _CoursesTabState extends State<CoursesTab> {
   }
 
   Widget _buildGradeRow(GradebookGrade grade) {
+    final c = AppColors.of(context);
     final gradeColor = _getGradeColor(grade);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -470,9 +477,9 @@ class _CoursesTabState extends State<CoursesTab> {
               children: [
                 Text(
                   grade.subject,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: Colors.white,
+                    color: c.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -480,7 +487,7 @@ class _CoursesTabState extends State<CoursesTab> {
                   grade.assessmentTypeDisplay,
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey[500],
+                    color: c.textTertiary,
                   ),
                 ),
               ],
@@ -507,37 +514,39 @@ class _CoursesTabState extends State<CoursesTab> {
   }
 
   Color _getGradeColor(GradebookGrade grade) {
+    final c = AppColors.of(context);
     if (grade.grade != null) {
-      if (grade.grade! >= 8) return const Color(0xFF00E676);
+      if (grade.grade! >= 8) return c.accent;
       if (grade.grade! >= 6) return const Color(0xFFFFCA28);
       if (grade.grade! >= 4) return const Color(0xFFFF9800);
       return const Color(0xFFEF5350);
     }
     switch (grade.normalizedGrade) {
       case 'excellent':
-        return const Color(0xFF00E676);
+        return c.accent;
       case 'good':
         return const Color(0xFFFFCA28);
       case 'satisfactory':
         return const Color(0xFFFF9800);
       case 'passed':
-        return const Color(0xFF00E676);
+        return c.accent;
       case 'failed':
         return const Color(0xFFEF5350);
       default:
-        return Colors.grey;
+        return c.textTertiary;
     }
   }
 
   Widget _buildRecordBookContent(bool isIos) {
+    final c = AppColors.of(context);
     if (widget.isLoadingGradebook) {
       return Center(
         child: isIos
-            ? const CupertinoActivityIndicator(
+            ? CupertinoActivityIndicator(
                 radius: 14,
-                color: Color(0xFF00E676),
+                color: c.accent,
               )
-            : const CircularProgressIndicator(color: Color(0xFF00E676)),
+            : CircularProgressIndicator(color: c.accent),
       );
     }
 
@@ -550,13 +559,13 @@ class _CoursesTabState extends State<CoursesTab> {
             Icon(
               isIos ? CupertinoIcons.book_solid : Icons.menu_book,
               size: 48,
-              color: Colors.grey[600],
+              color: c.textTertiary,
             ),
             const SizedBox(height: 16),
             Text(
               'Нет данных о зачетке',
               style: TextStyle(
-                color: Colors.grey[500],
+                color: c.textTertiary,
                 fontSize: 16,
               ),
             ),
@@ -574,19 +583,20 @@ class _CoursesTabState extends State<CoursesTab> {
   }
 
   Widget _buildEmptyState({required IconData icon, required String message}) {
+    final c = AppColors.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.grey[600], size: 20),
+          Icon(icon, color: c.textTertiary, size: 20),
           const SizedBox(width: 12),
           Text(
             message,
-            style: TextStyle(color: Colors.grey[500], fontSize: 14),
+            style: TextStyle(color: c.textTertiary, fontSize: 14),
           ),
         ],
       ),
@@ -608,28 +618,30 @@ class _CourseListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: (isIos
           ? GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: onTap,
-              child: _buildContent(isIos),
+              child: _buildContent(context, isIos),
             )
           : InkWell(
               onTap: onTap,
               borderRadius: BorderRadius.circular(12),
-              child: _buildContent(isIos),
+              child: _buildContent(context, isIos),
             )),
     );
   }
 
-  Widget _buildContent(bool isIos) {
+  Widget _buildContent(BuildContext context, bool isIos) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -653,14 +665,14 @@ class _CourseListTile extends StatelessWidget {
               children: [
                 Text(
                   course.cleanName,
-                  style: const TextStyle(fontSize: 14, color: Colors.white),
+                  style: TextStyle(fontSize: 14, color: c.textPrimary),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   course.categoryName,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 12, color: c.textTertiary),
                 ),
               ],
             ),
@@ -684,30 +696,32 @@ class _CourseGradeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
-    final gradeColor = _getGradeColor(course.total);
+    final gradeColor = _getGradeColor(context, course.total);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: isIos
           ? GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: onTap,
-              child: _buildContent(isIos, gradeColor),
+              child: _buildContent(context, isIos, gradeColor),
             )
           : InkWell(
               onTap: onTap,
               borderRadius: BorderRadius.circular(12),
-              child: _buildContent(isIos, gradeColor),
+              child: _buildContent(context, isIos, gradeColor),
             ),
     );
   }
 
-  Widget _buildContent(bool isIos, Color gradeColor) {
+  Widget _buildContent(BuildContext context, bool isIos, Color gradeColor) {
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -737,9 +751,9 @@ class _CourseGradeTile extends StatelessWidget {
               children: [
                 Text(
                   course.cleanName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white,
+                    color: c.textPrimary,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -757,15 +771,16 @@ class _CourseGradeTile extends StatelessWidget {
           ),
           Icon(
             isIos ? CupertinoIcons.chevron_forward : Icons.chevron_right,
-            color: Colors.grey[600],
+            color: c.textTertiary,
           ),
         ],
       ),
     );
   }
 
-  Color _getGradeColor(int grade) {
-    if (grade >= 8) return const Color(0xFF00E676);
+  Color _getGradeColor(BuildContext context, int grade) {
+    final c = AppColors.of(context);
+    if (grade >= 8) return c.accent;
     if (grade >= 6) return const Color(0xFFFFCA28);
     if (grade >= 4) return const Color(0xFFFF9800);
     return const Color(0xFFEF5350);

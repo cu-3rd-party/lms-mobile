@@ -10,6 +10,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:cumobile/core/services/theme_service.dart';
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/student_profile.dart';
 import 'package:cumobile/data/services/api_service.dart';
 
@@ -273,10 +275,11 @@ class _ProfilePageState extends State<ProfilePage> {
       );
       return;
     }
+    final c = AppColors.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF1E1E1E),
+        content: Text(message, style: TextStyle(color: c.textPrimary)),
+        backgroundColor: c.surface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.all(16),
@@ -294,6 +297,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final content = SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
@@ -310,18 +314,18 @@ class _ProfilePageState extends State<ProfilePage> {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                    color: c.accent.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
                   child: _isAvatarLoading
                       ? Center(
                           child: isIos
-                              ? const CupertinoActivityIndicator(
+                              ? CupertinoActivityIndicator(
                                   radius: 14,
-                                  color: Color(0xFF00E676),
+                                  color: c.accent,
                                 )
-                              : const CircularProgressIndicator(
-                                  color: Color(0xFF00E676),
+                              : CircularProgressIndicator(
+                                  color: c.accent,
                                 ),
                         )
                       : _currentAvatarBytes != null
@@ -336,10 +340,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           : Center(
                               child: Text(
                                 '${widget.profile.firstName[0]}${widget.profile.lastName[0]}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF00E676),
+                                  color: c.accent,
                                 ),
                               ),
                             ),
@@ -353,11 +357,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: Container(
                         width: 28,
                         height: 28,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF00E676),
+                        decoration: BoxDecoration(
+                          color: c.accent,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.camera_alt, size: 15, color: Colors.black),
+                        child: Icon(Icons.camera_alt, size: 15, color: c.onAccent),
                       ),
                     ),
                   ),
@@ -371,7 +375,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           width: 28,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: Colors.red[400],
+                            color: c.danger,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.delete, size: 15, color: Colors.white),
@@ -385,10 +389,10 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 16),
           Text(
             widget.profile.fullName,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: c.textPrimary,
             ),
             textAlign: TextAlign.center,
           ),
@@ -397,11 +401,13 @@ class _ProfilePageState extends State<ProfilePage> {
             '${widget.profile.course} курс • ${_translateEducationLevel(widget.profile.educationLevel)}',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[400],
+              color: c.textSecondary,
             ),
           ),
           const SizedBox(height: 24),
           _buildInfoCard(),
+          const SizedBox(height: 16),
+          _buildAppearanceCard(),
           const SizedBox(height: 16),
           _buildCalendarCard(),
           if (_logFilePath != null) ...[
@@ -412,9 +418,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 'Открыть лог ошибок',
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[600],
+                  color: c.textTertiary,
                   decoration: TextDecoration.underline,
-                  decorationColor: Colors.grey[700],
+                  decorationColor: c.textTertiary,
                 ),
               ),
             ),
@@ -435,26 +441,27 @@ class _ProfilePageState extends State<ProfilePage> {
             },
             child: Icon(
               CupertinoIcons.square_arrow_right,
-              color: Colors.grey[500],
+              color: c.iconSecondary,
               size: 22,
             ),
           ),
         ),
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         child: SafeArea(top: false, bottom: false, child: content),
       );
     }
 
     return Scaffold(
+      backgroundColor: c.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: c.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Профиль',
-          style: TextStyle(color: Colors.white, fontSize: 18),
+          style: TextStyle(color: c.textPrimary, fontSize: 18),
         ),
         actions: [
           IconButton(
@@ -462,7 +469,7 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.pop(context);
               widget.onLogout();
             },
-            icon: Icon(Icons.logout, color: Colors.grey[500], size: 22),
+            icon: Icon(Icons.logout, color: c.iconSecondary, size: 22),
           ),
         ],
       ),
@@ -470,13 +477,117 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildAppearanceCard() {
+    final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
+    final mode = ThemeController.instance.mode;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Оформление',
+            style: TextStyle(fontSize: 15, color: c.textPrimary),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: c.surfaceVariant,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              children: [
+                _buildThemeOption(
+                  isIos: isIos,
+                  label: 'Системная',
+                  icon: isIos ? CupertinoIcons.device_phone_portrait : Icons.phone_iphone,
+                  selected: mode == ThemeMode.system,
+                  onTap: () => _setThemeMode(ThemeMode.system),
+                ),
+                _buildThemeOption(
+                  isIos: isIos,
+                  label: 'Светлая',
+                  icon: isIos ? CupertinoIcons.sun_max : Icons.light_mode,
+                  selected: mode == ThemeMode.light,
+                  onTap: () => _setThemeMode(ThemeMode.light),
+                ),
+                _buildThemeOption(
+                  isIos: isIos,
+                  label: 'Тёмная',
+                  icon: isIos ? CupertinoIcons.moon : Icons.dark_mode,
+                  selected: mode == ThemeMode.dark,
+                  onTap: () => _setThemeMode(ThemeMode.dark),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThemeOption({
+    required bool isIos,
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final c = AppColors.of(context);
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? c.accent : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: selected ? c.onAccent : c.textSecondary,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? c.onAccent : c.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _setThemeMode(ThemeMode mode) async {
+    await ThemeController.instance.setMode(mode);
+    if (mounted) setState(() {});
+  }
+
   Widget _buildInfoCard() {
+    final c = AppColors.of(context);
     final otherEmails =
         widget.profile.emails.where((e) => !_isCuEmail(e.value)).toList();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -495,7 +606,7 @@ class _ProfilePageState extends State<ProfilePage> {
           if (otherEmails.isNotEmpty) ...[
             Text(
               'Email',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: c.textTertiary),
             ),
             const SizedBox(height: 4),
             ...otherEmails.map((e) => Padding(
@@ -505,18 +616,18 @@ class _ProfilePageState extends State<ProfilePage> {
                       Expanded(
                         child: Text(
                           e.masked,
-                          style: const TextStyle(fontSize: 14, color: Colors.white),
+                          style: TextStyle(fontSize: 14, color: c.textPrimary),
                         ),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
+                          color: c.surfaceVariant,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           e.type,
-                          style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                          style: TextStyle(fontSize: 10, color: c.textTertiary),
                         ),
                       ),
                     ],
@@ -527,7 +638,7 @@ class _ProfilePageState extends State<ProfilePage> {
           if (widget.profile.phones.isNotEmpty) ...[
             Text(
               'Телефон',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: c.textTertiary),
             ),
             const SizedBox(height: 4),
             ...widget.profile.phones.map((ph) => Padding(
@@ -537,18 +648,18 @@ class _ProfilePageState extends State<ProfilePage> {
                       Expanded(
                         child: Text(
                           '+${ph.masked}',
-                          style: const TextStyle(fontSize: 14, color: Colors.white),
+                          style: TextStyle(fontSize: 14, color: c.textPrimary),
                         ),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
+                          color: c.surfaceVariant,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           ph.type,
-                          style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                          style: TextStyle(fontSize: 10, color: c.textTertiary),
                         ),
                       ),
                     ],
@@ -568,12 +679,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildCalendarCard() {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     final showInput = !_isConnected || _isEditing;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -581,24 +693,24 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Календарь (iCal)',
-                  style: TextStyle(fontSize: 15, color: Colors.white),
+                  style: TextStyle(fontSize: 15, color: c.textPrimary),
                 ),
               ),
               if (_isConnected)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                    color: c.accent.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Подключено',
                     style: TextStyle(
                       fontSize: 10,
-                      color: Color(0xFF00E676),
+                      color: c.accent,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -609,18 +721,18 @@ class _ProfilePageState extends State<ProfilePage> {
           if (showInput) ...[
             Text(
               'Ссылка на iCal (ICS)',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: c.textTertiary),
             ),
             const SizedBox(height: 6),
             isIos
                 ? CupertinoTextField(
                     controller: _icsUrlController,
                     placeholder: 'https://calendar.yandex.ru/export/ics.xml?...',
-                    placeholderStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    placeholderStyle: TextStyle(color: c.textTertiary, fontSize: 12),
+                    style: TextStyle(color: c.textPrimary, fontSize: 13),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A2A),
+                      color: c.surfaceVariant,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     maxLines: 2,
@@ -628,14 +740,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   )
                 : TextField(
                     controller: _icsUrlController,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: TextStyle(color: c.textPrimary, fontSize: 13),
                     maxLines: 2,
                     keyboardType: TextInputType.url,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: const Color(0xFF2A2A2A),
+                      fillColor: c.surfaceVariant,
                       hintText: 'https://calendar.yandex.ru/export/ics.xml?...',
-                      hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      hintStyle: TextStyle(color: c.textTertiary, fontSize: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,
@@ -653,36 +765,36 @@ class _ProfilePageState extends State<ProfilePage> {
                         onPressed: _isSaving ? null : _saveIcsUrl,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: _isSaving
-                            ? const CupertinoActivityIndicator(
+                            ? CupertinoActivityIndicator(
                                 radius: 10,
-                                color: CupertinoColors.black,
+                                color: c.onAccent,
                               )
                             : Text(
                                 _isConnected ? 'Сохранить' : 'Подключить',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.black,
+                                  color: c.onAccent,
                                 ),
                               ),
                       )
                     : ElevatedButton(
                         onPressed: _isSaving ? null : _saveIcsUrl,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00E676),
-                          foregroundColor: const Color(0xFF121212),
+                          backgroundColor: c.accent,
+                          foregroundColor: c.onAccent,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                         child: _isSaving
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Color(0xFF121212),
+                                  color: c.onAccent,
                                 ),
                               )
                             : Text(
@@ -703,7 +815,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   'Отмена',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[500],
+                    color: c.textTertiary,
                   ),
                 ),
               ),
@@ -713,12 +825,12 @@ class _ProfilePageState extends State<ProfilePage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
+                color: c.surfaceVariant,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 _maskUrl(_savedUrl),
-                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                style: TextStyle(color: c.textSecondary, fontSize: 12),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -726,11 +838,11 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 8),
             GestureDetector(
               onTap: () => setState(() => _isEditing = true),
-              child: const Text(
+              child: Text(
                 'Изменить ссылку',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF00E676),
+                  color: c.accent,
                 ),
               ),
             ),
@@ -744,9 +856,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   'Как получить ссылку?',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[500],
+                    color: c.textTertiary,
                     decoration: TextDecoration.underline,
-                    decorationColor: Colors.grey[600],
+                    decorationColor: c.textTertiary,
                   ),
                 ),
               ),
@@ -754,11 +866,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 const Spacer(),
                 GestureDetector(
                   onTap: _disconnectCalendar,
-                  child: const Text(
+                  child: Text(
                     'Отключить',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.redAccent,
+                      color: c.danger,
                     ),
                   ),
                 ),
@@ -771,6 +883,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildRow(String label, String value, {VoidCallback? onTap}) {
+    final c = AppColors.of(context);
     final row = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -778,18 +891,18 @@ class _ProfilePageState extends State<ProfilePage> {
           width: 120,
           child: Text(
             label,
-            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+            style: TextStyle(fontSize: 13, color: c.textTertiary),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(fontSize: 13, color: Colors.white),
+            style: TextStyle(fontSize: 13, color: c.textPrimary),
           ),
         ),
         if (onTap != null) ...[
           const SizedBox(width: 8),
-          Icon(Icons.copy, size: 14, color: Colors.grey[500]),
+          Icon(Icons.copy, size: 14, color: c.textTertiary),
         ],
       ],
     );
@@ -809,13 +922,14 @@ class _ProfilePageState extends State<ProfilePage> {
     await Clipboard.setData(ClipboardData(text: value));
     await HapticFeedback.selectionClick();
     if (!mounted) return;
+    final c = AppColors.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger != null) {
       messenger.showSnackBar(
         SnackBar(
           content: Text('Скопировано: $value'),
           duration: const Duration(seconds: 2),
-          backgroundColor: const Color(0xFF1E1E1E),
+          backgroundColor: c.surface,
         ),
       );
       return;

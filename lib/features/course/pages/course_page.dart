@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/features/longread/pages/longread_page.dart';
@@ -54,15 +55,16 @@ class _CoursePageState extends State<CoursePage> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     final body = _isLoading
         ? Center(
             child: isIos
-                ? const CupertinoActivityIndicator(
+                ? CupertinoActivityIndicator(
                     radius: 14,
-                    color: Color(0xFF00E676),
+                    color: c.accent,
                   )
-                : const CircularProgressIndicator(color: Color(0xFF00E676)),
+                : CircularProgressIndicator(color: c.accent),
           )
         : _overview == null
             ? Center(
@@ -71,13 +73,13 @@ class _CoursePageState extends State<CoursePage> {
                   children: [
                     Icon(
                       isIos ? CupertinoIcons.exclamationmark_triangle : Icons.error_outline,
-                      color: Colors.grey[600],
+                      color: c.textTertiary,
                       size: 48,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Не удалось загрузить курс',
-                      style: TextStyle(color: Colors.grey[500]),
+                      style: TextStyle(color: c.textTertiary),
                     ),
                   ],
                 ),
@@ -92,13 +94,13 @@ class _CoursePageState extends State<CoursePage> {
                   controller: _searchController,
                   placeholder: 'Поиск...',
                   placeholderStyle: TextStyle(
-                    color: Colors.grey[500],
+                    color: c.textTertiary,
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
                     height: 1.2,
                   ),
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: c.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
                     height: 1.2,
@@ -106,7 +108,7 @@ class _CoursePageState extends State<CoursePage> {
                   autofocus: true,
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A2A),
+                    color: c.surfaceVariant,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
@@ -135,24 +137,24 @@ class _CoursePageState extends State<CoursePage> {
             ],
           ),
         ),
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         child: SafeArea(top: false, bottom: false, child: body),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: c.background,
         leading: IconButton(
-          icon: Icon(_isSearching ? Icons.close : Icons.arrow_back, color: Colors.white),
+          icon: Icon(_isSearching ? Icons.close : Icons.arrow_back, color: c.textPrimary),
           onPressed: _isSearching ? _closeSearch : () => Navigator.pop(context),
         ),
         title: _isSearching
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: c.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                   height: 1.2,
@@ -161,7 +163,7 @@ class _CoursePageState extends State<CoursePage> {
                 decoration: InputDecoration(
                   hintText: 'Поиск...',
                   hintStyle: TextStyle(
-                    color: Colors.grey[500],
+                    color: c.textTertiary,
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
                     height: 1.2,
@@ -174,14 +176,14 @@ class _CoursePageState extends State<CoursePage> {
               )
             : Text(
                 widget.course.cleanName,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+                style: TextStyle(color: c.textPrimary, fontSize: 16),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
         actions: [
           if (!_isSearching)
             IconButton(
-              icon: const Icon(Icons.search, color: Colors.white),
+              icon: Icon(Icons.search, color: c.textPrimary),
               onPressed: () => setState(() => _isSearching = true),
             ),
         ],
@@ -191,6 +193,7 @@ class _CoursePageState extends State<CoursePage> {
   }
 
   Widget _buildThemesList() {
+    final c = AppColors.of(context);
     final themes = _overview!.themes;
     if (themes.isEmpty) {
       return Center(
@@ -199,13 +202,13 @@ class _CoursePageState extends State<CoursePage> {
           children: [
             Icon(
               Platform.isIOS ? CupertinoIcons.folder : Icons.folder_open,
-              color: Colors.grey[600],
+              color: c.textTertiary,
               size: 48,
             ),
             const SizedBox(height: 16),
             Text(
               'Нет доступных тем',
-              style: TextStyle(color: Colors.grey[500]),
+              style: TextStyle(color: c.textTertiary),
             ),
           ],
         ),
@@ -248,13 +251,13 @@ class _CoursePageState extends State<CoursePage> {
           children: [
             Icon(
               Platform.isIOS ? CupertinoIcons.search : Icons.search,
-              color: Colors.grey[600],
+              color: c.textTertiary,
               size: 48,
             ),
             const SizedBox(height: 16),
             Text(
               'Ничего не найдено',
-              style: TextStyle(color: Colors.grey[500]),
+              style: TextStyle(color: c.textTertiary),
             ),
           ],
         ),
@@ -294,11 +297,12 @@ class _CoursePageState extends State<CoursePage> {
   }
 
   Widget _buildThemeCard(CourseTheme theme, int number) {
+    final c = AppColors.of(context);
     final isExpanded = _expandedThemes.contains(theme.id);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -336,10 +340,10 @@ class _CoursePageState extends State<CoursePage> {
                         children: [
                           Text(
                             theme.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: Colors.white,
+                              color: c.textPrimary,
                             ),
                           ),
                           if (theme.hasExercises)
@@ -347,7 +351,7 @@ class _CoursePageState extends State<CoursePage> {
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
                                 '${theme.totalExercises} ${_pluralize(theme.totalExercises, 'задание', 'задания', 'заданий')}',
-                                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                                style: TextStyle(fontSize: 12, color: c.textTertiary),
                               ),
                             ),
                         ],
@@ -355,7 +359,7 @@ class _CoursePageState extends State<CoursePage> {
                     ),
                     Icon(
                       isExpanded ? Icons.expand_less : Icons.expand_more,
-                      color: Colors.grey[500],
+                      color: c.textTertiary,
                       size: 24,
                     ),
                   ],
@@ -385,11 +389,12 @@ class _CoursePageState extends State<CoursePage> {
   }
 
   Widget _buildThemeCardCupertino(CourseTheme theme, int number) {
+    final c = AppColors.of(context);
     final isExpanded = _expandedThemes.contains(theme.id);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -426,10 +431,10 @@ class _CoursePageState extends State<CoursePage> {
                       children: [
                         Text(
                           theme.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Colors.white,
+                            color: c.textPrimary,
                           ),
                         ),
                         if (theme.hasExercises)
@@ -437,7 +442,7 @@ class _CoursePageState extends State<CoursePage> {
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(
                               '${theme.totalExercises} ${_pluralize(theme.totalExercises, 'задание', 'задания', 'заданий')}',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                              style: TextStyle(fontSize: 12, color: c.textTertiary),
                             ),
                           ),
                       ],
@@ -445,7 +450,7 @@ class _CoursePageState extends State<CoursePage> {
                   ),
                   Icon(
                     isExpanded ? CupertinoIcons.chevron_up : CupertinoIcons.chevron_down,
-                    color: Colors.grey[500],
+                    color: c.textTertiary,
                     size: 18,
                   ),
                 ],
@@ -473,6 +478,7 @@ class _CoursePageState extends State<CoursePage> {
   }
 
   Widget _buildLongread(CourseTheme theme, Longread longread) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     return GestureDetector(
       onTap: () => _openLongread(theme, longread),
@@ -480,7 +486,7 @@ class _CoursePageState extends State<CoursePage> {
         margin: const EdgeInsets.only(top: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF252525),
+          color: c.surfaceVariant,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -499,17 +505,17 @@ class _CoursePageState extends State<CoursePage> {
                 Expanded(
                   child: Text(
                     longread.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white,
+                      color: c.textPrimary,
                     ),
                   ),
                 ),
                 Icon(
                   isIos ? CupertinoIcons.chevron_forward : Icons.chevron_right,
                   size: 18,
-                  color: Colors.grey[600],
+                  color: c.textTertiary,
                 ),
               ],
             ),
@@ -551,12 +557,13 @@ class _CoursePageState extends State<CoursePage> {
   }
 
   Widget _buildExercise(CourseTheme theme, Longread longread, ThemeExercise exercise) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
     final content = Container(
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
@@ -564,7 +571,7 @@ class _CoursePageState extends State<CoursePage> {
         children: [
           Text(
             exercise.name,
-            style: const TextStyle(fontSize: 12, color: Colors.white),
+            style: TextStyle(fontSize: 12, color: c.textPrimary),
           ),
           const SizedBox(height: 6),
           if (exercise.deadline != null)
@@ -573,14 +580,14 @@ class _CoursePageState extends State<CoursePage> {
                 Icon(
                   isIos ? CupertinoIcons.time : Icons.access_time,
                   size: 12,
-                  color: exercise.isOverdue ? Colors.redAccent : Colors.grey[500],
+                  color: exercise.isOverdue ? c.danger : c.textTertiary,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   exercise.formattedDeadline,
                   style: TextStyle(
                     fontSize: 11,
-                    color: exercise.isOverdue ? Colors.redAccent : Colors.grey[500],
+                    color: exercise.isOverdue ? c.danger : c.textTertiary,
                   ),
                 ),
               ],

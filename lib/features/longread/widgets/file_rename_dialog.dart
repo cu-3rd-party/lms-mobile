@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:cumobile/core/services/file_rename_service.dart';
+import 'package:cumobile/core/theme/app_colors.dart';
 
 enum FileRenameChoice { keepOriginal, useRule, custom }
 
@@ -52,8 +53,6 @@ class FileRenameDialog extends StatefulWidget {
 }
 
 class _FileRenameDialogState extends State<FileRenameDialog> {
-  static const _accentColor = Color(0xFF00E676);
-
   late FileRenameChoice _choice;
   late TextEditingController _customController;
   FileRenameRule? _rule;
@@ -83,6 +82,7 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final isIos = Platform.isIOS;
 
     if (isIos) {
@@ -104,20 +104,20 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
     }
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1E1E),
-      title: const Text(
+      backgroundColor: c.surface,
+      title: Text(
         'Имя файла',
-        style: TextStyle(color: Colors.white),
+        style: TextStyle(color: c.textPrimary),
       ),
       content: _buildContent(isIos),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Отмена', style: TextStyle(color: Colors.grey[400])),
+          child: Text('Отмена', style: TextStyle(color: c.textTertiary)),
         ),
         TextButton(
           onPressed: _submit,
-          child: const Text('Готово', style: TextStyle(color: _accentColor)),
+          child: Text('Готово', style: TextStyle(color: c.accent)),
         ),
       ],
     );
@@ -171,6 +171,7 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
     required String title,
     String? subtitle,
   }) {
+    final c = AppColors.of(context);
     final isSelected = _choice == value;
     return GestureDetector(
       onTap: () => setState(() => _choice = value),
@@ -178,7 +179,7 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? _accentColor : Colors.grey[700]!,
+            color: isSelected ? c.accent : c.border,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -186,7 +187,7 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
           margin: const EdgeInsets.all(2),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF3A3A3A) : const Color(0xFF2A2A2A),
+            color: isSelected ? c.surface : c.surfaceVariant,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -195,7 +196,7 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
                 isSelected
                     ? (isIos ? CupertinoIcons.checkmark_circle_fill : Icons.radio_button_checked)
                     : (isIos ? CupertinoIcons.circle : Icons.radio_button_off),
-                color: isSelected ? _accentColor : Colors.grey[500],
+                color: isSelected ? c.accent : c.textTertiary,
                 size: 20,
               ),
               const SizedBox(width: 10),
@@ -205,8 +206,8 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: c.textPrimary,
                         fontWeight: FontWeight.w500,
                         fontSize: 14,
                       ),
@@ -216,7 +217,7 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
                       Text(
                         subtitle,
                         style: TextStyle(
-                          color: Colors.grey[400],
+                          color: c.textTertiary,
                           fontSize: 12,
                         ),
                         maxLines: 1,
@@ -234,6 +235,7 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
   }
 
   Widget _buildCustomInput(bool isIos) {
+    final c = AppColors.of(context);
     if (isIos) {
       return Row(
         children: [
@@ -247,8 +249,8 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
           const SizedBox(width: 8),
           Text(
             _extension,
-            style: const TextStyle(
-              color: Color(0xCCFFFFFF),
+            style: TextStyle(
+              color: c.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -261,14 +263,14 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
         Expanded(
           child: TextField(
             controller: _customController,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(color: c.textPrimary, fontSize: 14),
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.all(10),
               hintText: 'Название',
-              hintStyle: TextStyle(color: Colors.grey[600]),
+              hintStyle: TextStyle(color: c.textDisabled),
               filled: true,
-              fillColor: const Color(0xFF2A2A2A),
+              fillColor: c.surfaceVariant,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none,
@@ -279,13 +281,14 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
         const SizedBox(width: 8),
         Text(
           _extension,
-          style: const TextStyle(color: Color(0xCCFFFFFF), fontSize: 14),
+          style: TextStyle(color: c.textSecondary, fontSize: 14),
         ),
       ],
     );
   }
 
   Widget _buildSaveAsRuleCheckbox(bool isIos) {
+    final c = AppColors.of(context);
     final label = widget.activityType != null
         ? 'Сохранить для "${widget.activityType}" (*$_extension)'
         : 'Сохранить для *$_extension';
@@ -299,14 +302,14 @@ class _FileRenameDialogState extends State<FileRenameDialog> {
             _saveAsRule
                 ? (isIos ? CupertinoIcons.checkmark_square_fill : Icons.check_box)
                 : (isIos ? CupertinoIcons.square : Icons.check_box_outline_blank),
-            color: _saveAsRule ? _accentColor : Colors.grey[500],
+            color: _saveAsRule ? c.accent : c.textTertiary,
             size: 20,
           ),
           const SizedBox(width: 4),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white, fontSize: 12, height: 1.1),
+              style: TextStyle(color: c.textPrimary, fontSize: 12, height: 1.1),
             ),
           ),
         ],

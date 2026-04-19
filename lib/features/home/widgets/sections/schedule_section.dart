@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/class_data.dart';
 
 class ScheduleSection extends StatelessWidget {
@@ -38,16 +39,17 @@ class ScheduleSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     if (isLoading) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Center(
           child: isIos
-              ? const CupertinoActivityIndicator(
+              ? CupertinoActivityIndicator(
                   radius: 14,
-                  color: Color(0xFF00E676),
+                  color: c.accent,
                 )
-              : const CircularProgressIndicator(color: Color(0xFF00E676)),
+              : CircularProgressIndicator(color: c.accent),
         ),
       );
     }
@@ -63,20 +65,20 @@ class ScheduleSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: c.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   Icon(
                     isIos ? CupertinoIcons.calendar : Icons.event_available,
-                    color: Colors.grey[600],
+                    color: c.textTertiary,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
                   Text(
                     emptyMessage ?? 'Нет занятий на сегодня',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                    style: TextStyle(color: c.textTertiary, fontSize: 14),
                   ),
                 ],
               ),
@@ -108,10 +110,10 @@ class ScheduleSection extends StatelessWidget {
                 child: Stack(
                   clipBehavior: Clip.hardEdge,
                   children: [
-                    _buildTimeGrid(timeSlots),
+                    _buildTimeGrid(context, timeSlots),
                     ...classes.map((classData) => _buildPositionedClass(classData)),
                     if (_isSameDay(date, DateTime.now()))
-                      _buildNowIndicator(DateTime.now()),
+                      _buildNowIndicator(context, DateTime.now()),
                   ],
                 ),
               ),
@@ -124,6 +126,7 @@ class ScheduleSection extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     final now = DateTime.now();
     final isToday = _isSameDay(date, now);
     return Row(
@@ -132,12 +135,12 @@ class ScheduleSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Расписание',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: c.textPrimary,
                 ),
               ),
               const SizedBox(height: 2),
@@ -145,7 +148,7 @@ class ScheduleSection extends StatelessWidget {
                 _dateFormat.format(date).toLowerCase(),
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.grey[400],
+                  color: c.textSecondary,
                 ),
               ),
             ],
@@ -155,18 +158,22 @@ class ScheduleSection extends StatelessWidget {
           isIos
               ? CupertinoButton(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  color: const Color(0xFF1E1E1E),
+                  color: c.surface,
                   onPressed: onGoToToday,
-                  child: const Text(
+                  child: Text(
                     'Сегодня',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: c.textPrimary,
+                    ),
                   ),
                 )
               : TextButton(
                   onPressed: onGoToToday,
                   style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E1E1E),
-                    foregroundColor: const Color(0xFF00E676),
+                    backgroundColor: c.surface,
+                    foregroundColor: c.accent,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -178,18 +185,21 @@ class ScheduleSection extends StatelessWidget {
           const SizedBox(width: 6),
         ],
         _navIconButton(
+          context: context,
           icon: isIos ? CupertinoIcons.chevron_left : Icons.chevron_left,
           tooltip: 'Предыдущий день',
           onTap: onPreviousDay,
         ),
         const SizedBox(width: 4),
         _navIconButton(
+          context: context,
           icon: isIos ? CupertinoIcons.calendar : Icons.calendar_today,
           tooltip: 'Выбрать дату',
           onTap: onSelectDate,
         ),
         const SizedBox(width: 4),
         _navIconButton(
+          context: context,
           icon: isIos ? CupertinoIcons.chevron_right : Icons.chevron_right,
           tooltip: 'Следующий день',
           onTap: onNextDay,
@@ -199,17 +209,19 @@ class ScheduleSection extends StatelessWidget {
   }
 
   Widget _navIconButton({
+    required BuildContext context,
     required IconData icon,
     required String tooltip,
     required VoidCallback onTap,
     double size = 22,
   }) {
+    final c = AppColors.of(context);
     if (Platform.isIOS) {
       return CupertinoButton(
         padding: const EdgeInsets.all(6),
         onPressed: onTap,
-        color: const Color(0xFF1E1E1E),
-        child: Icon(icon, color: Colors.grey[400], size: size),
+        color: c.surface,
+        child: Icon(icon, color: c.textSecondary, size: size),
       );
     }
     return Tooltip(
@@ -220,16 +232,17 @@ class ScheduleSection extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
+            color: c.surface,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: Colors.grey[400], size: size),
+          child: Icon(icon, color: c.textSecondary, size: size),
         ),
       ),
     );
   }
 
-  Widget _buildTimeGrid(List<String> timeSlots) {
+  Widget _buildTimeGrid(BuildContext context, List<String> timeSlots) {
+    final c = AppColors.of(context);
     return Column(
       children: timeSlots.map((time) {
         return SizedBox(
@@ -245,7 +258,7 @@ class ScheduleSection extends StatelessWidget {
                     time,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[500],
+                      color: c.textTertiary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -255,7 +268,7 @@ class ScheduleSection extends StatelessWidget {
                 child: Container(
                   margin: const EdgeInsets.only(top: 11),
                   height: 1,
-                  color: Colors.grey[800],
+                  color: c.divider,
                 ),
               ),
             ],
@@ -293,7 +306,8 @@ class ScheduleSection extends StatelessWidget {
     );
   }
 
-  Widget _buildNowIndicator(DateTime now) {
+  Widget _buildNowIndicator(BuildContext context, DateTime now) {
+    final c = AppColors.of(context);
     final minutes = now.hour * 60 + now.minute;
     final topOffset = minutes / 60.0 * _hourHeight;
     return Positioned(
@@ -305,8 +319,8 @@ class ScheduleSection extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: const BoxDecoration(
-              color: Color(0xFF00E676),
+            decoration: BoxDecoration(
+              color: c.accent,
               shape: BoxShape.circle,
             ),
           ),
@@ -314,7 +328,7 @@ class ScheduleSection extends StatelessWidget {
           Expanded(
             child: Container(
               height: 1,
-              color: const Color(0xFF00E676),
+              color: c.accent,
             ),
           ),
         ],
@@ -339,11 +353,12 @@ class _ClassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     final timeRange = '${classData.startTime} - ${classData.endTime}';
     final content = Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -355,13 +370,13 @@ class _ClassCard extends StatelessWidget {
               Icon(
                 isIos ? CupertinoIcons.wifi : Icons.wifi,
                 size: 13,
-                color: Colors.grey[500],
+                color: c.textTertiary,
               ),
               const SizedBox(width: 3),
               Flexible(
                 child: Text(
                   classData.room,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  style: TextStyle(fontSize: 11, color: c.textSecondary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -370,7 +385,7 @@ class _ClassCard extends StatelessWidget {
               Flexible(
                 child: Text(
                   timeRange,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 11, color: c.textTertiary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -380,7 +395,7 @@ class _ClassCard extends StatelessWidget {
                 Icon(
                   isIos ? CupertinoIcons.link : Icons.link,
                   size: 14,
-                  color: const Color(0xFF00E676),
+                  color: c.accent,
                 ),
               ],
             ],
@@ -393,14 +408,14 @@ class _ClassCard extends StatelessWidget {
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: Colors.grey[800],
+                  color: c.surfaceVariant,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Center(
                   child: Icon(
                     isIos ? CupertinoIcons.star : Icons.star,
                     size: 12,
-                    color: Colors.grey[400],
+                    color: c.textSecondary,
                   ),
                 ),
               ),
@@ -423,7 +438,7 @@ class _ClassCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: fontSize - 1,
                               fontWeight: FontWeight.w500,
-                              color: Colors.white,
+                              color: c.textPrimary,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -436,7 +451,7 @@ class _ClassCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         classData.professor!,
-                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 10, color: c.textTertiary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -452,7 +467,7 @@ class _ClassCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey[500],
+                      color: c.textTertiary,
                     ),
                   ),
                 ),

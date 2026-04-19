@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
+
 class CourseCard extends StatelessWidget {
   final String title;
   final String categoryLabel;
@@ -18,12 +20,13 @@ class CourseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: c.surface,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -36,10 +39,10 @@ class CourseCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: c.textPrimary,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -49,7 +52,7 @@ class CourseCard extends StatelessWidget {
                     categoryLabel,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[500],
+                      color: c.textTertiary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

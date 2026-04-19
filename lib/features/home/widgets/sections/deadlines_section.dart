@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/student_task.dart';
 
 class DeadlinesSection extends StatelessWidget {
@@ -33,6 +34,7 @@ class DeadlinesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     final deadlineTasks = tasks
         .where((task) => !_isCourseHidden(task.course))
         .where((task) => !_isSeminar(task))
@@ -51,12 +53,12 @@ class DeadlinesSection extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'Дедлайны',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: c.textPrimary,
                 ),
               ),
               if (deadlineTasks.isNotEmpty) ...[
@@ -64,14 +66,14 @@ class DeadlinesSection extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                    color: c.accent.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '${deadlineTasks.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF00E676),
+                      color: c.accent,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -86,11 +88,11 @@ class DeadlinesSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Center(
               child: isIos
-                  ? const CupertinoActivityIndicator(
+                  ? CupertinoActivityIndicator(
                       radius: 14,
-                      color: Color(0xFF00E676),
+                      color: c.accent,
                     )
-                  : const CircularProgressIndicator(color: Color(0xFF00E676)),
+                  : CircularProgressIndicator(color: c.accent),
             ),
           )
         else if (hasError)
@@ -99,20 +101,20 @@ class DeadlinesSection extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: c.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   Icon(
                     isIos ? CupertinoIcons.exclamationmark_circle : Icons.error_outline,
-                    color: Colors.redAccent,
+                    color: c.danger,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
                   Text(
                     'Не удалось загрузить задания',
-                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                    style: TextStyle(color: c.textSecondary, fontSize: 14),
                   ),
                 ],
               ),
@@ -124,20 +126,20 @@ class DeadlinesSection extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: c.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   Icon(
                     isIos ? CupertinoIcons.check_mark_circled : Icons.check_circle,
-                    color: Colors.grey[600],
+                    color: c.textTertiary,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
                   Text(
                     'Нет активных заданий',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                    style: TextStyle(color: c.textTertiary, fontSize: 14),
                   ),
                 ],
               ),
@@ -176,11 +178,12 @@ class _TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final card = Container(
       width: 200,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: task.stateBorderColor, width: 1),
       ),
@@ -193,10 +196,10 @@ class _TaskCard extends StatelessWidget {
             children: [
               Text(
                 task.exercise.name,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: c.textPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -206,7 +209,7 @@ class _TaskCard extends StatelessWidget {
                 task.course.cleanName,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[500],
+                  color: c.textTertiary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -219,7 +222,7 @@ class _TaskCard extends StatelessWidget {
                 Icon(
                   Platform.isIOS ? CupertinoIcons.time : Icons.access_time,
                   size: 12,
-                  color: task.isOverdue ? Colors.redAccent : Colors.grey[400],
+                  color: task.isOverdue ? c.danger : c.textSecondary,
                 ),
                 const SizedBox(width: 4),
                 Expanded(
@@ -227,7 +230,7 @@ class _TaskCard extends StatelessWidget {
                     task.formattedDeadline,
                     style: TextStyle(
                       fontSize: 11,
-                      color: task.isOverdue ? Colors.redAccent : Colors.grey[400],
+                      color: task.isOverdue ? c.danger : c.textSecondary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/features/home/widgets/cards/course_card.dart';
 
@@ -21,6 +22,7 @@ class HomeCoursesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -28,12 +30,12 @@ class HomeCoursesSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Text(
+              Text(
                 'Курсы',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: c.textPrimary,
                 ),
               ),
               if (courses.isNotEmpty) ...[
@@ -41,14 +43,14 @@ class HomeCoursesSection extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                    color: c.accent.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '${courses.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF00E676),
+                      color: c.accent,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -60,30 +62,30 @@ class HomeCoursesSection extends StatelessWidget {
           if (isLoading)
             Center(
               child: isIos
-                  ? const CupertinoActivityIndicator(
+                  ? CupertinoActivityIndicator(
                       radius: 14,
-                      color: Color(0xFF00E676),
+                      color: c.accent,
                     )
-                  : const CircularProgressIndicator(color: Color(0xFF00E676)),
+                  : CircularProgressIndicator(color: c.accent),
             )
           else if (courses.isEmpty)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
+                color: c.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   Icon(
                     isIos ? CupertinoIcons.book : Icons.school,
-                    color: Colors.grey[600],
+                    color: c.textTertiary,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
                   Text(
                     'Нет активных курсов',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                    style: TextStyle(color: c.textTertiary, fontSize: 14),
                   ),
                 ],
               ),
