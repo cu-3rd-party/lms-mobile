@@ -7,7 +7,7 @@ class ThemeController extends ChangeNotifier {
 
   ThemeController._();
 
-  ThemeMode _mode = ThemeMode.dark;
+  ThemeMode _mode = ThemeMode.system;
   ThemeMode get mode => _mode;
 
   Future<void> load() async {
@@ -34,7 +34,7 @@ class ThemeController extends ChangeNotifier {
       case 'dark':
         return ThemeMode.dark;
       default:
-        return ThemeMode.dark;
+        return ThemeMode.system;
     }
   }
 

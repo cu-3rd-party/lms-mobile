@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/theme/app_colors.dart';
+
 /// Shows the late days extension dialog.
 /// Returns the number of days to extend, or null if cancelled.
 Future<int?> showLateDaysDialog({
@@ -15,6 +17,7 @@ Future<int?> showLateDaysDialog({
   required int lateDaysBalance,
 }) {
   final maxDays = math.min(lateDaysBalance, 7 - existingLateDays);
+  final c = AppColors.of(context);
 
   if (maxDays <= 0) {
     if (Platform.isIOS) {
@@ -39,18 +42,18 @@ Future<int?> showLateDaysDialog({
     return showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Перенос недоступен', style: TextStyle(color: Colors.white)),
+        backgroundColor: c.surface,
+        title: Text('Перенос недоступен', style: TextStyle(color: c.textPrimary)),
         content: Text(
           lateDaysBalance <= 0
               ? 'У тебя не осталось дней для переноса'
               : 'Ты уже использовал максимум дней переноса для этого задания',
-          style: TextStyle(color: Colors.grey[400]),
+          style: TextStyle(color: c.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK', style: TextStyle(color: Color(0xFF00E676))),
+            child: Text('OK', style: TextStyle(color: c.accent)),
           ),
         ],
       ),
@@ -60,25 +63,28 @@ Future<int?> showLateDaysDialog({
   if (Platform.isIOS) {
     return showCupertinoModalPopup<int>(
       context: context,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1E1E1E),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: _LateDaysSheet(
-          taskName: taskName,
-          courseName: courseName,
-          deadline: deadline,
-          existingLateDays: existingLateDays,
-          maxDays: maxDays,
-        ),
-      ),
+      builder: (context) {
+        final cc = AppColors.of(context);
+        return Container(
+          decoration: BoxDecoration(
+            color: cc.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: _LateDaysSheet(
+            taskName: taskName,
+            courseName: courseName,
+            deadline: deadline,
+            existingLateDays: existingLateDays,
+            maxDays: maxDays,
+          ),
+        );
+      },
     );
   }
 
   return showModalBottomSheet<int>(
     context: context,
-    backgroundColor: const Color(0xFF1E1E1E),
+    backgroundColor: c.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
@@ -147,6 +153,7 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
   @override
   Widget build(BuildContext context) {
     final isIos = Platform.isIOS;
+    final c = AppColors.of(context);
     final newDeadline = widget.deadline?.add(Duration(days: _days));
 
     return SafeArea(
@@ -168,29 +175,29 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: Colors.grey[700],
+                  color: c.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const Text(
+            Text(
               'Перенести дедлайн',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: c.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Ты можешь перенести дедлайн задания на любое доступное количество дней',
-              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 13, color: c.textTertiary),
             ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFF252525),
+                color: c.surfaceVariant,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -198,16 +205,16 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
                 children: [
                   Text(
                     widget.taskName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white,
+                      color: c.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     widget.courseName,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    style: TextStyle(fontSize: 12, color: c.textTertiary),
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -215,12 +222,12 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
                       Icon(
                         isIos ? CupertinoIcons.time : Icons.access_time,
                         size: 12,
-                        color: Colors.grey[500],
+                        color: c.textTertiary,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         'Текущий дедлайн: ${_formatDeadline(widget.deadline)}',
-                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 11, color: c.textTertiary),
                       ),
                     ],
                   ),
@@ -230,7 +237,7 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
             const SizedBox(height: 16),
             Text(
               'Количество дней (макс. ${widget.maxDays})',
-              style: const TextStyle(fontSize: 13, color: Colors.white),
+              style: TextStyle(fontSize: 13, color: c.textPrimary),
             ),
             const SizedBox(height: 8),
             Row(
@@ -244,10 +251,10 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
                 const SizedBox(width: 12),
                 Text(
                   '$_days',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: c.textPrimary,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -261,7 +268,7 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
                 if (newDeadline != null)
                   Text(
                     'Новый: ${_formatDeadline(newDeadline)}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF00E676)),
+                    style: TextStyle(fontSize: 12, color: c.accent),
                   ),
               ],
             ),
@@ -269,7 +276,7 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
               const SizedBox(height: 8),
               Text(
                 _error!,
-                style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+                style: TextStyle(fontSize: 12, color: c.danger),
               ),
             ],
             const SizedBox(height: 16),
@@ -283,9 +290,9 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
                   : ElevatedButton(
                       onPressed: _error == null ? () => Navigator.pop(context, _days) : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00E676),
-                        foregroundColor: Colors.black,
-                        disabledBackgroundColor: Colors.grey[700],
+                        backgroundColor: c.accent,
+                        foregroundColor: c.onAccent,
+                        disabledBackgroundColor: c.border,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -307,19 +314,20 @@ class _LateDaysSheetState extends State<_LateDaysSheet> {
     bool enabled,
     VoidCallback onTap,
   ) {
+    final c = AppColors.of(context);
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: Container(
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: enabled ? const Color(0xFF252525) : const Color(0xFF1A1A1A),
+          color: enabled ? c.surfaceVariant : c.background,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
           isIos ? cupertinoIcon : materialIcon,
           size: 18,
-          color: enabled ? Colors.white : Colors.grey[700],
+          color: enabled ? c.textPrimary : c.textDisabled,
         ),
       ),
     );
