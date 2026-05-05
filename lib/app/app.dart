@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'package:cumobile/core/services/appmetrica_observer.dart';
 import 'package:cumobile/core/services/theme_service.dart';
 import 'package:cumobile/core/theme/app_theme.dart';
 import 'package:cumobile/features/auth/pages/auth_wrapper.dart';
@@ -32,6 +33,10 @@ class _LMSAppState extends State<LMSApp> {
     if (mounted) setState(() {});
   }
 
+  static final _navigatorObservers = <NavigatorObserver>[
+    AppMetricaNavigatorObserver(),
+  ];
+
   static const _localizationsDelegates = <LocalizationsDelegate<dynamic>>[
     GlobalMaterialLocalizations.delegate,
     GlobalWidgetsLocalizations.delegate,
@@ -58,6 +63,7 @@ class _LMSAppState extends State<LMSApp> {
         localizationsDelegates: _localizationsDelegates,
         supportedLocales: _supportedLocales,
         theme: isDark ? AppTheme.cupertinoDark() : AppTheme.cupertinoLight(),
+        navigatorObservers: _navigatorObservers,
         home: const AuthWrapper(),
       );
     }
@@ -70,6 +76,7 @@ class _LMSAppState extends State<LMSApp> {
       theme: AppTheme.materialLight(),
       darkTheme: AppTheme.materialDark(),
       themeMode: ThemeController.instance.mode,
+      navigatorObservers: _navigatorObservers,
       home: const AuthWrapper(),
     );
   }

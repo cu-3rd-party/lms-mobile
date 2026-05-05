@@ -1,4 +1,101 @@
 PODS:
+  - appmetrica_plugin (4.0.0):
+    - AppMetricaAdSupport (~> 6.1)
+    - AppMetricaCore (~> 6.1)
+    - AppMetricaCoreExtension (~> 6.1)
+    - AppMetricaCrashes (~> 6.1)
+    - AppMetricaIDSync (~> 6.1)
+    - AppMetricaLibraryAdapter (~> 6.1)
+    - AppMetricaScreenshot (~> 6.1)
+    - AppMetricaWebKit (~> 6.1)
+    - Flutter
+  - AppMetricaAdSupport (6.2.1):
+    - AppMetricaCore (= 6.2.1)
+    - AppMetricaCoreExtension (= 6.2.1)
+  - AppMetricaCore (6.2.1):
+    - AppMetricaCoreUtils (= 6.2.1)
+    - AppMetricaEncodingUtils (= 6.2.1)
+    - AppMetricaFMDB (= 6.2.1)
+    - AppMetricaHostState (= 6.2.1)
+    - AppMetricaIdentifiers (= 6.2.1)
+    - AppMetricaKeychain (= 6.2.1)
+    - AppMetricaLog (= 6.2.1)
+    - AppMetricaNetwork (= 6.2.1)
+    - AppMetricaPlatform (= 6.2.1)
+    - AppMetricaProtobuf (= 6.2.1)
+    - AppMetricaProtobufUtils (= 6.2.1)
+    - AppMetricaStorageUtils (= 6.2.1)
+  - AppMetricaCoreExtension (6.2.1):
+    - AppMetricaCore (= 6.2.1)
+    - AppMetricaStorageUtils (= 6.2.1)
+  - AppMetricaCoreUtils (6.2.1):
+    - AppMetricaLog (= 6.2.1)
+  - AppMetricaCrashes (6.2.1):
+    - AppMetricaCore (= 6.2.1)
+    - AppMetricaCoreExtension (= 6.2.1)
+    - AppMetricaCoreUtils (= 6.2.1)
+    - AppMetricaEncodingUtils (= 6.2.1)
+    - AppMetricaHostState (= 6.2.1)
+    - AppMetricaLog (= 6.2.1)
+    - AppMetricaPlatform (= 6.2.1)
+    - AppMetricaProtobufUtils (= 6.2.1)
+    - AppMetricaStorageUtils (= 6.2.1)
+    - KSCrash/Recording (< 2.6.0, >= 2.5.1)
+  - AppMetricaEncodingUtils (6.2.1):
+    - AppMetricaCoreUtils (= 6.2.1)
+    - AppMetricaLog (= 6.2.1)
+    - AppMetricaPlatform (= 6.2.1)
+  - AppMetricaFMDB (6.2.1)
+  - AppMetricaHostState (6.2.1):
+    - AppMetricaCoreUtils (= 6.2.1)
+    - AppMetricaLog (= 6.2.1)
+  - AppMetricaIdentifiers (6.2.1):
+    - AppMetricaKeychain (= 6.2.1)
+    - AppMetricaLogSwift (= 6.2.1)
+    - AppMetricaPlatform (= 6.2.1)
+    - AppMetricaStorageUtils (= 6.2.1)
+    - AppMetricaSynchronization (= 6.2.1)
+  - AppMetricaIDSync (6.2.1):
+    - AppMetricaCore (= 6.2.1)
+    - AppMetricaCoreExtension (= 6.2.1)
+    - AppMetricaCoreUtils (= 6.2.1)
+    - AppMetricaLog (= 6.2.1)
+    - AppMetricaNetwork (= 6.2.1)
+    - AppMetricaPlatform (= 6.2.1)
+    - AppMetricaStorageUtils (= 6.2.1)
+  - AppMetricaKeychain (6.2.1):
+    - AppMetricaCoreUtils (= 6.2.1)
+    - AppMetricaLog (= 6.2.1)
+    - AppMetricaStorageUtils (= 6.2.1)
+  - AppMetricaLibraryAdapter (6.2.1):
+    - AppMetricaCore (= 6.2.1)
+    - AppMetricaCoreExtension (= 6.2.1)
+  - AppMetricaLog (6.2.1)
+  - AppMetricaLogSwift (6.2.1):
+    - AppMetricaLog (= 6.2.1)
+  - AppMetricaNetwork (6.2.1):
+    - AppMetricaCoreUtils (= 6.2.1)
+    - AppMetricaLog (= 6.2.1)
+    - AppMetricaPlatform (= 6.2.1)
+  - AppMetricaPlatform (6.2.1):
+    - AppMetricaCoreUtils (= 6.2.1)
+    - AppMetricaLog (= 6.2.1)
+  - AppMetricaProtobuf (6.2.1)
+  - AppMetricaProtobufUtils (6.2.1):
+    - AppMetricaProtobuf (= 6.2.1)
+  - AppMetricaScreenshot (6.2.1):
+    - AppMetricaCore (= 6.2.1)
+    - AppMetricaCoreExtension (= 6.2.1)
+    - AppMetricaStorageUtils (= 6.2.1)
+  - AppMetricaStorageUtils (6.2.1):
+    - AppMetricaCoreUtils (= 6.2.1)
+    - AppMetricaLog (= 6.2.1)
+  - AppMetricaSynchronization (6.2.1):
+    - AppMetricaLogSwift (= 6.2.1)
+  - AppMetricaWebKit (6.2.1):
+    - AppMetricaCore (= 6.2.1)
+    - AppMetricaCoreUtils (= 6.2.1)
+    - AppMetricaLog (= 6.2.1)
   - DKImagePickerController/Core (4.3.9):
     - DKImagePickerController/ImageDataManager
     - DKImagePickerController/Resource
@@ -43,6 +140,11 @@ PODS:
     - OrderedSet (~> 6.0.3)
   - image_picker_ios (0.0.1):
     - Flutter
+  - KSCrash/Core (2.5.1)
+  - KSCrash/Recording (2.5.1):
+    - KSCrash/RecordingCore
+  - KSCrash/RecordingCore (2.5.1):
+    - KSCrash/Core
   - open_filex (0.0.2):
     - Flutter
   - OrderedSet (6.0.3)
@@ -62,6 +164,7 @@ PODS:
     - Flutter
 
 DEPENDENCIES:
+  - appmetrica_plugin (from `.symlinks/plugins/appmetrica_plugin/ios`)
   - file_picker (from `.symlinks/plugins/file_picker/ios`)
   - Flutter (from `Flutter`)
   - flutter_inappwebview_ios (from `.symlinks/plugins/flutter_inappwebview_ios/ios`)
@@ -74,13 +177,38 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
+    - AppMetricaAdSupport
+    - AppMetricaCore
+    - AppMetricaCoreExtension
+    - AppMetricaCoreUtils
+    - AppMetricaCrashes
+    - AppMetricaEncodingUtils
+    - AppMetricaFMDB
+    - AppMetricaHostState
+    - AppMetricaIdentifiers
+    - AppMetricaIDSync
+    - AppMetricaKeychain
+    - AppMetricaLibraryAdapter
+    - AppMetricaLog
+    - AppMetricaLogSwift
+    - AppMetricaNetwork
+    - AppMetricaPlatform
+    - AppMetricaProtobuf
+    - AppMetricaProtobufUtils
+    - AppMetricaScreenshot
+    - AppMetricaStorageUtils
+    - AppMetricaSynchronization
+    - AppMetricaWebKit
     - DKImagePickerController
     - DKPhotoGallery
+    - KSCrash
     - OrderedSet
     - SDWebImage
     - SwiftyGif
 
 EXTERNAL SOURCES:
+  appmetrica_plugin:
+    :path: ".symlinks/plugins/appmetrica_plugin/ios"
   file_picker:
     :path: ".symlinks/plugins/file_picker/ios"
   Flutter:
@@ -101,12 +229,36 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
+  appmetrica_plugin: 9e361bd8fbe26c65bddf660594c4c472606ad29e
+  AppMetricaAdSupport: e192aa54e2fc4c7e108e5ccdcffc01d60d155a54
+  AppMetricaCore: 19f1948039ed4b8e20d53f6e34095a0544f9749a
+  AppMetricaCoreExtension: 9bec137b72052730ff7ecdbfd5f4a103c0b2352b
+  AppMetricaCoreUtils: 2c90c375d69797ecd82d35a0370a56af91efce19
+  AppMetricaCrashes: 274f4a57246a1d3abeac94dfbc8d9bc306653028
+  AppMetricaEncodingUtils: 6744fcff4d66c576fa455fb9a86d31fc140d6158
+  AppMetricaFMDB: e965a171089fd1d14dc2d6b6619fee915eafc539
+  AppMetricaHostState: 99bb0a0354e6a40b4d24fd0cafbd01d714fb1113
+  AppMetricaIdentifiers: 0c35cec53b6eeb65bd8246b1535ac66909014bcb
+  AppMetricaIDSync: 649fe0a4375924d2bb558456dee0109f5893b2a8
+  AppMetricaKeychain: 12bc04847e8a9d7f3f7cdd082c20a342b2271f53
+  AppMetricaLibraryAdapter: 1d4259745cea6b83b6604f2708f121c6e841950d
+  AppMetricaLog: 730d87897445e09907b9699553863d32dca7d213
+  AppMetricaLogSwift: dd0e49c037d78484d1ff71d2f07aeef950db2a94
+  AppMetricaNetwork: 5c1a77c61b118966bf5985e80ae6a8290731a195
+  AppMetricaPlatform: 3d9e6f20149881373d5be46daad0bfcf71eaec08
+  AppMetricaProtobuf: 25ea359b4e9c082ca3592dbccc32b58f1a21ceaa
+  AppMetricaProtobufUtils: ef3a64e38db14b73e175c875ee3a9e068a295108
+  AppMetricaScreenshot: 9eb88dc7f364f33fd4483933d7eb8af925fd880e
+  AppMetricaStorageUtils: d98a1fd70347c2acd42e4bd4d3961e0ecd5ee63f
+  AppMetricaSynchronization: 6d64f2d4b468926755f1697e2d0b03a475459fcd
+  AppMetricaWebKit: 0f47d09b6d5678c91e87da87ebe9153cc9ad1d21
   DKImagePickerController: 946cec48c7873164274ecc4624d19e3da4c1ef3c
   DKPhotoGallery: b3834fecb755ee09a593d7c9e389d8b5d6deed60
   file_picker: a0560bc09d61de87f12d246fc47d2119e6ef37be
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
+  KSCrash: 8c4464fd5da7de520f2ce4a00fdf63f169a80f18
   open_filex: 432f3cd11432da3e39f47fcc0df2b1603854eff1
   OrderedSet: e539b66b644ff081c73a262d24ad552a69be3a94
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
