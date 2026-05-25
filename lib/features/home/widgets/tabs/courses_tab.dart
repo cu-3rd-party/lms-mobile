@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/student_performance.dart';
@@ -43,8 +44,34 @@ class CoursesTab extends StatefulWidget {
 
 class _CoursesTabState extends State<CoursesTab> {
   bool _isEditing = false;
-  int _selectedSegment = 0; // 0 = Курсы, 1 = Ведомость, 2 = Зачетка
+  int _selectedSegment = 0;
   final Set<String> _expandedSemesters = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _reportSegmentOpened(_selectedSegment);
+  }
+
+  void _changeSegment(int value) {
+    if (value == _selectedSegment) return;
+    setState(() => _selectedSegment = value);
+    _reportSegmentOpened(value);
+  }
+
+  void _reportSegmentOpened(int value) {
+    switch (value) {
+      case 0:
+        Analytics.learningCoursesOpened();
+        break;
+      case 1:
+        Analytics.learningGradesheetOpened();
+        break;
+      case 2:
+        Analytics.learningRecordbookOpened();
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +125,7 @@ class _CoursesTabState extends State<CoursesTab> {
               },
               onValueChanged: (value) {
                 if (value != null) {
-                  setState(() => _selectedSegment = value);
+                  _changeSegment(value);
                 }
               },
             )
@@ -123,7 +150,7 @@ class _CoursesTabState extends State<CoursesTab> {
     final isSelected = _selectedSegment == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedSegment = index),
+        onTap: () => _changeSegment(index),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
@@ -386,6 +413,10 @@ class _CoursesTabState extends State<CoursesTab> {
                   _expandedSemesters.remove(key);
                 } else {
                   _expandedSemesters.add(key);
+                  Analytics.recordbookSemesterCellPressed(
+                    semester: semester.semesterNumber,
+                    year: semester.year,
+                  );
                 }
               });
             },

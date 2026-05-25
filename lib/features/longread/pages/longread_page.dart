@@ -22,6 +22,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/file_rename_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/course_overview.dart';
@@ -103,6 +104,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     FileRenameService.instance.load();
+    if (widget.courseId != null) {
+      Analytics.longreadOpened(
+        from: widget.selectedTaskId != null ? 'tasks' : 'course',
+        courseId: widget.courseId!,
+        longreadId: widget.longread.id,
+      );
+    }
     _loadMaterials();
   }
 
@@ -221,6 +229,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     if (material.filename == null || material.version == null) return;
 
     final fileName = material.contentName ?? material.filename ?? 'file';
+    Analytics.longreadFileCellPressed(fileType: analyticsFileType(fileName));
     final key = _materialKey(material);
     final existingPath = await _getExistingFilePathFor(fileName, material.version);
     if (existingPath != null) {
@@ -313,6 +322,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     MaterialAttachment attachment,
     String key,
   ) async {
+    Analytics.longreadAttachmentCellPressed(
+      fileType: analyticsFileType(attachment.name),
+    );
     final existingPath = await _getExistingFilePathFor(attachment.name, attachment.version);
     if (existingPath != null) {
       if (mounted) {
@@ -667,6 +679,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   void _onSearchChanged(String value) {
+    if (value.isNotEmpty && _searchQuery.isEmpty) {
+      Analytics.longreadSearchUsed(longreadId: widget.longread.id);
+    }
     setState(() => _searchQuery = value);
     _updateSearchResults(scrollToFirst: true);
   }
@@ -810,6 +825,19 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     );
   }
 
+  String _taskTabName(int index) {
+    switch (index) {
+      case 0:
+        return 'solution';
+      case 1:
+        return 'comments';
+      case 2:
+        return 'info';
+      default:
+        return 'unknown';
+    }
+  }
+
   void _copyToClipboard(String text) {
     Clipboard.setData(ClipboardData(text: text));
     HapticFeedback.selectionClick();
@@ -914,6 +942,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     onPressed: () async {
+                      Analytics.longreadExternalLinkPressed(from: 'test');
                       if (await canLaunchUrl(link)) {
                         await launchUrl(link, mode: LaunchMode.externalApplication);
                       }
@@ -1013,7 +1042,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                           IconButton(
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                            onPressed: () => _copyToClipboard(code.trimRight()),
+                            onPressed: () {
+                              Analytics.longreadCodeCopyPressed();
+                              _copyToClipboard(code.trimRight());
+                            },
                             icon: Icon(
                               Platform.isIOS
                                   ? CupertinoIcons.doc_on_doc
@@ -1124,6 +1156,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           },
           onLinkTap: (url, context, attributes) async {
             if (url != null) {
+              Analytics.longreadExternalLinkPressed(from: 'material');
               final uri = Uri.parse(url);
               if (await canLaunchUrl(uri)) {
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -1457,6 +1490,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
               },
               onValueChanged: (value) {
                 if (value == null) return;
+                Analytics.taskTabsTabPressed(tab: _taskTabName(value));
                 setState(() => _taskTabIndex[taskId] = value);
               },
             ),
@@ -1497,6 +1531,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                 indicatorSize: TabBarIndicatorSize.tab,
                 labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                 unselectedLabelStyle: const TextStyle(fontSize: 12),
+                onTap: (value) => Analytics.taskTabsTabPressed(tab: _taskTabName(value)),
                 tabs: const [
                   Tab(text: 'Решение'),
                   Tab(text: 'Комментарии'),
@@ -2104,6 +2139,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             const SizedBox(height: 8),
             GestureDetector(
               onTap: () async {
+                Analytics.longreadExternalLinkPressed(from: 'solution');
                 final uri = Uri.tryParse(details.solutionUrl ?? '');
                 if (uri != null && await canLaunchUrl(uri)) {
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -2264,6 +2300,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                         },
                         onLinkTap: (url, context, attributes) async {
                           if (url != null) {
+                            Analytics.longreadExternalLinkPressed(from: 'comment');
                             final uri = Uri.parse(url);
                             if (await canLaunchUrl(uri)) {
                               await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -2753,6 +2790,23 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     if (additions.isEmpty) return;
     final target = storage ?? _pendingCommentAttachments;
     final pending = target[taskId] ?? [];
+    if (widget.courseId != null) {
+      final isSolution = uploadContext == 'solution';
+      for (final item in additions) {
+        final fileType = analyticsFileType(item.name);
+        if (isSolution) {
+          Analytics.taskSolutionFileAttached(
+            courseId: widget.courseId!,
+            fileType: fileType,
+          );
+        } else {
+          Analytics.taskCommentFileAttached(
+            courseId: widget.courseId!,
+            fileType: fileType,
+          );
+        }
+      }
+    }
     setState(() {
       target[taskId] = [...pending, ...additions];
       if (errorMap != null) {
@@ -3161,6 +3215,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       return;
     }
 
+    if (widget.courseId != null) {
+      Analytics.taskCommentSubmitPressed(
+        courseId: widget.courseId!,
+        hasFile: attachments.isNotEmpty,
+      );
+    }
+
     setState(() {
       _sendingCommentTaskIds.add(taskId);
       _commentErrors[taskId] = null;
@@ -3251,6 +3312,14 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     if (!hasUrl && attachments.isEmpty) {
       setState(() => _solutionErrors[taskId] = 'Добавьте ссылку или файлы');
       return;
+    }
+
+    if (widget.courseId != null) {
+      Analytics.taskSolutionSubmitPressed(
+        courseId: widget.courseId!,
+        hasFile: attachments.isNotEmpty,
+        hasUrl: hasUrl,
+      );
     }
 
     setState(() {
@@ -3747,6 +3816,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     );
 
     Future<void> onTap() async {
+      Analytics.longreadExternalLinkPressed(from: 'solution');
       final uri = Uri.tryParse(event.content.solutionUrl ?? '');
       if (uri != null && await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -3961,6 +4031,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
   Future<void> _startTask(int taskId) async {
     if (_startingTaskIds.contains(taskId)) return;
+    if (widget.courseId != null) {
+      Analytics.taskStartButtonPressed(courseId: widget.courseId!);
+    }
     setState(() => _startingTaskIds.add(taskId));
     try {
       final success = await apiService.startTask(taskId);
@@ -4077,6 +4150,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       lateDaysBalance: balance,
     );
     if (result == null || !mounted) return;
+    if (widget.courseId != null) {
+      Analytics.taskLateDaysExtendPressed(
+        courseId: widget.courseId!,
+        daysCount: result,
+      );
+    }
     setState(() => _lateDaysLoadingTaskIds.add(taskId));
     final success = await apiService.prolongLateDays(taskId, result);
     if (!mounted) return;
@@ -4099,6 +4178,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     }
     final confirmed = await _showCancelConfirm();
     if (confirmed != true || !mounted) return;
+    if (widget.courseId != null) {
+      Analytics.taskLateDaysCancelPressed(courseId: widget.courseId!);
+    }
     setState(() => _lateDaysLoadingTaskIds.add(taskId));
     final success = await apiService.cancelLateDays(taskId);
     if (!mounted) return;

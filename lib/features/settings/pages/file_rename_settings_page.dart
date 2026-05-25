@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/file_rename_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/student_performance.dart';
@@ -22,6 +23,7 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
   @override
   void initState() {
     super.initState();
+    Analytics.fileTemplatesOpened();
     _loadRules();
     _loadCourseNames();
   }
@@ -221,6 +223,7 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
   }
 
   Future<void> _showAddDialog(bool isIos) async {
+    Analytics.fileTemplatesAddButtonPressed();
     final result = await showDialog<FileRenameRule>(
       context: context,
       builder: (context) => _AddRuleDialog(isIos: isIos),
@@ -228,6 +231,11 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
 
     if (result != null) {
       await FileRenameService.instance.addRule(result);
+      Analytics.fileTemplatesCreated(
+        courseId: result.courseId,
+        activityType: result.activityType ?? '',
+        fileType: result.fileExtension,
+      );
       _loadRules();
     }
   }
@@ -235,6 +243,7 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
   Future<void> _deleteRule(FileRenameRule rule) async {
     final confirmed = await _confirmDelete();
     if (confirmed == true) {
+      Analytics.fileTemplatesDeletePressed(fileType: rule.fileExtension);
       await FileRenameService.instance.removeRule(rule.key);
       _loadRules();
     }

@@ -13,6 +13,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:image/image.dart' as img;
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 
 class ScanWorkPage extends StatefulWidget {
@@ -36,6 +37,7 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
   void initState() {
     super.initState();
     _nameController.text = _defaultName();
+    Analytics.scannerOpened();
   }
 
   @override
@@ -471,6 +473,7 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
 
   Future<void> _addPage() async {
     if (_isCapturing) return;
+    Analytics.scannerCameraButtonPressed();
     setState(() {
       _isCapturing = true;
       _error = null;
@@ -498,6 +501,7 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
 
   Future<void> _pickFromGallery() async {
     if (_isCapturing) return;
+    Analytics.scannerGalleryButtonPressed();
     setState(() {
       _isCapturing = true;
       _error = null;
@@ -564,6 +568,10 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
       final fullPath = await _buildUniquePath(dir, fileName);
       final file = File(fullPath);
       await file.writeAsBytes(await doc.save(), flush: true);
+      Analytics.scannerPdfSaved(
+        pagesCount: _pages.length,
+        compressed: _compressImages,
+      );
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -687,6 +695,7 @@ class _ScanWorkPageState extends State<ScanWorkPage> {
 
   Future<void> _editPage(int index) async {
     if (index < 0 || index >= _pages.length) return;
+    Analytics.scannerPageEditPressed();
     final pageData = _pages[index];
     final result = await Navigator.of(context).push<ScanPageData>(
       MaterialPageRoute(

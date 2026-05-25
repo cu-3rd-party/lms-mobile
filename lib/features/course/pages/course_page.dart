@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/course_overview.dart';
@@ -111,7 +112,12 @@ class _CoursePageState extends State<CoursePage> {
                     color: c.surfaceVariant,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                  onChanged: (value) {
+                    if (value.isNotEmpty && _searchQuery.isEmpty) {
+                      Analytics.courseSearchUsed(courseId: widget.course.id);
+                    }
+                    setState(() => _searchQuery = value.toLowerCase());
+                  },
                 )
               : Text(
                   widget.course.cleanName,
@@ -172,7 +178,12 @@ class _CoursePageState extends State<CoursePage> {
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                onChanged: (value) {
+                  if (value.isNotEmpty && _searchQuery.isEmpty) {
+                    Analytics.courseSearchUsed(courseId: widget.course.id);
+                  }
+                  setState(() => _searchQuery = value.toLowerCase());
+                },
               )
             : Text(
                 widget.course.cleanName,
@@ -530,6 +541,11 @@ class _CoursePageState extends State<CoursePage> {
   }
 
   void _openLongread(CourseTheme theme, Longread longread) {
+    Analytics.courseLongreadCellPressed(
+      courseId: widget.course.id,
+      themeId: theme.id,
+      longreadId: longread.id,
+    );
     Navigator.push(
       context,
       Platform.isIOS
@@ -613,11 +629,19 @@ class _CoursePageState extends State<CoursePage> {
         _expandedThemes.remove(themeId);
       } else {
         _expandedThemes.add(themeId);
+        Analytics.courseThemeCellPressed(
+          courseId: widget.course.id,
+          themeId: themeId,
+        );
       }
     });
   }
 
   void _openExercise(CourseTheme theme, Longread longread, ThemeExercise exercise) {
+    Analytics.courseExerciseCellPressed(
+      courseId: widget.course.id,
+      themeId: theme.id,
+    );
     Navigator.push(
       context,
       Platform.isIOS

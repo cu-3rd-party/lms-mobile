@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/student_performance.dart';
 import 'package:cumobile/data/services/api_service.dart';
@@ -261,7 +262,13 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _selectedTab = 0),
+              onTap: () {
+                Analytics.performanceTabPressed(
+                  tab: 'scores',
+                  courseId: widget.course.id,
+                );
+                setState(() => _selectedTab = 0);
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
@@ -285,7 +292,13 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
           ),
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _selectedTab = 1),
+              onTap: () {
+                Analytics.performanceTabPressed(
+                  tab: 'performance',
+                  courseId: widget.course.id,
+                );
+                setState(() => _selectedTab = 1);
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
@@ -359,7 +372,13 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: GestureDetector(
-              onTap: () => setState(() => _selectedActivityFilter = activity),
+              onTap: () {
+                Analytics.performanceActivityFilterChanged(
+                  courseId: widget.course.id,
+                  activityType: activity,
+                );
+                setState(() => _selectedActivityFilter = activity);
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(

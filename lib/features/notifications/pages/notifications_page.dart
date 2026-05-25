@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/notification_item.dart';
@@ -35,8 +36,16 @@ class _NotificationsPageState extends State<NotificationsPage>
     super.initState();
     if (!Platform.isIOS) {
       _tabController = TabController(length: 2, vsync: this);
+      _tabController?.addListener(_onAndroidTabChanged);
     }
     _loadNotifications();
+  }
+
+  void _onAndroidTabChanged() {
+    if (_tabController?.indexIsChanging ?? false) {
+      final tab = _tabController!.index == 0 ? 'education' : 'other';
+      Analytics.notificationsTabPressed(tab: tab);
+    }
   }
 
   @override
@@ -149,6 +158,9 @@ class _NotificationsPageState extends State<NotificationsPage>
             },
             onValueChanged: (value) {
               if (value == null) return;
+              Analytics.notificationsTabPressed(
+                tab: value == 0 ? 'education' : 'other',
+              );
               setState(() => _selectedSegment = value);
             },
           ),
@@ -289,7 +301,7 @@ class _NotificationsPageState extends State<NotificationsPage>
                 if (item.link != null && item.link!.uri.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   GestureDetector(
-                    onTap: () => _openLink(item.link!.uri),
+                    onTap: () => _openLink(item.link!.uri, item.category),
                     child: Row(
                       children: [
                         Icon(
@@ -341,11 +353,14 @@ class _NotificationsPageState extends State<NotificationsPage>
     r'my\.centraluniversity\.ru/learn/courses/view/actual/\d+/themes/\d+/longreads/(\d+)',
   );
 
-  Future<void> _openLink(String url) async {
+  Future<void> _openLink(String url, String category) async {
+    final analyticsCategory = category == 'Education' ? 'education' : 'other';
+    Analytics.notificationLinkPressed(category: analyticsCategory);
     final longreadMatch = _longreadPattern.firstMatch(url);
     if (longreadMatch != null) {
       final longreadId = int.tryParse(longreadMatch.group(1) ?? '');
       if (longreadId != null) {
+        Analytics.notificationLongreadOpened(longreadId: longreadId);
         _openLongread(longreadId);
         return;
       }

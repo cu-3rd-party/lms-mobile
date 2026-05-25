@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/demo_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/features/auth/pages/webview_login_page.dart';
@@ -35,6 +36,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _openWebViewLogin() {
+    Analytics.authLoginButtonPressed();
     Navigator.of(context).push(
       Platform.isIOS
           ? CupertinoPageRoute(
@@ -47,6 +49,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _startDemo() {
+    Analytics.authDemoButtonPressed();
     demoService.enableDemo();
     widget.onLogin();
   }

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 
 class FilesTab extends StatelessWidget {
@@ -208,9 +209,24 @@ class FilesTab extends StatelessWidget {
                             return _FileListItem(
                               file: file,
                               isSelected: selectedFiles.contains(file.path),
-                              onTap: () => OpenFilex.open(file.path),
-                              onLongPress: () => onToggleSelection(file.path),
-                              onDelete: () => onDelete(file),
+                              onTap: () {
+                                Analytics.filesFileCellPressed(
+                                  fileType: analyticsFileType(file.path),
+                                );
+                                OpenFilex.open(file.path);
+                              },
+                              onLongPress: () {
+                                Analytics.filesFileLongPressed(
+                                  fileType: analyticsFileType(file.path),
+                                );
+                                onToggleSelection(file.path);
+                              },
+                              onDelete: () {
+                                Analytics.filesFileDeletePressed(
+                                  fileType: analyticsFileType(file.path),
+                                );
+                                onDelete(file);
+                              },
                             );
                           },
                           childCount: sortedFiles.length,

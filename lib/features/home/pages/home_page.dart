@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/features/home/widgets/late_days_dialog.dart';
 
 import 'package:cumobile/data/models/class_data.dart';
@@ -95,6 +96,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    Analytics.mainOpened();
     _initHome();
   }
 
@@ -166,11 +168,15 @@ class _HomePageState extends State<HomePage> {
         apiService.fetchAvatar(),
       ]);
       if (!mounted) return;
+      final profile = results[0] as StudentProfile?;
       setState(() {
-        _profile = results[0] as StudentProfile?;
+        _profile = profile;
         _avatarBytes = results[1] as Uint8List?;
         _isLoadingProfile = false;
       });
+      if (profile != null) {
+        Analytics.setCourseNumber(profile.course);
+      }
     } catch (e, st) {
       _log.warning('Error loading profile', e, st);
       if (!mounted) return;
@@ -288,6 +294,9 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _lmsProfile = profile;
       });
+      if (profile != null) {
+        Analytics.setStudyLevel(profile.studyLevel);
+      }
     } catch (e, st) {
       _log.warning('Error loading LMS profile', e, st);
     }
@@ -328,6 +337,7 @@ class _HomePageState extends State<HomePage> {
       final targetDay = day ?? _scheduleDate;
       final prefs = await SharedPreferences.getInstance();
       final icsUrl = prefs.getString(_prefsIcsUrlKey);
+      Analytics.setCalendarConnected(icsUrl != null && icsUrl.isNotEmpty);
       if (icsUrl == null || icsUrl.isEmpty) {
         if (!mounted) return;
         setState(() {
@@ -447,7 +457,8 @@ class _HomePageState extends State<HomePage> {
     await _loadSchedule(day: selectedDate);
   }
 
-  Future<void> _logout() async {
+  Future<void> _logout({String from = 'profile'}) async {
+    Analytics.authLogoutButtonPressed(from: from);
     await apiService.clearCookie();
     widget.onLogout();
   }
@@ -538,8 +549,24 @@ class _HomePageState extends State<HomePage> {
 
   void _onTabChanged(int index) {
     setState(() => _selectedTab = index);
+    Analytics.mainTabPressed(tab: _tabAnalyticsName(index));
     if (index == 3 && _downloadedFiles.isEmpty) {
       _loadFiles();
+    }
+  }
+
+  String _tabAnalyticsName(int index) {
+    switch (index) {
+      case 0:
+        return 'main';
+      case 1:
+        return 'tasks';
+      case 2:
+        return 'learning';
+      case 3:
+        return 'files';
+      default:
+        return 'unknown';
     }
   }
 
@@ -562,7 +589,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           GestureDetector(
-            onTap: _logout,
+            onTap: () => _logout(from: 'demo_banner'),
             child: const Text(
               'Выйти',
               style: TextStyle(
@@ -594,6 +621,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _openProfile() async {
     if (_profile == null) return;
+    Analytics.mainProfileCellPressed();
     Navigator.push(
       context,
       Platform.isIOS
@@ -629,6 +657,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openNotifications() {
+    Analytics.mainNotificationsButtonPressed();
     Navigator.push(
       context,
       Platform.isIOS
@@ -650,7 +679,13 @@ class _HomePageState extends State<HomePage> {
                 tasks: _filteredTasksForHome(),
                 isLoading: _isLoadingTasks,
                 hasError: _tasksError,
-                onOpenTask: _openTask,
+                onOpenTask: (task) {
+                  Analytics.mainDeadlineCellPressed(
+                    taskStatus: task.normalizedState,
+                    courseId: task.course.id,
+                  );
+                  _openTask(task, from: 'deadlines');
+                },
                 userArchivedCourseIds: _archivedCourses.map((c) => c.id).toSet(),
               ),
               const SizedBox(height: 24),
@@ -660,17 +695,38 @@ class _HomePageState extends State<HomePage> {
                 isLoading: _isLoadingSchedule,
                 emptyMessage: _scheduleMessage,
                 scrollController: _scheduleScrollController,
-                onPreviousDay: () => _shiftScheduleDate(-1),
-                onNextDay: () => _shiftScheduleDate(1),
-                onSelectDate: _selectScheduleDate,
-                onGoToToday: _goToToday,
-                onOpenLink: _openCalendarLink,
+                onPreviousDay: () {
+                  Analytics.mainScheduleDateChanged(type: 'prev');
+                  _shiftScheduleDate(-1);
+                },
+                onNextDay: () {
+                  Analytics.mainScheduleDateChanged(type: 'next');
+                  _shiftScheduleDate(1);
+                },
+                onSelectDate: () {
+                  Analytics.mainScheduleDateChanged(type: 'picker');
+                  _selectScheduleDate();
+                },
+                onGoToToday: () {
+                  Analytics.mainScheduleDateChanged(type: 'today');
+                  _goToToday();
+                },
+                onOpenLink: (url) {
+                  Analytics.mainScheduleClassLinkPressed();
+                  _openCalendarLink(url);
+                },
               ),
               const SizedBox(height: 24),
               HomeCoursesSection(
                 courses: _activeCourses,
                 isLoading: _isLoadingCourses,
-                onOpenCourse: _openCourse,
+                onOpenCourse: (course) {
+                  Analytics.mainCourseCellPressed(
+                    courseId: course.id,
+                    courseCategory: course.categoryName,
+                  );
+                  _openCourse(course, from: 'main');
+                },
               ),
               const SizedBox(height: 24),
             ],
@@ -776,7 +832,12 @@ class _HomePageState extends State<HomePage> {
     }).toList();
   }
 
-  Future<void> _openTask(StudentTask task) async {
+  Future<void> _openTask(StudentTask task, {String from = 'tasks'}) async {
+    Analytics.taskCardPressed(
+      from: from,
+      taskStatus: task.normalizedState,
+      courseId: task.course.id,
+    );
     if (!mounted) return;
     final accent = AppColors.of(context).accent;
     if (Platform.isIOS) {
@@ -1012,6 +1073,10 @@ class _HomePageState extends State<HomePage> {
       lateDaysBalance: balance,
     );
     if (result == null || !mounted) return;
+    Analytics.taskLateDaysExtendPressed(
+      courseId: task.course.id,
+      daysCount: result,
+    );
     setState(() => _lateDaysLoadingIds.add(task.id));
     final success = await apiService.prolongLateDays(task.id, result);
     if (!mounted) return;
@@ -1031,6 +1096,7 @@ class _HomePageState extends State<HomePage> {
     }
     final confirmed = await _showCancelLateDaysConfirm();
     if (confirmed != true || !mounted) return;
+    Analytics.taskLateDaysCancelPressed(courseId: task.course.id);
     setState(() => _lateDaysLoadingIds.add(task.id));
     final success = await apiService.cancelLateDays(task.id);
     if (!mounted) return;
@@ -1118,7 +1184,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openCourse(Course course) {
+  void _openCourse(Course course, {String from = 'courses'}) {
+    Analytics.courseOpened(
+      from: from,
+      courseId: course.id,
+      courseCategory: course.categoryName,
+    );
     Navigator.push(
       context,
       Platform.isIOS
@@ -1128,6 +1199,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openPerformanceCourse(StudentPerformanceCourse course) {
+    Analytics.performanceCourseCellPressed(courseId: course.id);
     Navigator.push(
       context,
       Platform.isIOS
@@ -1254,6 +1326,7 @@ class _HomePageState extends State<HomePage> {
           ));
     if (confirmed != true) return;
 
+    Analytics.filesDeleteAllConfirmed(filesCount: _downloadedFiles.length);
     for (final file in _downloadedFiles) {
       try {
         await file.delete();

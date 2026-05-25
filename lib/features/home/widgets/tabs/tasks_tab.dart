@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/student_task.dart';
 
@@ -208,7 +209,14 @@ class _TasksTabState extends State<TasksTab> {
     final color = selected ? accentColor : c.textTertiary;
 
     return GestureDetector(
-      onTap: () => setState(() => _segment = index),
+      onTap: () {
+        setState(() => _segment = index);
+        if (index == 0) {
+          Analytics.tasksActiveOpened();
+        } else {
+          Analytics.tasksArchiveOpened();
+        }
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
@@ -276,7 +284,10 @@ class _TasksTabState extends State<TasksTab> {
               child: _StatusDropdown(
                 counts: counts,
                 statusFilters: widget.statusFilters,
-                onStatusFiltersChanged: widget.onStatusFiltersChanged,
+                onStatusFiltersChanged: (filters) {
+                  Analytics.tasksStatusFilterChanged(statuses: filters);
+                  widget.onStatusFiltersChanged(filters);
+                },
               ),
             ),
             const SizedBox(width: 8),
@@ -302,20 +313,29 @@ class _TasksTabState extends State<TasksTab> {
         const SizedBox(height: 8),
         _TaskSearchField(
           value: widget.searchQuery,
-          onChanged: widget.onSearchQueryChanged,
+          onChanged: (value) {
+            if (value.isNotEmpty && widget.searchQuery.isEmpty) {
+              Analytics.tasksSearchUsed();
+            }
+            widget.onSearchQueryChanged(value);
+          },
         ),
         const SizedBox(height: 8),
         _CourseDropdown(
           counts: courseCounts,
           courseNames: courseNames,
           courseFilters: widget.courseFilters,
-          onCourseFiltersChanged: widget.onCourseFiltersChanged,
+          onCourseFiltersChanged: (filters) {
+            Analytics.tasksCourseFilterChanged(courseIds: filters);
+            widget.onCourseFiltersChanged(filters);
+          },
         ),
       ],
     );
   }
 
   void _resetFilters() {
+    Analytics.tasksFiltersResetButtonPressed();
     widget.onStatusFiltersChanged({
       'backlog',
       'inProgress',

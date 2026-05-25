@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:cumobile/app/app.dart';
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/logging_service.dart';
 import 'package:cumobile/core/services/theme_service.dart';
 
@@ -35,6 +36,6 @@ Future<void> main() async {
     return false;
   };
 
-  await AppMetrica.reportEvent('app_started');
+  await Analytics.appStarted();
   runApp(const LMSApp());
 }

@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/theme_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/student_profile.dart';
@@ -67,6 +68,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _pickAndUploadAvatar() async {
+    Analytics.profileAvatarUploadPressed();
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
@@ -105,6 +107,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _deleteAvatar() async {
+    Analytics.profileAvatarDeletePressed();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => Platform.isIOS
@@ -218,6 +221,9 @@ class _ProfilePageState extends State<ProfilePage> {
       _showSnackBar('Некорректная ссылка на iCal');
       return;
     }
+    Analytics.profileCalendarSavePressed(
+      state: _isConnected ? 'update' : 'connect',
+    );
     setState(() => _isSaving = true);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsIcsUrlKey, url);
@@ -230,11 +236,13 @@ class _ProfilePageState extends State<ProfilePage> {
       _hasChanges = false;
       _isEditing = false;
     });
+    Analytics.setCalendarConnected(true);
     widget.onCalendarChanged?.call();
     _showSnackBar(wasConnected ? 'Ссылка обновлена' : 'Календарь подключен');
   }
 
   Future<void> _disconnectCalendar() async {
+    Analytics.profileCalendarDisconnectPressed();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefsIcsUrlKey);
     if (!mounted) return;
@@ -245,6 +253,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _isEditing = false;
       _icsUrlController.clear();
     });
+    Analytics.setCalendarConnected(false);
     widget.onCalendarChanged?.call();
     _showSnackBar('Интеграция отключена');
   }
@@ -288,6 +297,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _openGuide() async {
+    Analytics.profileCalendarGuidePressed();
     final uri = Uri.parse(_guideUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -576,8 +586,20 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _setThemeMode(ThemeMode mode) async {
+    Analytics.profileThemeChanged(theme: _themeAnalyticsName(mode));
     await ThemeController.instance.setMode(mode);
     if (mounted) setState(() {});
+  }
+
+  String _themeAnalyticsName(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return 'system';
+      case ThemeMode.light:
+        return 'light';
+      case ThemeMode.dark:
+        return 'dark';
+    }
   }
 
   Widget _buildInfoCard() {
@@ -919,6 +941,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _copyToClipboard(String value) async {
+    Analytics.profileEmailCopyPressed();
     await Clipboard.setData(ClipboardData(text: value));
     await HapticFeedback.selectionClick();
     if (!mounted) return;

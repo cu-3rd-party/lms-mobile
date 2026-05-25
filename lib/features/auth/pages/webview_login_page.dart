@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:logging/logging.dart';
 
+import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/services/api_service.dart';
 
@@ -89,6 +90,7 @@ class _WebViewLoginPageState extends State<WebViewLoginPage> {
 
     if (profile != null) {
       _log.info('Auth successful for: ${profile.fullName}');
+      Analytics.authLoginSuccess();
       if (mounted) {
         widget.onLogin();
         Navigator.of(context).pop();
