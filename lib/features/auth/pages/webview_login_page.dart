@@ -207,11 +207,6 @@ class _WebViewLoginPageState extends State<WebViewLoginPage> {
 
             return NavigationActionPolicy.ALLOW;
           },
-          onReceivedServerTrustAuthRequest: (controller, challenge) async {
-            return ServerTrustAuthResponse(
-              action: ServerTrustAuthResponseAction.PROCEED,
-            );
-          },
         ),
         if (_isLoading)
           Positioned(

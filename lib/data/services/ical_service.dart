@@ -103,7 +103,16 @@ class IcalService {
     });
   }
 
+  static bool isSecureUrl(String url) {
+    final uri = Uri.tryParse(url.trim());
+    return uri != null && uri.scheme.toLowerCase() == 'https' && uri.host.isNotEmpty;
+  }
+
   Future<List<CalendarEvent>?> _fetchFromNetwork(String icsUrl) async {
+    if (!isSecureUrl(icsUrl)) {
+      _log.warning('Refusing to fetch calendar over insecure URL');
+      return null;
+    }
     try {
       final response = await http.get(Uri.parse(icsUrl));
       if (response.statusCode != 200) {

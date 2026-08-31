@@ -14,6 +14,7 @@ import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/theme_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/core/ui/app_dialogs.dart';
+import 'package:cumobile/data/services/ical_service.dart';
 import 'package:cumobile/data/models/student_profile.dart';
 import 'package:cumobile/data/services/api_service.dart';
 
@@ -183,6 +184,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
     if (!url.contains('.ics') && !url.contains('ics.xml')) {
       _showSnackBar('Некорректная ссылка на iCal');
+      return;
+    }
+    if (!IcalService.isSecureUrl(url)) {
+      _showSnackBar('Ссылка должна начинаться с https://');
       return;
     }
     Analytics.profileCalendarSavePressed(
