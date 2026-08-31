@@ -10,12 +10,19 @@
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
+		478E6978DFB17F667E74B5E9 /* AppPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3784BB4D30FA86AF15DB4562 /* AppPalette.swift */; };
 		5941DAA9BFAA17E98A9FBF9C /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 271449BE3444E6A3F9E46B05 /* Pods_Runner.framework */; };
+		597D728EFC14949FF7AC2F6F /* NativeUIPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2255ED18F3C65F6EE076E23 /* NativeUIPlugin.swift */; };
+		5CA7AB3DD2C30409F75C07E3 /* AuthWebController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77E9D77C9237A06BD048A8EF /* AuthWebController.swift */; };
 		65DEBC0BDF705C1B30A42640 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9A27CA0454803457540ABE07 /* Pods_RunnerTests.framework */; };
+		6F9577B3383A15C1C13A5A56 /* AuthFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A54304FDB0C559A7DA7C1A8 /* AuthFlowView.swift */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		BA609C7D7E8DE94365170388 /* NativeTabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68D868B509FBF4BCD3342234 /* NativeTabBarView.swift */; };
+		D9E0D4F08058242A4DBDECC6 /* NativeTabBarPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4E5107B66E310663123388 /* NativeTabBarPlugin.swift */; };
+		F1BB50296C80D726950BC18E /* NativeAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0AAB8ABA485E9A57F735CD8 /* NativeAuthPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,13 +53,18 @@
 		0E33709B2F13CFDB003AD22C /* Profile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Profile.xcconfig; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
+		1E4E5107B66E310663123388 /* NativeTabBarPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeTabBarPlugin.swift; sourceTree = "<group>"; };
 		226DC13781B21B2DB4EA4F5C /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		271449BE3444E6A3F9E46B05 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3784BB4D30FA86AF15DB4562 /* AppPalette.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppPalette.swift; sourceTree = "<group>"; };
+		3A54304FDB0C559A7DA7C1A8 /* AuthFlowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthFlowView.swift; sourceTree = "<group>"; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		68D868B509FBF4BCD3342234 /* NativeTabBarView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeTabBarView.swift; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		77E9D77C9237A06BD048A8EF /* AuthWebController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthWebController.swift; sourceTree = "<group>"; };
 		7A8A38939937174BF41CC5A8 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		7F14CDCB3178683CFECF316F /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -64,7 +76,9 @@
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9A27CA0454803457540ABE07 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0AAB8ABA485E9A57F735CD8 /* NativeAuthPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAuthPlugin.swift; sourceTree = "<group>"; };
 		B813DF26CB4ECAA4221B443C /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
+		F2255ED18F3C65F6EE076E23 /* NativeUIPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeUIPlugin.swift; sourceTree = "<group>"; };
 		FB99C0B8E5085CC56448E447 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -153,6 +167,7 @@
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
+				BCD8E6B9E85917CAF3A66B9C /* Auth */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -164,6 +179,21 @@
 				9A27CA0454803457540ABE07 /* Pods_RunnerTests.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		BCD8E6B9E85917CAF3A66B9C /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				77E9D77C9237A06BD048A8EF /* AuthWebController.swift */,
+				3A54304FDB0C559A7DA7C1A8 /* AuthFlowView.swift */,
+				A0AAB8ABA485E9A57F735CD8 /* NativeAuthPlugin.swift */,
+				3784BB4D30FA86AF15DB4562 /* AppPalette.swift */,
+				68D868B509FBF4BCD3342234 /* NativeTabBarView.swift */,
+				1E4E5107B66E310663123388 /* NativeTabBarPlugin.swift */,
+				F2255ED18F3C65F6EE076E23 /* NativeUIPlugin.swift */,
+			);
+			name = Auth;
+			path = Auth;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -380,6 +410,13 @@
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
+				5CA7AB3DD2C30409F75C07E3 /* AuthWebController.swift in Sources */,
+				6F9577B3383A15C1C13A5A56 /* AuthFlowView.swift in Sources */,
+				F1BB50296C80D726950BC18E /* NativeAuthPlugin.swift in Sources */,
+				478E6978DFB17F667E74B5E9 /* AppPalette.swift in Sources */,
+				BA609C7D7E8DE94365170388 /* NativeTabBarView.swift in Sources */,
+				D9E0D4F08058242A4DBDECC6 /* NativeTabBarPlugin.swift in Sources */,
+				597D728EFC14949FF7AC2F6F /* NativeUIPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

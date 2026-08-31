@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'package:cumobile/app/route_observer.dart';
 import 'package:cumobile/core/services/appmetrica_observer.dart';
 import 'package:cumobile/core/services/theme_service.dart';
 import 'package:cumobile/core/theme/app_theme.dart';
@@ -35,6 +36,7 @@ class _LMSAppState extends State<LMSApp> {
 
   static final _navigatorObservers = <NavigatorObserver>[
     AppMetricaNavigatorObserver(),
+    appRouteObserver,
   ];
 
   static const _localizationsDelegates = <LocalizationsDelegate<dynamic>>[

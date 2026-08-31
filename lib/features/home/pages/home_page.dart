@@ -10,7 +10,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:cumobile/app/route_observer.dart';
 import 'package:cumobile/core/services/analytics_service.dart';
+import 'package:cumobile/core/services/theme_service.dart';
+import 'package:cumobile/features/home/native_tab_bar.dart';
 import 'package:cumobile/features/home/widgets/late_days_dialog.dart';
 
 import 'package:cumobile/data/models/class_data.dart';
@@ -25,6 +28,7 @@ import 'package:cumobile/features/profile/pages/profile_page.dart';
 import 'package:cumobile/data/services/api_service.dart';
 import 'package:cumobile/core/services/demo_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/services/ical_service.dart';
 import 'package:cumobile/features/home/widgets/sections/deadlines_section.dart';
 import 'package:cumobile/features/home/widgets/sections/home_courses_section.dart';
@@ -47,8 +51,10 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with RouteAware {
   int _selectedTab = 0;
+  bool _useNativeTabBar = false;
+  double _nativeTabBarHeight = 0;
   StudentProfile? _profile;
   Uint8List? _avatarBytes;
   bool _isLoadingProfile = true;
@@ -98,10 +104,52 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     Analytics.mainOpened();
     _initHome();
+    _initNativeTabBar();
+    ThemeController.instance.addListener(_syncNativeTabBarTheme);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPushNext() {
+    if (_useNativeTabBar) NativeTabBar.setVisible(visible: false);
+  }
+
+  @override
+  void didPopNext() {
+    if (_useNativeTabBar) NativeTabBar.setVisible(visible: true);
+  }
+
+  Future<void> _initNativeTabBar() async {
+    if (!await NativeTabBar.isSupported()) return;
+    NativeTabBar.setOnSelected(_onTabChanged);
+    final height = await NativeTabBar.attach(selected: _selectedTab);
+    if (!mounted || height == null) return;
+    setState(() {
+      _useNativeTabBar = true;
+      _nativeTabBarHeight = height;
+    });
+  }
+
+  void _syncNativeTabBarTheme() {
+    if (_useNativeTabBar) NativeTabBar.syncTheme();
   }
 
   @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
+    ThemeController.instance.removeListener(_syncNativeTabBarTheme);
+    if (_useNativeTabBar) {
+      NativeTabBar.setOnSelected(null);
+      NativeTabBar.detach();
+    }
     _scheduleScrollController.dispose();
     super.dispose();
   }
@@ -219,15 +267,25 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadCourses() async {
     try {
-      final courses = await apiService.fetchCourses();
+      final responses = await Future.wait([
+        apiService.fetchCourses(),
+        apiService.fetchArchivedCourses(),
+      ]);
+      final fetchedCourses = responses[0];
+      final apiArchivedCourses = responses[1];
+      final courses = <int, Course>{
+        for (final course in apiArchivedCourses) course.id: course,
+        for (final course in fetchedCourses) course.id: course,
+      }.values.toList();
+
       final prefs = await SharedPreferences.getInstance();
       final savedActiveOrder = prefs.getStringList(_prefsActiveCoursesKey);
       final savedArchivedOrder = prefs.getStringList(_prefsArchivedCoursesKey);
       final hasSavedArchived = savedArchivedOrder != null;
-      final backendArchivedIds = courses
-          .where((c) => c.isArchived)
-          .map((c) => c.id)
-          .toSet();
+      final backendArchivedIds = <int>{
+        ...fetchedCourses.where((c) => c.isArchived).map((c) => c.id),
+        ...apiArchivedCourses.map((c) => c.id),
+      };
       final localArchivedIds = (savedArchivedOrder ?? <String>[])
           .map(int.tryParse)
           .whereType<int>()
@@ -387,46 +445,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _selectScheduleDate() async {
     DateTime? picked;
     if (Platform.isIOS) {
-      picked = await showCupertinoModalPopup<DateTime>(
-        context: context,
-        builder: (context) {
-          var tempDate = _scheduleDate;
-          return CupertinoPopupSurface(
-            child: Container(
-              height: 320,
-              color: AppColors.of(context).background,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        CupertinoButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Отмена'),
-                        ),
-                        CupertinoButton(
-                          onPressed: () => Navigator.pop(context, tempDate),
-                          child: const Text('Готово'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: CupertinoDatePicker(
-                      mode: CupertinoDatePickerMode.date,
-                      initialDateTime: _scheduleDate,
-                      minimumDate: DateTime.now().subtract(const Duration(days: 365)),
-                      maximumDate: DateTime.now().add(const Duration(days: 365)),
-                      onDateTimeChanged: (value) => tempDate = value,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+      picked = await AppDialogs.pickDate(
+        context,
+        initial: _scheduleDate,
+        minimum: DateTime.now().subtract(const Duration(days: 365)),
+        maximum: DateTime.now().add(const Duration(days: 365)),
+        title: 'Дата расписания',
       );
     } else {
       final c = AppColors.of(context);
@@ -485,6 +509,9 @@ class _HomePageState extends State<HomePage> {
         label: 'Файлы',
       ),
     ];
+    final tabBottomInset = _useNativeTabBar
+        ? _nativeTabBarHeight + MediaQuery.of(context).padding.bottom
+        : 0.0;
     final bodyContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -499,7 +526,7 @@ class _HomePageState extends State<HomePage> {
         ),
         if (demoService.isDemoMode) _buildDemoBanner(),
         const SizedBox(height: 12),
-        Expanded(child: _buildTabBody()),
+        Expanded(child: _buildTabBody(tabBottomInset)),
       ],
     );
     if (isIos) {
@@ -510,24 +537,26 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             children: [
               Expanded(child: bodyContent),
-              MediaQuery.removePadding(
-                context: context,
-                removeBottom: true,
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    top: 6,
-                    bottom: math.max(0, MediaQuery.of(context).padding.bottom - 6),
-                  ),
-                  child: CupertinoTabBar(
-                    currentIndex: _selectedTab,
-                    backgroundColor: c.background,
-                    activeColor: c.accent,
-                    inactiveColor: c.iconSecondary,
-                    onTap: _onTabChanged,
-                    items: navItems,
+              if (!_useNativeTabBar)
+                MediaQuery.removePadding(
+                  context: context,
+                  removeBottom: true,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      top: 6,
+                      bottom:
+                          math.max(0, MediaQuery.of(context).padding.bottom - 6),
+                    ),
+                    child: CupertinoTabBar(
+                      currentIndex: _selectedTab,
+                      backgroundColor: c.background,
+                      activeColor: c.accent,
+                      inactiveColor: c.iconSecondary,
+                      onTap: _onTabChanged,
+                      items: navItems,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -549,6 +578,7 @@ class _HomePageState extends State<HomePage> {
 
   void _onTabChanged(int index) {
     setState(() => _selectedTab = index);
+    if (_useNativeTabBar) NativeTabBar.setSelected(index);
     Analytics.mainTabPressed(tab: _tabAnalyticsName(index));
     if (index == 3 && _downloadedFiles.isEmpty) {
       _loadFiles();
@@ -666,7 +696,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildTabBody() {
+  Widget _buildTabBody(double bottomInset) {
     return IndexedStack(
       index: _selectedTab,
       children: [
@@ -728,11 +758,12 @@ class _HomePageState extends State<HomePage> {
                   _openCourse(course, from: 'main');
                 },
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24 + bottomInset),
             ],
           ),
         ),
         TasksTab(
+          bottomInset: bottomInset,
           key: ValueKey('tasks_${_archivedCourses.map((c) => c.id).join(',')}'),
           tasks: _tasks,
           isLoading: _isLoadingTasks,
@@ -768,6 +799,7 @@ class _HomePageState extends State<HomePage> {
           onCancelLateDays: _cancelLateDays,
         ),
         CoursesTab(
+          bottomInset: bottomInset,
           activeCourses: _activeCourses,
           archivedCourses: _archivedCourses,
           isLoading: _isLoadingCourses,
@@ -782,6 +814,7 @@ class _HomePageState extends State<HomePage> {
           isLoadingGradebook: _isLoadingGradebook,
         ),
         FilesTab(
+          bottomInset: bottomInset,
           files: _downloadedFiles,
           isLoading: _isLoadingFiles,
           selectedFiles: _selectedFiles,
@@ -936,18 +969,7 @@ class _HomePageState extends State<HomePage> {
 
   void _showSnack(String message) {
     if (Platform.isIOS) {
-      showCupertinoDialog(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          content: Text(message),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+      AppDialogs.message(context, message: message);
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1113,74 +1135,16 @@ class _HomePageState extends State<HomePage> {
     const message =
         'Невозможно отменить перенос дедлайна, так как осталось менее 24 часов.\n\n'
         'Если вы не сдадите работу, Late Days автоматически вернутся.';
-    if (Platform.isIOS) {
-      showCupertinoDialog<void>(
-        context: context,
-        builder: (ctx) => CupertinoAlertDialog(
-          content: const Text(message),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Понятно'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      final c = AppColors.of(context);
-      showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: c.surface,
-          content: Text(message, style: TextStyle(color: c.textPrimary)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Понятно'),
-            ),
-          ],
-        ),
-      );
-    }
+    AppDialogs.message(context, message: message, okLabel: 'Понятно');
   }
 
-  Future<bool?> _showCancelLateDaysConfirm() {
-    if (Platform.isIOS) {
-      return showCupertinoDialog<bool>(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          title: const Text('Отменить перенос дедлайна?'),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Нет'),
-            ),
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context, true),
-              isDestructiveAction: true,
-              child: const Text('Отменить'),
-            ),
-          ],
-        ),
-      );
-    }
-    final c = AppColors.of(context);
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: c.surface,
-        title: Text('Отменить перенос дедлайна?', style: TextStyle(color: c.textPrimary)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Нет', style: TextStyle(color: c.textSecondary)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Отменить', style: TextStyle(color: c.danger)),
-          ),
-        ],
-      ),
+  Future<bool> _showCancelLateDaysConfirm() {
+    return AppDialogs.confirm(
+      context,
+      title: 'Отменить перенос дедлайна?',
+      confirmLabel: 'Отменить',
+      cancelLabel: 'Нет',
+      destructive: true,
     );
   }
 
@@ -1279,52 +1243,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _deleteAllFiles() async {
-    final confirmed = await (Platform.isIOS
-        ? showCupertinoDialog<bool>(
-            context: context,
-            builder: (context) => CupertinoAlertDialog(
-              title: const Text('Удалить все файлы?'),
-              content: Text(
-                'Будет удалено ${_downloadedFiles.length} файлов. Это действие нельзя отменить.',
-              ),
-              actions: [
-                CupertinoDialogAction(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Отмена'),
-                ),
-                CupertinoDialogAction(
-                  onPressed: () => Navigator.pop(context, true),
-                  isDestructiveAction: true,
-                  child: const Text('Удалить'),
-                ),
-              ],
-            ),
-          )
-        : showDialog<bool>(
-            context: context,
-            builder: (context) {
-              final c = AppColors.of(context);
-              return AlertDialog(
-                backgroundColor: c.surface,
-                title: Text('Удалить все файлы?', style: TextStyle(color: c.textPrimary)),
-                content: Text(
-                  'Будет удалено ${_downloadedFiles.length} файлов. Это действие нельзя отменить.',
-                  style: TextStyle(color: c.textSecondary),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: Text('Отмена', style: TextStyle(color: c.textSecondary)),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: Text('Удалить', style: TextStyle(color: c.danger)),
-                  ),
-                ],
-              );
-            },
-          ));
-    if (confirmed != true) return;
+    final confirmed = await AppDialogs.confirm(
+      context,
+      title: 'Удалить все файлы?',
+      message:
+          'Будет удалено ${_downloadedFiles.length} файлов. Это действие нельзя отменить.',
+      confirmLabel: 'Удалить',
+      destructive: true,
+    );
+    if (!confirmed) return;
 
     Analytics.filesDeleteAllConfirmed(filesCount: _downloadedFiles.length);
     for (final file in _downloadedFiles) {

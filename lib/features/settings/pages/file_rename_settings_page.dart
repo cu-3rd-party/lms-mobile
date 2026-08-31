@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/file_rename_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/models/student_performance.dart';
 import 'package:cumobile/data/services/api_service.dart';
 
@@ -249,54 +250,13 @@ class _FileRenameSettingsPageState extends State<FileRenameSettingsPage> {
     }
   }
 
-  Future<bool?> _confirmDelete() async {
-    final isIos = Platform.isIOS;
-    final c = AppColors.of(context);
-
-    if (isIos) {
-      return showCupertinoDialog<bool>(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          title: const Text('Удалить шаблон?'),
-          content: const Text('Это действие нельзя отменить.'),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Отмена'),
-            ),
-            CupertinoDialogAction(
-              isDestructiveAction: true,
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Удалить'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return showDialog<bool>(
-      context: context,
-      builder: (context) {
-        final cc = AppColors.of(context);
-        return AlertDialog(
-          backgroundColor: cc.surface,
-          title: Text('Удалить шаблон?', style: TextStyle(color: cc.textPrimary)),
-          content: Text(
-            'Это действие нельзя отменить.',
-            style: TextStyle(color: cc.textSecondary),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text('Отмена', style: TextStyle(color: cc.textTertiary)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text('Удалить', style: TextStyle(color: c.danger)),
-            ),
-          ],
-        );
-      },
+  Future<bool> _confirmDelete() {
+    return AppDialogs.confirm(
+      context,
+      title: 'Удалить шаблон?',
+      message: 'Это действие нельзя отменить.',
+      confirmLabel: 'Удалить',
+      destructive: true,
     );
   }
 }
@@ -668,26 +628,17 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
 
   Future<void> _showCoursePicker() async {
     if (widget.isIos) {
-      final selected = await showCupertinoModalPopup<StudentPerformanceCourse>(
-        context: context,
-        builder: (context) => CupertinoActionSheet(
-          title: const Text('Выберите курс'),
-          actions: _courses
-              .map(
-                (course) => CupertinoActionSheetAction(
-                  onPressed: () => Navigator.pop(context, course),
-                  child: Text(course.cleanName),
-                ),
-              )
-              .toList(),
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-        ),
+      final index = await AppDialogs.actionSheet(
+        context,
+        title: 'Выберите курс',
+        actions: [
+          for (final course in _courses) AppDialogAction(course.cleanName),
+          const AppDialogAction('Отмена', style: AppDialogActionStyle.cancel),
+        ],
       );
 
-      if (selected != null) {
+      if (index != null && index < _courses.length) {
+        final selected = _courses[index];
         setState(() {
           _selectedCourse = selected;
         });
@@ -759,26 +710,18 @@ class _AddRuleDialogState extends State<_AddRuleDialog> {
     final options = <String>[allActivitiesValue, ..._activities];
 
     if (widget.isIos) {
-      final selected = await showCupertinoModalPopup<String>(
-        context: context,
-        builder: (context) => CupertinoActionSheet(
-          title: const Text('Тип активности'),
-          actions: options
-              .map(
-                (activity) => CupertinoActionSheetAction(
-                  onPressed: () => Navigator.pop(context, activity),
-                  child: Text(activity == allActivitiesValue ? 'Все типы' : activity),
-                ),
-              )
-              .toList(),
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-        ),
+      final index = await AppDialogs.actionSheet(
+        context,
+        title: 'Тип активности',
+        actions: [
+          for (final activity in options)
+            AppDialogAction(activity == allActivitiesValue ? 'Все типы' : activity),
+          const AppDialogAction('Отмена', style: AppDialogActionStyle.cancel),
+        ],
       );
 
-      if (selected != null) {
+      if (index != null && index < options.length) {
+        final selected = options[index];
         setState(() {
           _selectedActivity = selected == allActivitiesValue ? null : selected;
         });

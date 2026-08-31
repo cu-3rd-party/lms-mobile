@@ -23,6 +23,7 @@ import 'package:cumobile/data/models/student_performance.dart';
 
 class ApiService {
   static const String baseUrl = 'https://my.centraluniversity.ru/api';
+  static const int _coursesPagingCap = 2000;
   String? _cookie;
   static final Logger _log = Logger('ApiService');
 
@@ -185,17 +186,64 @@ class ApiService {
 
       await _handleResponse(response);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data is List) {
-          return data.map((e) => Course.fromJson(e)).toList();
-        }
-        if (data is Map<String, dynamic>) {
-          final List<dynamic> items = data['items'] ?? [];
-          return items.map((e) => Course.fromJson(e)).toList();
-        }
+        return _parseCourses(response.body);
       }
     } catch (e, st) {
       _log.warning('Error fetching courses', e, st);
+    }
+    return [];
+  }
+
+  Future<List<Course>> fetchArchivedCourses({int pageSize = 20}) async {
+    if (demoService.isDemoMode) {
+      return demoService.demoCourses().where((c) => c.isArchived).toList();
+    }
+    return _fetchCoursesPaged(state: 'archived', pageSize: pageSize);
+  }
+
+  Future<List<Course>> _fetchCoursesPaged({
+    required String state,
+    int pageSize = 20,
+  }) async {
+    final result = <Course>[];
+    final seenIds = <int>{};
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return result;
+
+      var offset = 0;
+      while (offset < _coursesPagingCap) {
+        final response = await http.get(
+          Uri.parse(
+            '$baseUrl/micro-lms/courses/student'
+            '?offset=$offset&limit=$pageSize&state=$state',
+          ),
+          headers: {'Cookie': cookie},
+        );
+
+        await _handleResponse(response);
+        if (response.statusCode != 200) break;
+
+        final page = _parseCourses(response.body);
+        final fresh = page.where((c) => seenIds.add(c.id)).toList();
+        result.addAll(fresh);
+        if (fresh.isEmpty || page.length < pageSize) break;
+        offset += pageSize;
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching courses (state: $state)', e, st);
+    }
+    return result;
+  }
+
+  List<Course> _parseCourses(String body) {
+    final data = jsonDecode(body);
+    if (data is List) {
+      return data.map((e) => Course.fromJson(e)).toList();
+    }
+    if (data is Map<String, dynamic>) {
+      final List<dynamic> items = data['items'] ?? [];
+      return items.map((e) => Course.fromJson(e)).toList();
     }
     return [];
   }

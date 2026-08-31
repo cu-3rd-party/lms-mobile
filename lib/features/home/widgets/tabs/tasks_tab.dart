@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/models/student_task.dart';
 
 const _statusLabels = <String, String>{
@@ -33,9 +34,11 @@ class TasksTab extends StatefulWidget {
   final Set<int> lateDaysLoadingIds;
   final void Function(StudentTask task)? onExtendDeadline;
   final void Function(StudentTask task)? onCancelLateDays;
+  final double bottomInset;
 
   const TasksTab({
     super.key,
+    this.bottomInset = 0,
     required this.tasks,
     required this.isLoading,
     this.hasError = false,
@@ -119,7 +122,7 @@ class _TasksTabState extends State<TasksTab> {
     final filtered = _filteredTasks();
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + widget.bottomInset),
       children: [
         _buildSegmentControl(isIos),
         const SizedBox(height: 12),
@@ -1202,35 +1205,7 @@ class _TaskListItem extends StatelessWidget {
     const message =
         'Невозможно отменить перенос дедлайна, так как осталось менее 24 часов.\n\n'
         'Если вы не сдадите работу, Late Days автоматически вернутся.';
-    if (isIos) {
-      showCupertinoDialog<void>(
-        context: context,
-        builder: (ctx) => CupertinoAlertDialog(
-          content: const Text(message),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Понятно'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      final c = AppColors.of(context);
-      showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: c.surface,
-          content: Text(message, style: TextStyle(color: c.textPrimary)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Понятно'),
-            ),
-          ],
-        ),
-      );
-    }
+    AppDialogs.message(context, message: message, okLabel: 'Понятно');
   }
 
   String _getStateLabel(StudentTask task) {

@@ -8,6 +8,8 @@ import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/course_overview.dart';
+import 'package:cumobile/data/models/exam_item.dart';
+import 'package:cumobile/data/services/exams_service.dart';
 import 'package:cumobile/features/longread/pages/longread_page.dart';
 import 'package:cumobile/data/services/api_service.dart';
 
@@ -23,6 +25,7 @@ class CoursePage extends StatefulWidget {
 class _CoursePageState extends State<CoursePage> {
   CourseOverview? _overview;
   bool _isLoading = true;
+  List<ExamItem> _exams = [];
   static final Logger _log = Logger('CoursePage');
   final Set<int> _expandedThemes = {};
   bool _isSearching = false;
@@ -33,12 +36,19 @@ class _CoursePageState extends State<CoursePage> {
   void initState() {
     super.initState();
     _loadOverview();
+    _loadExams();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadExams() async {
+    final exams = await examsService.fetchForCourse(widget.course.cleanName);
+    if (!mounted || exams.isEmpty) return;
+    setState(() => _exams = exams);
   }
 
   Future<void> _loadOverview() async {
@@ -278,24 +288,144 @@ class _CoursePageState extends State<CoursePage> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final listPadding = EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset);
 
-    if (Platform.isIOS) {
-      return ListView.builder(
-        padding: listPadding,
-        itemCount: filteredThemes.length,
-        itemBuilder: (context, index) {
-          final theme = filteredThemes[index];
-          return _buildThemeCardCupertino(theme, index + 1);
-        },
-      );
-    }
+    final rows = _buildCourseRows(filteredThemes, query.isEmpty);
+    final isIos = Platform.isIOS;
 
     return ListView.builder(
       padding: listPadding,
-      itemCount: filteredThemes.length,
+      itemCount: rows.length,
       itemBuilder: (context, index) {
-        final theme = filteredThemes[index];
-        return _buildThemeCard(theme, index + 1);
+        final row = rows[index];
+        final exam = row.exam;
+        if (exam != null) return _buildExamCard(exam);
+        return isIos
+            ? _buildThemeCardCupertino(row.theme!, row.number!)
+            : _buildThemeCard(row.theme!, row.number!);
       },
+    );
+  }
+
+  static final RegExp _weekPattern =
+      RegExp(r'недел[яиюе]\w*\s*[№#]?\s*(\d+)', caseSensitive: false, unicode: true);
+
+  static int? _themeWeek(String name) {
+    final match = _weekPattern.firstMatch(name);
+    if (match == null) return null;
+    return int.tryParse(match.group(1)!);
+  }
+
+  List<_CourseRow> _buildCourseRows(List<CourseTheme> themes, bool withExams) {
+    final rows = <_CourseRow>[];
+
+    if (!withExams || _exams.isEmpty) {
+      for (var i = 0; i < themes.length; i++) {
+        rows.add(_CourseRow.theme(themes[i], i + 1));
+      }
+      return rows;
+    }
+
+    final themeWeeks = themes.map((theme) => _themeWeek(theme.name)).toList();
+    final byWeek = <int, List<ExamItem>>{};
+    final unplaced = <ExamItem>[];
+
+    for (final exam in _exams) {
+      final week = exam.weekNumber;
+      if (week != null && themeWeeks.contains(week)) {
+        byWeek.putIfAbsent(week, () => []).add(exam);
+      } else {
+        unplaced.add(exam);
+      }
+    }
+
+    for (final exam in unplaced) {
+      rows.add(_CourseRow.exam(exam));
+    }
+
+    for (var i = 0; i < themes.length; i++) {
+      rows.add(_CourseRow.theme(themes[i], i + 1));
+      final week = themeWeeks[i];
+      if (week == null) continue;
+      final examsForWeek = byWeek.remove(week);
+      if (examsForWeek == null) continue;
+      for (final exam in examsForWeek) {
+        rows.add(_CourseRow.exam(exam));
+      }
+    }
+
+    return rows;
+  }
+
+  Widget _buildExamCard(ExamItem exam) {
+    final c = AppColors.of(context);
+    final isIos = Platform.isIOS;
+    final accent = c.danger;
+    final week = exam.weekNumber;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: week != null
+                    ? Text(
+                        '$week',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: accent,
+                        ),
+                      )
+                    : Icon(
+                        isIos
+                            ? CupertinoIcons.checkmark_seal_fill
+                            : Icons.fact_check,
+                        size: 16,
+                        color: accent,
+                      ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    exam.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: c.textPrimary,
+                    ),
+                  ),
+                  if (week != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Неделя $week',
+                      style: TextStyle(fontSize: 12, color: accent),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -675,4 +805,17 @@ class _CoursePageState extends State<CoursePage> {
     if ([2, 3, 4].contains(count % 10) && ![12, 13, 14].contains(count % 100)) return few;
     return many;
   }
+}
+
+
+class _CourseRow {
+  final CourseTheme? theme;
+  final int? number;
+  final ExamItem? exam;
+
+  const _CourseRow.theme(this.theme, this.number) : exam = null;
+
+  const _CourseRow.exam(this.exam)
+      : theme = null,
+        number = null;
 }

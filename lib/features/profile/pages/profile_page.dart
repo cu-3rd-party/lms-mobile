@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/theme_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/models/student_profile.dart';
 import 'package:cumobile/data/services/api_service.dart';
 
@@ -108,38 +109,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _deleteAvatar() async {
     Analytics.profileAvatarDeletePressed();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => Platform.isIOS
-          ? CupertinoAlertDialog(
-              title: const Text('Удалить аватар?'),
-              actions: [
-                CupertinoDialogAction(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Отмена'),
-                ),
-                CupertinoDialogAction(
-                  isDestructiveAction: true,
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Удалить'),
-                ),
-              ],
-            )
-          : AlertDialog(
-              title: const Text('Удалить аватар?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Отмена'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: Text('Удалить', style: TextStyle(color: Colors.red[400])),
-                ),
-              ],
-            ),
+    final confirmed = await AppDialogs.confirm(
+      context,
+      title: 'Удалить аватар?',
+      confirmLabel: 'Удалить',
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     setState(() => _isAvatarLoading = true);
     try {
@@ -158,19 +134,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _showAvatarError(String message) {
     if (Platform.isIOS) {
-      showCupertinoDialog(
-        context: context,
-        builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('Ошибка'),
-          content: Text(message),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+      AppDialogs.message(context, title: 'Ошибка', message: message);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
@@ -270,18 +234,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _showSnackBar(String message) {
     if (Platform.isIOS) {
-      showCupertinoDialog(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          content: Text(message),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+      AppDialogs.message(context, message: message);
       return;
     }
     final c = AppColors.of(context);

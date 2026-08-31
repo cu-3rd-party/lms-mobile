@@ -21,9 +21,11 @@ class CoursesTab extends StatefulWidget {
   final void Function(StudentPerformanceCourse) onOpenPerformanceCourse;
   final GradebookResponse? gradebook;
   final bool isLoadingGradebook;
+  final double bottomInset;
 
   const CoursesTab({
     super.key,
+    this.bottomInset = 0,
     required this.activeCourses,
     required this.archivedCourses,
     required this.isLoading,
@@ -187,7 +189,7 @@ class _CoursesTabState extends State<CoursesTab> {
     }
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + widget.bottomInset),
       children: [
         Row(
           children: [
@@ -374,7 +376,7 @@ class _CoursesTabState extends State<CoursesTab> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + widget.bottomInset),
       itemCount: visibleCourses.length,
       itemBuilder: (context, index) {
         final course = visibleCourses[index];
@@ -606,7 +608,7 @@ class _CoursesTabState extends State<CoursesTab> {
     }
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + widget.bottomInset),
       children: [
         ...gradebook.semesters.map((semester) => _buildSemesterCard(semester, isIos)),
       ],

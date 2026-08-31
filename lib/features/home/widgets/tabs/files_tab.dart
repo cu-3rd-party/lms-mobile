@@ -20,9 +20,11 @@ class FilesTab extends StatelessWidget {
   final VoidCallback onDeleteSelected;
   final void Function(File) onDelete;
   final void Function(String) onToggleSelection;
+  final double bottomInset;
 
   const FilesTab({
     super.key,
+    this.bottomInset = 0,
     required this.files,
     required this.isLoading,
     required this.selectedFiles,
@@ -97,9 +99,12 @@ class FilesTab extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             CupertinoSliverRefreshControl(onRefresh: () async => onRefresh()),
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(child: emptyContent),
+            SliverPadding(
+              padding: EdgeInsets.only(bottom: bottomInset),
+              sliver: SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: emptyContent),
+              ),
             ),
           ],
         );
@@ -110,7 +115,7 @@ class FilesTab extends StatelessWidget {
         color: c.accent,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          padding: EdgeInsets.fromLTRB(16, 24, 16, 24 + bottomInset),
           children: [
             Center(child: emptyContent),
           ],
@@ -201,7 +206,7 @@ class FilesTab extends StatelessWidget {
                   slivers: [
                     CupertinoSliverRefreshControl(onRefresh: () async => onRefresh()),
                     SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset),
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
@@ -239,7 +244,7 @@ class FilesTab extends StatelessWidget {
                   onRefresh: () async => onRefresh(),
                   color: c.accent,
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset),
                     itemCount: sortedFiles.length,
                     itemBuilder: (context, index) {
                       final file = sortedFiles[index];

@@ -25,6 +25,7 @@ import 'package:uuid/uuid.dart';
 import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/file_rename_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/longread_material.dart';
 import 'package:cumobile/data/models/task_comment.dart';
@@ -2867,45 +2868,25 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     return name;
   }
 
-  Future<File?> _showRecentScanPicker(List<File> files) {
+  Future<File?> _showRecentScanPicker(List<File> files) async {
     final items = files.take(5).toList();
     final now = DateTime.now();
 
     if (Platform.isIOS) {
-      return showCupertinoModalPopup<File>(
-        context: context,
-        builder: (context) => CupertinoActionSheet(
-          title: const Text('Недавние сканы'),
-          actions: items
-              .map(
-                (file) => CupertinoActionSheetAction(
-                  onPressed: () => Navigator.pop(context, file),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _stripDupSuffix(p.basename(file.path)),
-                          style: const TextStyle(fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatRelative(now, file.statSync().modified),
-                        style: TextStyle(color: AppColors.of(context).textTertiary, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Другое...'),
-          ),
-        ),
+      final index = await AppDialogs.actionSheet(
+        context,
+        title: 'Недавние сканы',
+        actions: [
+          for (final file in items)
+            AppDialogAction(
+              '${_stripDupSuffix(p.basename(file.path))} · '
+              '${_formatRelative(now, file.statSync().modified)}',
+            ),
+          const AppDialogAction('Другое...', style: AppDialogActionStyle.cancel),
+        ],
       );
+      if (index == null || index >= items.length) return null;
+      return items[index];
     }
 
     return showModalBottomSheet<File>(
@@ -4197,95 +4178,22 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     const message =
         'Невозможно отменить перенос дедлайна, так как осталось менее 24 часов.\n\n'
         'Если вы не сдадите работу, Late Days автоматически вернутся.';
-    if (Platform.isIOS) {
-      showCupertinoDialog<void>(
-        context: context,
-        builder: (ctx) => CupertinoAlertDialog(
-          content: const Text(message),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Понятно'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      showDialog<void>(
-        context: context,
-        builder: (ctx) {
-          final c = AppColors.of(ctx);
-          return AlertDialog(
-            backgroundColor: c.surface,
-            content: Text(message, style: TextStyle(color: c.textPrimary)),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Понятно'),
-              ),
-            ],
-          );
-        },
-      );
-    }
+    AppDialogs.message(context, message: message, okLabel: 'Понятно');
   }
 
-  Future<bool?> _showCancelConfirm() {
-    if (Platform.isIOS) {
-      return showCupertinoDialog<bool>(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          title: const Text('Отменить перенос дедлайна?'),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Нет'),
-            ),
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context, true),
-              isDestructiveAction: true,
-              child: const Text('Отменить'),
-            ),
-          ],
-        ),
-      );
-    }
-    return showDialog<bool>(
-      context: context,
-      builder: (context) {
-        final c = AppColors.of(context);
-        return AlertDialog(
-          backgroundColor: c.surface,
-          title: Text('Отменить перенос дедлайна?', style: TextStyle(color: c.textPrimary)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text('Нет', style: TextStyle(color: c.textTertiary)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text('Отменить', style: TextStyle(color: c.danger)),
-            ),
-          ],
-        );
-      },
+  Future<bool> _showCancelConfirm() {
+    return AppDialogs.confirm(
+      context,
+      title: 'Отменить перенос дедлайна?',
+      confirmLabel: 'Отменить',
+      cancelLabel: 'Нет',
+      destructive: true,
     );
   }
 
   void _showError(String message) {
     if (Platform.isIOS) {
-      showCupertinoDialog(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          content: Text(message),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+      AppDialogs.message(context, message: message);
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
