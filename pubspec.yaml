@@ -96,6 +96,7 @@ flutter:
     - assets/icons/level-medium.svg
     - assets/icons/level-advanced.svg
     - assets/icons/logo.svg
+    - assets/maps/
 
 flutter_launcher_icons:
   android: true

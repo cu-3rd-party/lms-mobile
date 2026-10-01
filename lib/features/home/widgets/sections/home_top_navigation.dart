@@ -16,6 +16,7 @@ class HomeTopNavigation extends StatelessWidget {
   final bool isLoadingProfile;
   final VoidCallback onOpenNotifications;
   final VoidCallback onOpenProfile;
+  final VoidCallback? onOpenMap;
 
   const HomeTopNavigation({
     super.key,
@@ -26,6 +27,7 @@ class HomeTopNavigation extends StatelessWidget {
     required this.isLoadingProfile,
     required this.onOpenNotifications,
     required this.onOpenProfile,
+    this.onOpenMap,
   });
 
   @override
@@ -53,6 +55,19 @@ class HomeTopNavigation extends StatelessWidget {
             ),
             const SizedBox(width: 12),
           ],
+          if (onOpenMap != null)
+            isIos
+                ? CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(36, 36),
+                    onPressed: onOpenMap,
+                    child: Icon(CupertinoIcons.map, color: c.textPrimary),
+                  )
+                : IconButton(
+                    onPressed: onOpenMap,
+                    icon: Icon(Icons.map_outlined, color: c.textPrimary),
+                    tooltip: 'Карта кампуса',
+                  ),
           if (isIos)
             CupertinoButton(
               padding: EdgeInsets.zero,

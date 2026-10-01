@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cumobile/app/route_observer.dart';
 import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/theme_service.dart';
+import 'package:cumobile/features/map/pages/campus_map_page.dart';
 import 'package:cumobile/features/home/native_tab_bar.dart';
 import 'package:cumobile/features/home/widgets/late_days_dialog.dart';
 
@@ -530,6 +531,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
           isLoadingProfile: _isLoadingProfile,
           onOpenNotifications: _openNotifications,
           onOpenProfile: _openProfile,
+          onOpenMap: (_profile?.hasCampusMap ?? false) ? _openMap : null,
         ),
         if (demoService.isDemoMode) _buildDemoBanner(),
         const SizedBox(height: 12),
@@ -693,6 +695,16 @@ class _HomePageState extends State<HomePage> with RouteAware {
     await _loadSchedule(day: _scheduleDate);
   }
 
+  void _openMap() {
+    Analytics.mainMapButtonPressed();
+    Navigator.push(
+      context,
+      Platform.isIOS
+          ? CupertinoPageRoute(builder: (context) => const CampusMapPage())
+          : MaterialPageRoute(builder: (context) => const CampusMapPage()),
+    );
+  }
+
   void _openNotifications() {
     Analytics.mainNotificationsButtonPressed();
     Navigator.push(
@@ -807,6 +819,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
         ),
         CoursesTab(
           bottomInset: bottomInset,
+          showCampusMap: _profile?.hasCampusMap ?? false,
           activeCourses: _activeCourses,
           archivedCourses: _archivedCourses,
           isLoading: _isLoadingCourses,

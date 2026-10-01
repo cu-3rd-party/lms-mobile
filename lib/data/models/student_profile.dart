@@ -64,6 +64,9 @@ class StudentProfile {
 
   String get fullName => '$lastName $firstName $middleName';
 
+  bool get hasCampusMap =>
+      educationLevel.toLowerCase() == 'bachelor' && (course == 2 || course == 3);
+
   String get maskedInn => _maskMiddle(inn, 3, 2);
   String get maskedSnils => _maskMiddle(snils, 3, 2);
   String get maskedBirthdate => _maskMiddle(birthdate, 4, 0);

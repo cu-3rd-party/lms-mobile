@@ -56,6 +56,9 @@ class Analytics {
   static Future<void> mainNotificationsButtonPressed() =>
       AppMetrica.reportEvent('main.notifications.buttonPressed');
 
+  static Future<void> mainMapButtonPressed() =>
+      AppMetrica.reportEvent('main.map.buttonPressed');
+
   static Future<void> mainDeadlineCellPressed({
     required String taskStatus,
     required int courseId,

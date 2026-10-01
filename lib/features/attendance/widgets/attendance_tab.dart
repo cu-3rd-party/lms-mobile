@@ -10,8 +10,9 @@ import 'package:cumobile/features/attendance/pages/attendance_course_page.dart';
 
 class AttendanceTab extends StatefulWidget {
   final double bottomInset;
+  final bool showCampusMap;
 
-  const AttendanceTab({super.key, this.bottomInset = 0});
+  const AttendanceTab({super.key, this.bottomInset = 0, this.showCampusMap = false});
 
   @override
   State<AttendanceTab> createState() => _AttendanceTabState();
@@ -70,8 +71,18 @@ class _AttendanceTabState extends State<AttendanceTab> {
 
   void _openCourse(AttendanceCourse course) {
     final route = Platform.isIOS
-        ? CupertinoPageRoute<void>(builder: (_) => AttendanceCoursePage(course: course))
-        : MaterialPageRoute<void>(builder: (_) => AttendanceCoursePage(course: course));
+        ? CupertinoPageRoute<void>(
+            builder: (_) => AttendanceCoursePage(
+              course: course,
+              showCampusMap: widget.showCampusMap,
+            ),
+          )
+        : MaterialPageRoute<void>(
+            builder: (_) => AttendanceCoursePage(
+              course: course,
+              showCampusMap: widget.showCampusMap,
+            ),
+          );
     Navigator.of(context).push(route);
   }
 

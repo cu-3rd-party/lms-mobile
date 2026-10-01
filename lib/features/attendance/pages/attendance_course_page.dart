@@ -7,12 +7,19 @@ import 'package:intl/intl.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/models/attendance.dart';
+import 'package:cumobile/data/models/campus_map.dart';
 import 'package:cumobile/data/services/api_service.dart';
+import 'package:cumobile/features/map/pages/campus_map_page.dart';
 
 class AttendanceCoursePage extends StatefulWidget {
   final AttendanceCourse course;
+  final bool showCampusMap;
 
-  const AttendanceCoursePage({super.key, required this.course});
+  const AttendanceCoursePage({
+    super.key,
+    required this.course,
+    this.showCampusMap = false,
+  });
 
   @override
   State<AttendanceCoursePage> createState() => _AttendanceCoursePageState();
@@ -34,6 +41,7 @@ class _AttendanceCoursePageState extends State<AttendanceCoursePage> {
   bool _isLoading = true;
   bool _hasError = false;
   int _requestId = 0;
+  CampusMapData? _mapData;
 
   @override
   void initState() {
@@ -41,6 +49,19 @@ class _AttendanceCoursePageState extends State<AttendanceCoursePage> {
     final now = DateTime.now();
     _date = DateTime(now.year, now.month, now.day);
     _load();
+    if (widget.showCampusMap) {
+      CampusMapData.load().then((data) {
+        if (mounted) setState(() => _mapData = data);
+      }).catchError((_) {});
+    }
+  }
+
+  void _openMap(String room) {
+    Navigator.of(context).push(
+      Platform.isIOS
+          ? CupertinoPageRoute<void>(builder: (_) => CampusMapPage(destination: room))
+          : MaterialPageRoute<void>(builder: (_) => CampusMapPage(destination: room)),
+    );
   }
 
   Future<void> _load() async {
@@ -387,6 +408,27 @@ class _AttendanceCoursePageState extends State<AttendanceCoursePage> {
                   Text(
                     location,
                     style: TextStyle(fontSize: 12, color: c.textTertiary),
+                  ),
+                ],
+                if (_mapData?.findRoom(event.locationTitle ?? '') != null) ...[
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () => _openMap(event.locationTitle!),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isIos ? CupertinoIcons.map : Icons.map_outlined,
+                          size: 14,
+                          color: c.accent,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'На карте',
+                          style: TextStyle(fontSize: 12, color: c.accent),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
                 if (event.isParticipant) ...[

@@ -23,10 +23,12 @@ class CoursesTab extends StatefulWidget {
   final GradebookResponse? gradebook;
   final bool isLoadingGradebook;
   final double bottomInset;
+  final bool showCampusMap;
 
   const CoursesTab({
     super.key,
     this.bottomInset = 0,
+    this.showCampusMap = false,
     required this.activeCourses,
     required this.archivedCourses,
     required this.isLoading,
@@ -102,7 +104,10 @@ class _CoursesTabState extends State<CoursesTab> {
       case 2:
         return _buildRecordBookContent(isIos);
       case 3:
-        return AttendanceTab(bottomInset: widget.bottomInset);
+        return AttendanceTab(
+          bottomInset: widget.bottomInset,
+          showCampusMap: widget.showCampusMap,
+        );
       default:
         return _buildCoursesContent(isIos);
     }
