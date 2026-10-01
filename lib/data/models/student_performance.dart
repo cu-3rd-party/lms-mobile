@@ -42,16 +42,22 @@ class StudentPerformanceResponse {
 class CourseExerciseActivity {
   final int id;
   final String name;
+  final double? weight;
+  final int? maxExercisesCount;
 
   CourseExerciseActivity({
     required this.id,
     required this.name,
+    this.weight,
+    this.maxExercisesCount,
   });
 
   factory CourseExerciseActivity.fromJson(Map<String, dynamic> json) {
     return CourseExerciseActivity(
       id: json['id'] as int,
       name: json['name'] as String,
+      weight: (json['weight'] as num?)?.toDouble(),
+      maxExercisesCount: (json['maxExercisesCount'] as num?)?.toInt(),
     );
   }
 }
@@ -135,12 +141,14 @@ class TaskScoreActivity {
   final String name;
   final double weight;
   final double? averageScoreThreshold;
+  final int? maxExercisesCount;
 
   TaskScoreActivity({
     required this.id,
     required this.name,
     required this.weight,
     this.averageScoreThreshold,
+    this.maxExercisesCount,
   });
 
   factory TaskScoreActivity.fromJson(Map<String, dynamic> json) {
@@ -149,6 +157,7 @@ class TaskScoreActivity {
       name: json['name'] as String,
       weight: (json['weight'] as num?)?.toDouble() ?? 0.0,
       averageScoreThreshold: (json['averageScoreThreshold'] as num?)?.toDouble(),
+      maxExercisesCount: (json['maxExercisesCount'] as num?)?.toInt(),
     );
   }
 }
@@ -218,22 +227,68 @@ class ExerciseWithScore {
   String get state => score?.state ?? 'none';
 }
 
+class ActivityPerformance {
+  final TaskScoreActivity activity;
+  final double total;
+  final double average;
+
+  ActivityPerformance({
+    required this.activity,
+    required this.total,
+    required this.average,
+  });
+
+  factory ActivityPerformance.fromJson(Map<String, dynamic> json) {
+    return ActivityPerformance(
+      activity: TaskScoreActivity.fromJson(json['activity'] as Map<String, dynamic>),
+      total: (json['total'] as num?)?.toDouble() ?? 0,
+      average: (json['average'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
 class ActivitySummary {
   final int activityId;
   final String activityName;
-  final int count;
-  final double averageScore;
+  final int completedCount;
+  final int gradedCount;
+  final int maxCount;
+  final double scoreSum;
   final double weight;
+  final double? serverAverage;
+  final double? serverTotal;
 
   ActivitySummary({
     required this.activityId,
     required this.activityName,
-    required this.count,
-    required this.averageScore,
+    required this.completedCount,
+    required this.gradedCount,
+    required this.maxCount,
+    required this.scoreSum,
     required this.weight,
+    this.serverAverage,
+    this.serverTotal,
   });
 
-  double get totalContribution => averageScore * weight;
+  static double truncate2(double value) => (value * 100 + 1e-9).floorToDouble() / 100;
+
+  double get averageScore {
+    final server = serverAverage;
+    if (server != null) return truncate2(server);
+    return maxCount <= 0 ? 0 : truncate2(scoreSum / maxCount);
+  }
+
+  double get totalContribution => serverTotal ?? averageScore * weight;
+
+  double get displayTotal => truncate2(totalContribution);
+
+  double get achievableContribution =>
+      maxCount <= 0 ? 0 : weight * 10 * gradedCount / maxCount;
+
+  double get averageRatio {
+    final achievable = maxCount <= 0 ? 0 : 10 * gradedCount / maxCount;
+    return achievable <= 0 ? 0 : averageScore / achievable;
+  }
 }
 
 class GradebookGrade {

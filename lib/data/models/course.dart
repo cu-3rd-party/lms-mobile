@@ -84,9 +84,9 @@ class Course {
       case 'development':
         return 'Разработка';
       case 'stem':
-        return 'Stem';
+        return 'STEM';
       case 'ml':
-        return 'ИИ';
+        return 'ML';
       case 'general':
         return 'Общее';
       case 'business':

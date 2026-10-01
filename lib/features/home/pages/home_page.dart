@@ -60,6 +60,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
   bool _isLoadingProfile = true;
   StudentLmsProfile? _lmsProfile;
   List<StudentTask> _tasks = [];
+  List<StudentTask>? _deadlineTasks;
   bool _isLoadingTasks = true;
   bool _tasksError = false;
   final Set<int> _lateDaysLoadingIds = {};
@@ -234,14 +235,20 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
   Future<void> _loadTasks() async {
     try {
-      final tasks = await apiService.fetchTasks(
-        inProgress: true,
-        review: true,
-        backlog: true,
-        failed: true,
-        evaluated: true,
-      );
+      final results = await Future.wait([
+        apiService.fetchTasks(
+          inProgress: true,
+          review: true,
+          backlog: true,
+          failed: true,
+          evaluated: true,
+        ),
+        apiService.fetchDeadlines(),
+      ]);
+      final tasks = results[0];
+      final deadlines = results[1];
       if (!mounted) return;
+      _deadlineTasks = deadlines == null ? null : _mergeDeadlines(deadlines, tasks ?? _tasks);
       if (tasks == null) {
         setState(() {
           _isLoadingTasks = false;
@@ -706,7 +713,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
             children: [
               DeadlinesSection(
                 key: ValueKey('deadlines_${_archivedCourses.map((c) => c.id).join(',')}'),
-                tasks: _filteredTasksForHome(),
+                tasks: _filteredDeadlinesForHome(),
                 isLoading: _isLoadingTasks,
                 hasError: _tasksError,
                 onOpenTask: (task) {
@@ -838,12 +845,19 @@ class _HomePageState extends State<HomePage> with RouteAware {
     );
   }
 
-  static const _bottomStates = {'evaluated', 'failed', 'rejected', 'review'};
+  static const _topStates = {'review'};
+  static const _bottomStates = {'evaluated', 'failed', 'rejected'};
+
+  static int _taskSortRank(StudentTask task) {
+    final state = task.normalizedState;
+    if (_topStates.contains(state)) return 0;
+    if (_bottomStates.contains(state)) return 2;
+    return 1;
+  }
 
   static int _compareTasksByDeadline(StudentTask a, StudentTask b) {
-    final aBottom = _bottomStates.contains(a.normalizedState);
-    final bBottom = _bottomStates.contains(b.normalizedState);
-    if (aBottom != bBottom) return aBottom ? 1 : -1;
+    final rankDiff = _taskSortRank(a) - _taskSortRank(b);
+    if (rankDiff != 0) return rankDiff;
 
     final aDeadline = a.effectiveDeadline;
     final bDeadline = b.effectiveDeadline;
@@ -853,9 +867,34 @@ class _HomePageState extends State<HomePage> with RouteAware {
     return aDeadline.compareTo(bDeadline);
   }
 
-  List<StudentTask> _filteredTasksForHome() {
+  static List<StudentTask> _mergeDeadlines(
+    List<StudentTask> deadlines,
+    List<StudentTask> tasks,
+  ) {
+    final byId = {for (final task in tasks) task.id: task};
+    final merged = deadlines.map((d) => byId[d.id] ?? d).toList();
+    merged.sort((a, b) {
+      final aDeadline = a.effectiveDeadline;
+      final bDeadline = b.effectiveDeadline;
+      if (aDeadline == null && bDeadline == null) return 0;
+      if (aDeadline == null) return 1;
+      if (bDeadline == null) return -1;
+      return aDeadline.compareTo(bDeadline);
+    });
+    return merged;
+  }
+
+  List<StudentTask> _filteredDeadlinesForHome() {
+    final deadlines = _deadlineTasks;
+    if (deadlines == null) return _filteredTasksForHome();
+    return _applyHomeFilters(deadlines);
+  }
+
+  List<StudentTask> _filteredTasksForHome() => _applyHomeFilters(_tasks);
+
+  List<StudentTask> _applyHomeFilters(List<StudentTask> source) {
     final query = _taskSearchQuery.trim().toLowerCase();
-    return _tasks.where((task) {
+    return source.where((task) {
       if (_taskCourseFilters.isNotEmpty &&
           !_taskCourseFilters.contains(task.course.id)) {
         return false;

@@ -63,7 +63,7 @@ class StudentTask {
 
   bool get canExtendDeadline {
     if (!isLateDaysEnabled) return false;
-    const blocked = {'review', 'evaluated', 'revision', 'rework'};
+    const blocked = {'review', 'evaluated', 'revision', 'rework', 'reworking'};
     return !blocked.contains(normalizedState);
   }
 
@@ -91,6 +91,10 @@ class StudentTask {
       case 'rework':
       case 'backlog':
         return state;
+      case 'reworking':
+        return 'rework';
+      case 'submitted':
+        return 'hasSolution';
       case 'inProgress':
         return submitAt != null ? 'hasSolution' : 'inProgress';
       case 'hasSolution':

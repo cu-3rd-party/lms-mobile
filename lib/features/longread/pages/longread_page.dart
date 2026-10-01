@@ -1582,10 +1582,20 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final details = _taskDetailsById[taskId];
     final existingSolutionAttachments = details?.solutionAttachments ?? const [];
     final derivedStatus = _deriveStatus(events, details);
-    final isInProgress = details?.state == 'inProgress' || derivedStatus == 'В работе';
+    const editableStates = {
+      'inProgress',
+      'submitted',
+      'hasSolution',
+      'revision',
+      'rework',
+      'reworking',
+    };
     final hasSolutionData =
         (details?.solutionUrl?.isNotEmpty ?? false) || existingSolutionAttachments.isNotEmpty;
-    final canEdit = isInProgress;
+    final canEdit = editableStates.contains(details?.state) ||
+        derivedStatus == 'В работе' ||
+        derivedStatus == 'Есть решение' ||
+        derivedStatus == 'Дорешивание';
     final rawEditing = _isEditingSolution[taskId] ?? (!hasSolutionData && canEdit);
     final isEditing = canEdit ? rawEditing : false;
     final existingForEdit =
@@ -2001,6 +2011,34 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                           ),
                         ),
                       const Spacer(),
+                      if (_isEditingSolution[taskId] == true) ...[
+                        if (isIos)
+                          CupertinoButton(
+                            onPressed:
+                                isSending ? null : () => _cancelSolutionEdit(taskId),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            minimumSize: const Size(32, 32),
+                            child: Text(
+                              'Отмена',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isSending ? c.textDisabled : c.textSecondary,
+                              ),
+                            ),
+                          )
+                        else
+                          TextButton(
+                            onPressed:
+                                isSending ? null : () => _cancelSolutionEdit(taskId),
+                            style: TextButton.styleFrom(
+                              foregroundColor: c.textSecondary,
+                              textStyle: const TextStyle(fontSize: 12),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text('Отмена'),
+                          ),
+                        const SizedBox(width: 6),
+                      ],
                       if (isIos)
                         CupertinoButton(
                           onPressed: isEnabled ? () => _submitSolution(taskId) : null,
@@ -2200,6 +2238,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     setState(() {
       _isEditingSolution[taskId] = true;
       _editingSolutionAttachments[taskId] = existing;
+      _pendingSolutionAttachments.remove(taskId);
+      _solutionErrors[taskId] = null;
+    });
+  }
+
+  void _cancelSolutionEdit(int taskId) {
+    _solutionUrlControllerFor(taskId).clear();
+    setState(() {
+      _isEditingSolution[taskId] = false;
+      _editingSolutionAttachments.remove(taskId);
       _pendingSolutionAttachments.remove(taskId);
       _solutionErrors[taskId] = null;
     });
@@ -3484,7 +3532,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   Widget _buildLateDaysSummaryRow(int taskId, TaskDetails details, LongreadMaterial material) {
     if (!details.isLateDaysEnabled) return const SizedBox.shrink();
     final state = details.state ?? '';
-    const blocked = {'review', 'evaluated', 'revision', 'rework'};
+    const blocked = {'review', 'evaluated', 'revision', 'rework', 'reworking'};
     if (blocked.contains(state)) return const SizedBox.shrink();
 
     final isIos = Platform.isIOS;
@@ -4290,10 +4338,13 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           return 'Бэклог';
         case 'inProgress':
           return hasSubmittedSolution ? 'Есть решение' : 'В работе';
+        case 'submitted':
+          return 'Есть решение';
         case 'review':
           return 'На проверке';
         case 'revision':
         case 'rework':
+        case 'reworking':
           return 'Дорешивание';
         case 'failed':
         case 'rejected':

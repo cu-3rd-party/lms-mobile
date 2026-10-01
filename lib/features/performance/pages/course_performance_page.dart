@@ -26,6 +26,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   bool _isLoading = true;
   CourseExercisesResponse? _exercisesResponse;
   CourseStudentPerformanceResponse? _performanceResponse;
+  List<ActivityPerformance>? _activitiesPerformance;
   int _selectedTab = 0;
   String _selectedActivityFilter = 'all';
 
@@ -40,11 +41,13 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
       final results = await Future.wait([
         apiService.fetchCourseExercises(widget.course.id),
         apiService.fetchCourseStudentPerformance(widget.course.id),
+        apiService.fetchActivitiesPerformance(widget.course.id),
       ]);
       if (!mounted) return;
       setState(() {
         _exercisesResponse = results[0] as CourseExercisesResponse?;
         _performanceResponse = results[1] as CourseStudentPerformanceResponse?;
+        _activitiesPerformance = results[2] as List<ActivityPerformance>?;
         _isLoading = false;
       });
     } catch (e, st) {
@@ -89,34 +92,80 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   }
 
   List<ActivitySummary> _getActivitySummaries() {
-    if (_performanceResponse == null) return [];
-
-    final activityMap = <int, List<TaskScore>>{};
-    for (final task in _performanceResponse!.tasks) {
-      activityMap.putIfAbsent(task.activity.id, () => []).add(task);
+    final tasks = _performanceResponse?.tasks ?? const <TaskScore>[];
+    final exercises = _exercisesResponse?.exercises ?? const <CourseExercise>[];
+    final serverActivities = _activitiesPerformance;
+    if (serverActivities != null && serverActivities.isNotEmpty) {
+      return serverActivities.map((item) {
+        final id = item.activity.id;
+        final activityTasks = tasks.where((t) => t.activity.id == id);
+        return ActivitySummary(
+          activityId: id,
+          activityName: item.activity.name,
+          completedCount: activityTasks.where((t) => t.state == 'evaluated').length,
+          gradedCount: activityTasks
+              .where((t) => t.state == 'evaluated' || t.state == 'failed')
+              .length,
+          maxCount: item.activity.maxExercisesCount ?? activityTasks.length,
+          scoreSum: activityTasks.fold(0.0, (sum, t) => sum + t.score),
+          weight: item.activity.weight,
+          serverAverage: item.average,
+          serverTotal: item.total,
+        );
+      }).toList();
     }
 
-    final summaries = <ActivitySummary>[];
-    for (final entry in activityMap.entries) {
-      final tasks = entry.value;
-      if (tasks.isEmpty) continue;
+    final order = <int>[];
+    final names = <int, String>{};
+    final weights = <int, double>{};
+    final maxCounts = <int, int>{};
+    final exerciseCounts = <int, int>{};
+    final scoreSums = <int, double>{};
+    final completed = <int, int>{};
+    final graded = <int, int>{};
 
-      final activityName = tasks.first.activity.name;
-      final weight = tasks.first.activity.weight;
-      final totalScore = tasks.fold<double>(0, (sum, t) => sum + t.score);
-      final avgScore = totalScore / tasks.length;
-
-      summaries.add(ActivitySummary(
-        activityId: entry.key,
-        activityName: activityName,
-        count: tasks.length,
-        averageScore: avgScore,
-        weight: weight,
-      ));
+    for (final task in tasks) {
+      final id = task.activity.id;
+      if (!names.containsKey(id)) order.add(id);
+      names[id] = task.activity.name;
+      weights[id] = task.activity.weight;
+      final max = task.activity.maxExercisesCount;
+      if (max != null) maxCounts[id] = max;
+      scoreSums[id] = (scoreSums[id] ?? 0) + task.score + (task.extraScore ?? 0);
+      if (task.state == 'evaluated') completed[id] = (completed[id] ?? 0) + 1;
+      if (task.state == 'evaluated' || task.state == 'failed') {
+        graded[id] = (graded[id] ?? 0) + 1;
+      }
     }
 
-    summaries.sort((a, b) => b.weight.compareTo(a.weight));
-    return summaries;
+    for (final exercise in exercises) {
+      final activity = exercise.activity;
+      if (activity == null) continue;
+      final id = activity.id;
+      exerciseCounts[id] = (exerciseCounts[id] ?? 0) + 1;
+      if (names.containsKey(id)) continue;
+      final weight = activity.weight;
+      if (weight == null) continue;
+      order.add(id);
+      names[id] = activity.name;
+      weights[id] = weight;
+      final max = activity.maxExercisesCount;
+      if (max != null) maxCounts[id] = max;
+    }
+
+    return order.map((id) {
+      final taskCount = tasks.where((t) => t.activity.id == id).length;
+      final fallbackMax = exerciseCounts[id] ?? taskCount;
+      return ActivitySummary(
+        activityId: id,
+        activityName: names[id] ?? '',
+        completedCount: completed[id] ?? 0,
+        gradedCount: graded[id] ?? 0,
+        maxCount: maxCounts[id] ?? (fallbackMax > 0 ? fallbackMax : taskCount),
+        scoreSum: scoreSums[id] ?? 0,
+        weight: weights[id] ?? 0,
+      );
+    }).toList();
   }
 
   @override
@@ -479,8 +528,16 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   Widget _buildPerformanceTab(bool isIos) {
     final c = AppColors.of(context);
     final summaries = _getActivitySummaries();
-    final totalContribution =
+    final accumulated =
         summaries.fold<double>(0, (sum, s) => sum + s.totalContribution);
+    final achievable =
+        summaries.fold<double>(0, (sum, s) => sum + s.achievableContribution);
+    final accumulatedText = _formatDecimal(accumulated, 2);
+    final achievableText = _formatDecimal(achievable, 2);
+    final roundedAchievable = double.parse(achievable.toStringAsFixed(2));
+    final percent = roundedAchievable > 0
+        ? (double.parse(accumulated.toStringAsFixed(2)) / roundedAchievable * 100).round()
+        : null;
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return ListView(
@@ -497,7 +554,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
               Row(
                 children: [
                   _buildHeaderCell('Активность', flex: 3),
-                  _buildHeaderCell('Кол-во', flex: 1),
+                  _buildHeaderCell('Выполн.', flex: 1),
                   _buildHeaderCell('Ср. балл', flex: 1),
                   const SizedBox(width: 8),
                   Text('x', style: TextStyle(color: c.textTertiary, fontSize: 12)),
@@ -516,9 +573,8 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                 Row(
                   children: [
                     Expanded(
-                      flex: 3,
                       child: Text(
-                        'Итого',
+                        'Итог за курс',
                         style: TextStyle(
                           color: c.textPrimary,
                           fontWeight: FontWeight.bold,
@@ -526,28 +582,35 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
                         ),
                       ),
                     ),
-                    const Expanded(flex: 1, child: SizedBox()),
-                    const Expanded(flex: 1, child: SizedBox()),
-                    const SizedBox(width: 8),
-                    const Text('', style: TextStyle(fontSize: 12)),
-                    const SizedBox(width: 8),
-                    const Expanded(flex: 1, child: SizedBox()),
-                    const SizedBox(width: 8),
-                    const Text('', style: TextStyle(fontSize: 12)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 1,
-                  child: Text(
-                    _formatDecimal(totalContribution, 2),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: _getGradeColor(totalContribution.round()),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
+                    Text(
+                      widget.course.total.toString(),
+                      style: TextStyle(
+                        color: _getGradeColor(widget.course.total),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text.rich(
+                    TextSpan(
+                      style: TextStyle(color: c.textSecondary, fontSize: 12),
+                      children: [
+                        const TextSpan(text: 'Накоплено на данный момент: '),
+                        TextSpan(
+                          text: '$accumulatedText / $achievableText',
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (percent != null) TextSpan(text: ' ($percent%)'),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ],
@@ -591,7 +654,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
           Expanded(
             flex: 1,
             child: Text(
-              summary.count.toString(),
+              '${summary.completedCount}/${summary.maxCount}',
               textAlign: TextAlign.center,
               style: TextStyle(color: c.textPrimary, fontSize: 12),
             ),
@@ -599,10 +662,10 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
           Expanded(
             flex: 1,
             child: Text(
-              _formatScore(summary.averageScore),
+              _formatDecimal(summary.averageScore, 2),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: _getScoreColor(summary.averageScore, 10),
+                color: _getScoreColor(summary.averageRatio * 10, 10),
                 fontSize: 12,
               ),
             ),
@@ -613,7 +676,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
           Expanded(
             flex: 1,
             child: Text(
-              _formatDecimal(summary.weight, 2),
+              '${_formatDecimal(summary.weight * 100, 0)}%',
               textAlign: TextAlign.center,
               style: TextStyle(color: c.textPrimary, fontSize: 12),
             ),
@@ -624,10 +687,10 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
           Expanded(
             flex: 1,
             child: Text(
-              _formatDecimal(summary.totalContribution, 2),
+              _formatDecimal(summary.displayTotal, 2),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: _getGradeColor((summary.totalContribution * 10).round()),
+                color: _getScoreColor(summary.averageRatio * 10, 10),
                 fontWeight: FontWeight.w500,
                 fontSize: 12,
               ),
@@ -661,6 +724,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
 
   String _formatDecimal(num value, int fractionDigits) {
     final fixed = value.toStringAsFixed(fractionDigits);
+    if (!fixed.contains('.')) return fixed;
     return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
   }
 

@@ -9,7 +9,9 @@ import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:cumobile/core/services/demo_service.dart';
+import 'package:cumobile/data/models/attendance.dart';
 import 'package:cumobile/data/models/course.dart';
+import 'package:cumobile/data/models/course_extras.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/longread_material.dart';
 import 'package:cumobile/data/models/notification_item.dart';
@@ -150,7 +152,7 @@ class ApiService {
       if (cookie == null) return [];
 
       final states = <String>[];
-      if (inProgress) states.add('state=inProgress');
+      if (inProgress) states.addAll(['state=inProgress', 'state=submitted', 'state=reworking']);
       if (review) states.add('state=review');
       if (backlog) states.add('state=backlog');
       if (failed) states.add('state=failed');
@@ -734,6 +736,31 @@ class ApiService {
     return null;
   }
 
+  Future<List<ActivityPerformance>?> fetchActivitiesPerformance(int courseId) async {
+    if (demoService.isDemoMode) return null;
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/courses/$courseId/activities-performance'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return (data['items'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(ActivityPerformance.fromJson)
+            .toList();
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching activities performance', e, st);
+    }
+    return null;
+  }
+
   Future<CourseExercisesResponse?> fetchCourseExercises(int courseId) async {
     try {
       final cookie = await getCookie();
@@ -791,6 +818,226 @@ class ApiService {
       }
     } catch (e, st) {
       _log.warning('Error fetching gradebook', e, st);
+    }
+    return null;
+  }
+
+  Future<CourseProgress?> fetchCourseProgress(int courseId) async {
+    if (demoService.isDemoMode) return null;
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/courses/$courseId/student/progress'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        return CourseProgress.fromJson(jsonDecode(response.body));
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching course progress', e, st);
+    }
+    return null;
+  }
+
+  Future<List<StudentTask>?> fetchDeadlines({int limit = 100, int? courseId}) async {
+    if (demoService.isDemoMode) return null;
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final query = [
+        'limit=$limit',
+        if (courseId != null) 'courseId=$courseId',
+      ].join('&');
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/deadlines?$query'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(StudentTask.fromJson)
+            .toList();
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching deadlines', e, st);
+    }
+    return null;
+  }
+
+  Future<List<RecordingHost>> fetchRecordingHosts(int courseId) async {
+    if (demoService.isDemoMode) return [];
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return [];
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/calendar-events/recording-hosts?courseId=$courseId'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(RecordingHost.fromJson)
+            .toList();
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching recording hosts', e, st);
+    }
+    return [];
+  }
+
+  Future<RecordingEventsPage?> fetchRecordingEvents({
+    required int courseId,
+    int offset = 0,
+    int limit = 100,
+    bool myEvents = true,
+    Iterable<String> eventTypes = const [],
+    Iterable<String> hostEmails = const [],
+  }) async {
+    if (demoService.isDemoMode) {
+      return const RecordingEventsPage(items: [], totalCount: 0);
+    }
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final query = [
+        'offset=$offset',
+        'limit=$limit',
+        'myEvents=$myEvents',
+        ...eventTypes.map((t) => 'eventTypes=${Uri.encodeQueryComponent(t)}'),
+        ...hostEmails.map((e) => 'hostEmails=${Uri.encodeQueryComponent(e)}'),
+        'courseId=$courseId',
+      ].join('&');
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/calendar-events/recording-events?$query'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final items = (data['items'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(RecordingEvent.fromJson)
+            .toList();
+        final paging = data['paging'];
+        final total = paging is Map ? (paging['totalCount'] as num?)?.toInt() : null;
+        return RecordingEventsPage(items: items, totalCount: total ?? items.length);
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching recording events', e, st);
+    }
+    return null;
+  }
+
+  Future<List<EventRecording>?> fetchEventRecordings(String eventId, String actualDate) async {
+    if (demoService.isDemoMode) return [];
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse(
+          '$baseUrl/micro-lms/calendar-events/$eventId/recordings?actualDate=$actualDate',
+        ),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(EventRecording.fromJson)
+            .where((r) => r.url.isNotEmpty)
+            .toList();
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching event recordings', e, st);
+    }
+    return null;
+  }
+
+  Future<List<AttendanceCourse>?> fetchAttendanceCourses({bool archived = false}) async {
+    if (demoService.isDemoMode) return [];
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/v0/attendance/learn/courses?isArchived=$archived'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(AttendanceCourse.fromJson)
+            .toList();
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching attendance courses', e, st);
+    }
+    return null;
+  }
+
+  Future<List<AttendanceEvent>?> fetchCourseEventsByDate(int courseId, String date) async {
+    if (demoService.isDemoMode) return [];
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/calendar-events/learn/courses/$courseId/events/$date'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(AttendanceEvent.fromJson)
+            .toList();
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching course events', e, st);
+    }
+    return null;
+  }
+
+  Future<Set<String>?> fetchAttendedEventIds(int courseId, String date) async {
+    if (demoService.isDemoMode) return {};
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/v0/attendance/learn/courses/$courseId/events/$date'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((e) => e.toString()).toSet();
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching attended events', e, st);
     }
     return null;
   }

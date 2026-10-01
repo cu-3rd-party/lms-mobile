@@ -7,6 +7,7 @@ import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/student_performance.dart';
+import 'package:cumobile/features/attendance/widgets/attendance_tab.dart';
 
 class CoursesTab extends StatefulWidget {
   final List<Course> activeCourses;
@@ -72,6 +73,9 @@ class _CoursesTabState extends State<CoursesTab> {
       case 2:
         Analytics.learningRecordbookOpened();
         break;
+      case 3:
+        Analytics.learningAttendanceOpened();
+        break;
     }
   }
 
@@ -97,6 +101,8 @@ class _CoursesTabState extends State<CoursesTab> {
         return _buildGradeSheetContent(isIos);
       case 2:
         return _buildRecordBookContent(isIos);
+      case 3:
+        return AttendanceTab(bottomInset: widget.bottomInset);
       default:
         return _buildCoursesContent(isIos);
     }
@@ -113,16 +119,32 @@ class _CoursesTabState extends State<CoursesTab> {
               thumbColor: c.accent.withValues(alpha: 0.3),
               children: const {
                 0: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Text('Курсы', style: TextStyle(fontSize: 13)),
+                  padding: EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('Курсы', maxLines: 1, style: TextStyle(fontSize: 13)),
+                  ),
                 ),
                 1: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Text('Ведомость', style: TextStyle(fontSize: 13)),
+                  padding: EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('Ведомость', maxLines: 1, style: TextStyle(fontSize: 13)),
+                  ),
                 ),
                 2: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Text('Зачетка', style: TextStyle(fontSize: 13)),
+                  padding: EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('Зачетка', maxLines: 1, style: TextStyle(fontSize: 13)),
+                  ),
+                ),
+                3: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('Посещения', maxLines: 1, style: TextStyle(fontSize: 13)),
+                  ),
                 ),
               },
               onValueChanged: (value) {
@@ -141,6 +163,7 @@ class _CoursesTabState extends State<CoursesTab> {
                   _buildSegmentButton(0, 'Курсы'),
                   _buildSegmentButton(1, 'Ведомость'),
                   _buildSegmentButton(2, 'Зачетка'),
+                  _buildSegmentButton(3, 'Посещения'),
                 ],
               ),
             ),

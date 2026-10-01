@@ -3,19 +3,32 @@ class CourseOverview {
   final String name;
   final bool isArchived;
   final List<CourseTheme> themes;
+  final String? syllabusUrl;
+  final String? timeChannelUrl;
 
   CourseOverview({
     required this.id,
     required this.name,
     required this.isArchived,
     required this.themes,
+    this.syllabusUrl,
+    this.timeChannelUrl,
   });
 
   factory CourseOverview.fromJson(Map<String, dynamic> json) {
+    final settings = json['settings'];
+    String? setting(String key) {
+      if (settings is! Map) return null;
+      final value = settings[key]?.toString().trim();
+      return value == null || value.isEmpty ? null : value;
+    }
+
     return CourseOverview(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
       isArchived: json['isArchived'] ?? false,
+      syllabusUrl: setting('syllabusUrl'),
+      timeChannelUrl: setting('timeChannelUrl'),
       themes: (json['themes'] as List?)
               ?.map((e) => CourseTheme.fromJson(e))
               .toList() ??

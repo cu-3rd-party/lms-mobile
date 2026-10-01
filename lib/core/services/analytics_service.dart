@@ -182,6 +182,9 @@ class Analytics {
   static Future<void> learningRecordbookOpened() =>
       AppMetrica.reportEvent('learning.recordbook.opened');
 
+  static Future<void> learningAttendanceOpened() =>
+      AppMetrica.reportEvent('learning.attendance.opened');
+
   static Future<void> courseOpened({
     required String from,
     required int courseId,
