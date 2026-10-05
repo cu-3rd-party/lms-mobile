@@ -4162,6 +4162,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     if (event.type == 'taskEvaluated') {
       return _statusBadge('Сдано', c.accent);
     }
+    if (event.type == 'taskFailed') {
+      return _statusBadge('Не сдано', StudentTask.failedColor);
+    }
     final state = event.content.taskState ?? event.content.state;
     if (event.type == 'taskCreated' && state == 'backlog') {
       return _statusBadge('Бэклог', c.textTertiary);
@@ -4222,9 +4225,17 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
       case 'solutionAttached':
         return '';
       case 'taskStarted':
+      case 'codingTaskStarted':
         return 'Задание начато';
+      case 'codingTaskSubmitted':
+        return 'Решение отправлено';
       case 'taskCompleted':
+      case 'codingTaskCompleted':
         return 'Задание отправлено на проверку';
+      case 'taskFailed':
+        return 'Задание не сдано';
+      case 'taskReset':
+        return 'Статус задания сброшен';
       case 'taskCreated':
         final deadline = event.content.estimation?.deadline ?? event.content.taskDeadline;
         return deadline != null
@@ -4605,11 +4616,16 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     if (hasSubmittedSolution) return 'Есть решение';
     final types = events.map((e) => e.type).toSet();
     if (types.contains('taskEvaluated')) return 'Проверено';
-    if (types.contains('taskCompleted') || events.any((e) => e.content.state == 'review')) {
+    if (types.contains('taskCompleted') ||
+        types.contains('codingTaskCompleted') ||
+        events.any((e) => e.content.state == 'review')) {
       return 'На проверке';
     }
-    if (submitAt != null && types.contains('solutionAttached')) return 'Есть решение';
-    if (types.contains('taskStarted')) return 'В работе';
+    if (submitAt != null &&
+        (types.contains('solutionAttached') || types.contains('codingTaskSubmitted'))) {
+      return 'Есть решение';
+    }
+    if (types.contains('taskStarted') || types.contains('codingTaskStarted')) return 'В работе';
     return 'Не сдано';
   }
 

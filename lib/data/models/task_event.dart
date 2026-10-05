@@ -67,7 +67,15 @@ class TaskEventContent {
           .whereType<Map<String, dynamic>>()
           .map(MaterialAttachment.fromJson));
     }
-    final solutionUrl = json['solution']?['solutionUrl']?.toString();
+    final solutionUrl =
+        json['solution']?['solutionUrl']?.toString() ?? json['solutionUrl']?.toString();
+
+    final directAttachments = json['attachments'];
+    if (directAttachments is List) {
+      attachments.addAll(
+        directAttachments.whereType<Map<String, dynamic>>().map(MaterialAttachment.fromJson),
+      );
+    }
 
     final attached = json['attached'];
     if (attached is List) {
