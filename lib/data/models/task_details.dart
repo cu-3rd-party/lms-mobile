@@ -15,6 +15,9 @@ class TaskDetails {
   final int? lateDays;
   final int? lateDaysBalance;
   final DateTime? deadline;
+  final int? exerciseId;
+  final String? exerciseUrl;
+  final bool isCodeEditorEnabled;
 
   TaskDetails({
     required this.id,
@@ -31,6 +34,9 @@ class TaskDetails {
     this.lateDays,
     this.lateDaysBalance,
     this.deadline,
+    this.exerciseId,
+    this.exerciseUrl,
+    this.isCodeEditorEnabled = false,
   }) : solutionAttachments = solutionAttachments ?? const [];
 
   TaskDetails copyWith({
@@ -54,6 +60,9 @@ class TaskDetails {
       lateDays: clearLateDays ? null : (lateDays ?? this.lateDays),
       lateDaysBalance: lateDaysBalance ?? this.lateDaysBalance,
       deadline: deadline,
+      exerciseId: exerciseId,
+      exerciseUrl: exerciseUrl,
+      isCodeEditorEnabled: isCodeEditorEnabled,
     );
   }
 
@@ -95,8 +104,16 @@ class TaskDetails {
       lateDays: (json['lateDays'] as num?)?.toInt(),
       lateDaysBalance: lateDaysBalance,
       deadline: json['deadline'] != null ? DateTime.tryParse(json['deadline'].toString()) : null,
+      exerciseId: exercise is Map ? (exercise['id'] as num?)?.toInt() : null,
+      exerciseUrl: exercise is Map ? _nonEmptyString(exercise['exerciseUrl']) : null,
+      isCodeEditorEnabled: exercise is Map && exercise['isCodeEditorEnabled'] == true,
     );
   }
+}
+
+String? _nonEmptyString(dynamic raw) {
+  final value = raw?.toString().trim();
+  return value == null || value.isEmpty ? null : value;
 }
 
 int? _parseSkillLevel(dynamic rawLevel) {

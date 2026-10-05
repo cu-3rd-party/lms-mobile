@@ -25,17 +25,21 @@ import 'package:uuid/uuid.dart';
 import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/file_rename_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/html_colors.dart';
 import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/longread_material.dart';
 import 'package:cumobile/data/models/task_comment.dart';
 import 'package:cumobile/data/models/task_details.dart';
+import 'package:cumobile/data/models/student_task.dart';
 import 'package:cumobile/data/models/task_event.dart';
 import 'package:cumobile/data/services/api_service.dart';
 import 'package:cumobile/features/home/widgets/late_days_dialog.dart';
 import 'package:cumobile/features/longread/widgets/attachment_card.dart';
+import 'package:cumobile/features/longread/widgets/exercise_header.dart';
 import 'package:cumobile/features/longread/widgets/file_rename_dialog.dart';
 import 'package:cumobile/features/longread/widgets/longread_file_card.dart';
+import 'package:cumobile/features/longread/widgets/quiz_player.dart';
 
 class LongreadPage extends StatefulWidget {
   final Longread longread;
@@ -46,6 +50,7 @@ class LongreadPage extends StatefulWidget {
   final int? themeId;
   final int? selectedTaskId;
   final String? selectedExerciseName;
+  final bool showOnlySelectedExercise;
 
   const LongreadPage({
     super.key,
@@ -57,6 +62,7 @@ class LongreadPage extends StatefulWidget {
     this.themeId,
     this.selectedTaskId,
     this.selectedExerciseName,
+    this.showOnlySelectedExercise = false,
   });
 
   @override
@@ -184,7 +190,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
   Future<void> _loadTaskDetails() async {
     final taskIds = _materials
-        .where((m) => m.isCoding && m.taskId != null)
+        .where((m) => m.isExercise && m.taskId != null)
         .map((m) => m.taskId!)
         .toSet();
 
@@ -703,7 +709,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     var nextIndex = 0;
     for (final material in _getFilteredMaterials()) {
       if (!material.isMarkdown) continue;
-      final raw = _normalizeHtmlColors(material.viewContent ?? '');
+      final raw = normalizeHtmlColors(material.viewContent ?? '');
       final startIndex = nextIndex;
       final updated = _highlightHtml(raw, query, () => nextIndex++);
       if (nextIndex != startIndex) {
@@ -853,15 +859,18 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   List<LongreadMaterial> _getFilteredMaterials() {
+    if (widget.selectedTaskId != null && widget.showOnlySelectedExercise) {
+      return _materials.where((m) => m.taskId == widget.selectedTaskId).toList();
+    }
     if (widget.selectedTaskId != null) {
       return _materials.where((m) {
-        if (m.isCoding) return m.taskId == widget.selectedTaskId;
+        if (m.isExercise) return m.taskId == widget.selectedTaskId;
         return true; // keep markdown/files alongside selected task
       }).toList();
     }
     if (widget.selectedExerciseName != null) {
       return _materials.where((m) {
-        if (m.isCoding) return m.name == widget.selectedExerciseName;
+        if (m.isExercise) return m.name == widget.selectedExerciseName;
         return true;
       }).toList();
     }
@@ -875,10 +884,11 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final items = <Widget>[];
 
-    // Show non-coding materials first (markdown/files), then coding cards.
+    final exercises = filteredMaterials.where((m) => m.isExercise).toList();
+    final hasSeveralExercises = exercises.length > 1;
     final orderedMaterials = [
-      ...filteredMaterials.where((m) => !m.isCoding),
-      ...filteredMaterials.where((m) => m.isCoding),
+      ...filteredMaterials.where((m) => !m.isExercise),
+      ...exercises,
     ];
 
     for (final material in orderedMaterials) {
@@ -886,14 +896,20 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         items.add(_buildMarkdownCard(material));
       } else if (material.isFile) {
         items.add(_buildFileCard(material));
-      } else if (material.isCoding) {
+      } else if (material.isExercise) {
         final taskId = material.taskId;
         if (taskId != null && !seenTaskIds.add(taskId)) {
           continue;
         }
-        items.add(_buildCodingCard(material, hasMarkdown: hasMarkdown));
-      } else if (material.isQuestions) {
-        items.add(_buildQuestionsUnsupportedCard());
+        if (material.opensAt != null && taskId == null) {
+          items.add(_buildLockedExerciseCard(material));
+        } else if (hasSeveralExercises) {
+          items.add(_buildCompactExerciseCard(material));
+        } else if (material.isQuestions) {
+          items.add(_buildQuizCard(material));
+        } else {
+          items.add(_buildCodingCard(material, hasMarkdown: hasMarkdown));
+        }
       }
     }
     return ListView(
@@ -903,68 +919,313 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildQuestionsUnsupportedCard() {
-    final courseId = widget.courseId;
-    final themeId = widget.themeId;
-    final longreadId = widget.longread.id;
-    final link = (courseId != null && themeId != null)
-        ? Uri.parse(
-            'https://my.centraluniversity.ru/learn/courses/view/actual/$courseId/themes/$themeId/longreads/$longreadId',
-          )
-        : null;
+  Color _taskStatusColor(TaskDetails? details) {
+    switch (details?.state) {
+      case 'evaluated':
+        return StudentTask.evaluatedColor;
+      case 'review':
+        return StudentTask.reviewColor;
+      case 'failed':
+      case 'rejected':
+        return StudentTask.failedColor;
+      case 'revision':
+      case 'rework':
+      case 'reworking':
+        return StudentTask.revisionColor;
+      case 'submitted':
+        return StudentTask.hasSolutionColor;
+      case 'inProgress':
+        return details?.submitAt != null
+            ? StudentTask.hasSolutionColor
+            : StudentTask.inProgressColor;
+      default:
+        return StudentTask.backlogColor;
+    }
+  }
+
+  Widget _buildExerciseContainer({required Widget child}) {
     final c = AppColors.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: c.border),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(Icons.info_outline, color: c.textTertiary, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Тесты пока не поддерживаются. '
-                  'Можно пройти тест на сайте.',
-                  style: TextStyle(fontSize: 12, color: c.textSecondary),
+      child: child,
+    );
+  }
+
+  Widget _buildExerciseHeader(LongreadMaterial material, {String? attemptsText}) {
+    final taskId = material.taskId;
+    final details = taskId != null ? _taskDetailsById[taskId] : null;
+    final events = taskId != null ? _eventsByTaskId[taskId] ?? const <TaskEvent>[] : const <TaskEvent>[];
+    final hasStatus = details != null || events.isNotEmpty;
+    final estimation = material.estimation;
+    return ExerciseHeader(
+      title: material.name ?? 'Задание',
+      statusLabel: hasStatus ? _deriveStatus(events, details) : null,
+      statusColor: hasStatus ? _taskStatusColor(details) : null,
+      deadline: details?.deadline ?? estimation?.deadline,
+      score: details?.score,
+      maxScore: details?.maxScore ?? estimation?.maxScore,
+      weight: estimation?.activityWeight,
+      attemptsText: attemptsText,
+    );
+  }
+
+  Widget _buildRichText(String html) {
+    final c = AppColors.of(context);
+    return Html(
+      data: normalizeHtmlColors(html),
+      style: {
+        "body": Style(
+          margin: Margins.zero,
+          padding: HtmlPaddings.zero,
+          fontSize: FontSize(14),
+          color: c.textPrimary,
+          lineHeight: LineHeight(1.5),
+        ),
+        "p": Style(margin: Margins.only(bottom: 4)),
+      },
+    );
+  }
+
+  Widget _buildQuizCard(LongreadMaterial material) {
+    final c = AppColors.of(context);
+    final taskId = material.taskId;
+    final description = material.viewContent?.trim() ?? '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildExerciseContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildExerciseHeader(
+                material,
+                attemptsText: ExerciseHeader.attemptsLabel(
+                  material.attemptsLimit,
+                  material.evaluationStrategy,
                 ),
-                if (link != null)
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 0),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    onPressed: () async {
-                      Analytics.longreadExternalLinkPressed(from: 'test');
-                      if (await canLaunchUrl(link)) {
-                        await launchUrl(link, mode: LaunchMode.externalApplication);
-                      }
-                    },
-                    child: Text(
-                      'Открыть тест',
-                      style: TextStyle(fontSize: 12, color: widget.themeColor),
-                    ),
-                  ),
+              ),
+              if (description.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildRichText(description),
               ],
+              if (taskId == null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Тест пока недоступен',
+                  style: TextStyle(fontSize: 12, color: c.textTertiary),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (taskId != null) _buildTaskTabs(material),
+      ],
+    );
+  }
+
+  Widget _buildQuizPlayer(int taskId) {
+    final c = AppColors.of(context);
+    final events = _sortEvents(_eventsByTaskId[taskId] ?? const []);
+    final isHistoryLoading =
+        !_eventsByTaskId.containsKey(taskId) && _taskLoadErrors[taskId] == null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          QuizPlayer(
+            key: ValueKey('quiz-$taskId'),
+            taskId: taskId,
+            themeColor: widget.themeColor,
+            courseId: widget.courseId,
+            onStateChanged: () => _reloadTaskDetails(taskId),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'История',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: c.textTertiary,
             ),
           ),
+          const SizedBox(height: 8),
+          if (isHistoryLoading)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: Platform.isIOS
+                    ? CupertinoActivityIndicator(radius: 14, color: c.accent)
+                    : CircularProgressIndicator(color: c.accent),
+              ),
+            )
+          else
+            _buildEventsHistory(taskId, events),
         ],
       ),
     );
   }
 
+  Widget _buildLockedExerciseCard(LongreadMaterial material) {
+    final opensAt = material.opensAt!.toLocal();
+    final date = DateFormat('dd.MM.yyyy', 'ru_RU').format(opensAt);
+    final time = DateFormat('HH:mm', 'ru_RU').format(opensAt);
+    return _buildExerciseContainer(
+      child: ExerciseHeader(
+        title: material.name ?? 'Задание',
+        statusLabel: 'Откроется $date в $time',
+        showStatusDot: false,
+      ),
+    );
+  }
+
+  String _taskButtonLabel(TaskDetails? details) {
+    switch (details?.state) {
+      case 'backlog':
+        return 'Начать задание';
+      case 'inProgress':
+      case 'submitted':
+      case 'reworking':
+      case 'revision':
+      case 'rework':
+        return 'Продолжить задание';
+      default:
+        return 'Открыть задание';
+    }
+  }
+
+  bool _canExtendLateDays(TaskDetails? details, int taskId) {
+    if (details == null || !details.isLateDaysEnabled) return false;
+    const blocked = {'review', 'evaluated', 'revision', 'rework', 'reworking', 'failed'};
+    if (blocked.contains(details.state)) return false;
+    return (details.lateDays ?? 0) < 7 && !_lateDaysLoadingTaskIds.contains(taskId);
+  }
+
+  Widget _buildCompactExerciseCard(LongreadMaterial material) {
+    final c = AppColors.of(context);
+    final isIos = Platform.isIOS;
+    final taskId = material.taskId;
+    final details = taskId != null ? _taskDetailsById[taskId] : null;
+    final isQuiz = material.isQuestions;
+    final canExtend = !isQuiz && taskId != null && _canExtendLateDays(details, taskId);
+    final label = taskId == null
+        ? null
+        : isQuiz
+            ? _quizButtonLabel(taskId)
+            : _taskButtonLabel(details);
+    void onOpen() => _openExercise(material);
+
+    return _buildExerciseContainer(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildExerciseHeader(
+            material,
+            attemptsText: isQuiz
+                ? ExerciseHeader.attemptsLabel(material.attemptsLimit, material.evaluationStrategy)
+                : null,
+          ),
+          const SizedBox(height: 16),
+          if (label == null)
+            Text(
+              isQuiz ? 'Тест пока недоступен' : 'Задание пока недоступно',
+              style: TextStyle(fontSize: 13, color: c.textTertiary),
+            )
+          else
+            Row(
+              children: [
+                isIos
+                    ? CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        color: widget.themeColor,
+                        borderRadius: BorderRadius.circular(12),
+                        onPressed: onOpen,
+                        child: Text(
+                          label,
+                          style: TextStyle(color: c.onAccent, fontWeight: FontWeight.w600),
+                        ),
+                      )
+                    : ElevatedButton(
+                        onPressed: onOpen,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: widget.themeColor,
+                          foregroundColor: c.onAccent,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                if (canExtend) ...[
+                  const SizedBox(width: 8),
+                  isIos
+                      ? CupertinoButton(
+                          padding: const EdgeInsets.all(8),
+                          onPressed: () => _handleExtendLateDays(
+                            taskId,
+                            details!,
+                            details.deadline ?? material.estimation?.deadline,
+                          ),
+                          child: Icon(CupertinoIcons.calendar_badge_plus, color: c.textPrimary),
+                        )
+                      : IconButton(
+                          tooltip: 'Перенести дедлайн',
+                          onPressed: () => _handleExtendLateDays(
+                            taskId,
+                            details!,
+                            details.deadline ?? material.estimation?.deadline,
+                          ),
+                          icon: Icon(Icons.edit_calendar_outlined, color: c.textPrimary),
+                        ),
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openExercise(LongreadMaterial material) async {
+    final taskId = material.taskId;
+    if (taskId == null) return;
+    final page = LongreadPage(
+      longread: widget.longread,
+      themeColor: widget.themeColor,
+      courseName: widget.courseName,
+      themeName: widget.themeName,
+      courseId: widget.courseId,
+      themeId: widget.themeId,
+      selectedTaskId: taskId,
+      showOnlySelectedExercise: true,
+    );
+    await Navigator.of(context).push(
+      Platform.isIOS
+          ? CupertinoPageRoute<void>(builder: (_) => page)
+          : MaterialPageRoute<void>(builder: (_) => page),
+    );
+    if (!mounted) return;
+    await _reloadTaskDetails(taskId);
+  }
+
+  String _quizButtonLabel(int taskId) {
+    final state = _taskDetailsById[taskId]?.state;
+    const answerable = {'backlog', 'inProgress', 'submitted', 'reworking'};
+    if (state == 'backlog') return 'Пройти тест';
+    if (state != null && answerable.contains(state)) return 'Продолжить тест';
+    return 'Открыть тест';
+  }
+
   Widget _buildMarkdownCard(LongreadMaterial material) {
     final c = AppColors.of(context);
     final content = _highlightedHtmlByMaterialId[material.id] ??
-        _normalizeHtmlColors(material.viewContent ?? '');
+        normalizeHtmlColors(material.viewContent ?? '');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -1169,184 +1430,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     );
   }
 
-  String _normalizeHtmlColors(String html) {
-    // Process style attributes to handle colors properly for dark theme
-    final stylePattern = RegExp(r'style\s*=\s*"([^"]*)"', caseSensitive: false);
-
-    var result = html.replaceAllMapped(stylePattern, (match) {
-      final styleContent = match.group(1) ?? '';
-      final processedStyle = _processStyleForDarkTheme(styleContent);
-      if (processedStyle.isEmpty) {
-        return '';
-      }
-      return 'style="$processedStyle"';
-    });
-
-    // Also handle single-quoted styles
-    final singleQuotePattern = RegExp(r"style\s*=\s*'([^']*)'", caseSensitive: false);
-    result = result.replaceAllMapped(singleQuotePattern, (match) {
-      final styleContent = match.group(1) ?? '';
-      final processedStyle = _processStyleForDarkTheme(styleContent);
-      if (processedStyle.isEmpty) {
-        return '';
-      }
-      return "style='$processedStyle'";
-    });
-
-    return result;
-  }
-
-  String _processStyleForDarkTheme(String styleContent) {
-    final styles = <String, String>{};
-
-    // Parse style properties
-    final props = styleContent.split(';');
-    for (final prop in props) {
-      final colonIndex = prop.indexOf(':');
-      if (colonIndex == -1) continue;
-      final key = prop.substring(0, colonIndex).trim().toLowerCase();
-      final value = prop.substring(colonIndex + 1).trim();
-      if (key.isNotEmpty && value.isNotEmpty) {
-        styles[key] = value;
-      }
-    }
-
-    final bgColor = styles['background-color'] ?? styles['background'];
-    final resultStyles = <String>[];
-
-    // Check if background is light and should be inverted/removed
-    final bgBrightness = bgColor != null ? _getColorBrightness(bgColor) : null;
-    final isLightBackground = bgBrightness != null && bgBrightness > 180;
-
-    for (final entry in styles.entries) {
-      final key = entry.key;
-      final value = entry.value;
-
-      if (key == 'color') {
-        if (isLightBackground) {
-          // Light background will be removed, so invert dark text to light
-          final textBrightness = _getColorBrightness(value);
-          if (textBrightness != null && textBrightness < 128) {
-            // Dark text on light bg -> make it white for dark theme
-            // Skip - let default white text show
-          } else {
-            resultStyles.add('$key: $value');
-          }
-        } else if (bgColor != null) {
-          // Has non-light background, keep original color
-          resultStyles.add('$key: $value');
-        } else {
-          // No background - check if it's a dark color
-          final isDark = _isDarkColor(value);
-          if (!isDark) {
-            resultStyles.add('$key: $value');
-          }
-        }
-      } else if (key == 'background-color' || key == 'background') {
-        if (isLightBackground) {
-          // Skip light backgrounds - they look bad on dark theme
-          // Don't add to result
-        } else {
-          // Keep dark/colored backgrounds
-          resultStyles.add('$key: $value');
-        }
-      } else if (key == 'font-size' || key == 'font-weight' || key == 'font-style' ||
-                 key == 'text-decoration' || key == 'text-align') {
-        // Keep text formatting styles
-        resultStyles.add('$key: $value');
-      }
-    }
-
-    return resultStyles.join('; ');
-  }
-
-  double? _getColorBrightness(String colorValue) {
-    final rgbMatch = RegExp(r'rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)').firstMatch(colorValue);
-    if (rgbMatch != null) {
-      final r = int.tryParse(rgbMatch.group(1) ?? '') ?? 0;
-      final g = int.tryParse(rgbMatch.group(2) ?? '') ?? 0;
-      final b = int.tryParse(rgbMatch.group(3) ?? '') ?? 0;
-      return (r * 299 + g * 587 + b * 114) / 1000;
-    }
-
-    final rgbaMatch = RegExp(r'rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)').firstMatch(colorValue);
-    if (rgbaMatch != null) {
-      final r = int.tryParse(rgbaMatch.group(1) ?? '') ?? 0;
-      final g = int.tryParse(rgbaMatch.group(2) ?? '') ?? 0;
-      final b = int.tryParse(rgbaMatch.group(3) ?? '') ?? 0;
-      return (r * 299 + g * 587 + b * 114) / 1000;
-    }
-
-    final hexMatch = RegExp(r'#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})').firstMatch(colorValue);
-    if (hexMatch != null) {
-      final hex = hexMatch.group(1)!;
-      int r, g, b;
-      if (hex.length == 3) {
-        r = int.parse('${hex[0]}${hex[0]}', radix: 16);
-        g = int.parse('${hex[1]}${hex[1]}', radix: 16);
-        b = int.parse('${hex[2]}${hex[2]}', radix: 16);
-      } else {
-        r = int.parse(hex.substring(0, 2), radix: 16);
-        g = int.parse(hex.substring(2, 4), radix: 16);
-        b = int.parse(hex.substring(4, 6), radix: 16);
-      }
-      return (r * 299 + g * 587 + b * 114) / 1000;
-    }
-
-    // Named colors
-    const namedBrightness = {
-      'white': 255.0, 'snow': 255.0, 'ivory': 255.0,
-      'black': 0.0, 'navy': 30.0, 'darkblue': 35.0,
-    };
-    return namedBrightness[colorValue.toLowerCase()];
-  }
-
-  bool _isDarkColor(String colorValue) {
-    // Check if color is dark (would be invisible on dark background)
-    final rgbMatch = RegExp(r'rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)').firstMatch(colorValue);
-    if (rgbMatch != null) {
-      final r = int.tryParse(rgbMatch.group(1) ?? '') ?? 0;
-      final g = int.tryParse(rgbMatch.group(2) ?? '') ?? 0;
-      final b = int.tryParse(rgbMatch.group(3) ?? '') ?? 0;
-      // Calculate perceived brightness (standard formula)
-      final brightness = (r * 299 + g * 587 + b * 114) / 1000;
-      return brightness < 128; // Dark if brightness is less than 50%
-    }
-
-    final rgbaMatch = RegExp(r'rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)').firstMatch(colorValue);
-    if (rgbaMatch != null) {
-      final r = int.tryParse(rgbaMatch.group(1) ?? '') ?? 0;
-      final g = int.tryParse(rgbaMatch.group(2) ?? '') ?? 0;
-      final b = int.tryParse(rgbaMatch.group(3) ?? '') ?? 0;
-      final brightness = (r * 299 + g * 587 + b * 114) / 1000;
-      return brightness < 128;
-    }
-
-    // Check hex colors
-    final hexMatch = RegExp(r'#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})').firstMatch(colorValue);
-    if (hexMatch != null) {
-      final hex = hexMatch.group(1)!;
-      int r, g, b;
-      if (hex.length == 3) {
-        r = int.parse('${hex[0]}${hex[0]}', radix: 16);
-        g = int.parse('${hex[1]}${hex[1]}', radix: 16);
-        b = int.parse('${hex[2]}${hex[2]}', radix: 16);
-      } else {
-        r = int.parse(hex.substring(0, 2), radix: 16);
-        g = int.parse(hex.substring(2, 4), radix: 16);
-        b = int.parse(hex.substring(4, 6), radix: 16);
-      }
-      final brightness = (r * 299 + g * 587 + b * 114) / 1000;
-      return brightness < 128;
-    }
-
-    // Check named colors that are dark
-    final darkColors = {'black', 'darkblue', 'darkgreen', 'darkred', 'navy', 'maroon', 'purple'};
-    return darkColors.contains(colorValue.toLowerCase());
-  }
 
   String _normalizeCommentHtml(String html) {
-    var cleaned = _normalizeHtmlColors(html);
+    var cleaned = normalizeHtmlColors(html);
     cleaned = cleaned.replaceAll(RegExp(r'</?table[^>]*>', caseSensitive: false), '');
     cleaned = cleaned.replaceAll(RegExp(r'</?(tbody|thead|tfoot)[^>]*>', caseSensitive: false), '');
     cleaned = cleaned.replaceAll(RegExp(r'</?tr[^>]*>', caseSensitive: false), '');
@@ -1399,14 +1485,133 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     );
   }
 
+  Uri? _codeUnicornUrl(int taskId, LongreadMaterial material, TaskDetails? details) {
+    final rawUrl = details?.exerciseUrl ?? material.exerciseUrl;
+    final enabled = (details?.isCodeEditorEnabled ?? false) || material.isCodeEditorEnabled;
+    if (!material.isCoding || !enabled || rawUrl == null) return null;
+    final base = Uri.tryParse(rawUrl);
+    if (base == null || !base.hasScheme) return null;
+    final courseId = widget.courseId;
+    final themeId = widget.themeId;
+    return base.replace(queryParameters: {
+      ...base.queryParameters,
+      'lmsExerciseId': '${details?.exerciseId ?? material.id}',
+      'lmsTaskId': '$taskId',
+      if (courseId != null && themeId != null)
+        'returnUrl':
+            'https://my.centraluniversity.ru/learn/courses/view/actual/$courseId/themes/$themeId/longreads/${widget.longread.id}',
+    });
+  }
+
+  Future<void> _openExternalUrl(Uri uri, {required String from}) async {
+    Analytics.longreadExternalLinkPressed(from: from);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      _showError('Не удалось открыть ссылку');
+    }
+  }
+
+  Widget _buildCodeUnicornBlock(Uri url) {
+    final c = AppColors.of(context);
+    final isIos = Platform.isIOS;
+    final label = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Решить в Code Unicorn',
+          style: TextStyle(color: c.onAccent, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(width: 6),
+        Icon(
+          isIos ? CupertinoIcons.arrow_up_right : Icons.open_in_new,
+          size: 16,
+          color: c.onAccent,
+        ),
+      ],
+    );
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Эта задача решается во встроенном редакторе Code Unicorn.',
+            style: TextStyle(color: c.textSecondary, fontSize: 14),
+          ),
+          const SizedBox(height: 12),
+          isIos
+              ? CupertinoButton(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  color: widget.themeColor,
+                  borderRadius: BorderRadius.circular(12),
+                  onPressed: () => _openExternalUrl(url, from: 'code_unicorn'),
+                  child: label,
+                )
+              : ElevatedButton(
+                  onPressed: () => _openExternalUrl(url, from: 'code_unicorn'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: widget.themeColor,
+                    foregroundColor: c.onAccent,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: label,
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExerciseUrlLink(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null || !uri.hasScheme) return const SizedBox.shrink();
+    final isIos = Platform.isIOS;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: () => _openExternalUrl(uri, from: 'exercise_url'),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isIos ? CupertinoIcons.link : Icons.link,
+              size: 16,
+              color: widget.themeColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Подробное условие',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: widget.themeColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCodingCard(LongreadMaterial material, {required bool hasMarkdown}) {
     final c = AppColors.of(context);
     final shouldShowDescription =
         (material.viewContent ?? '').isNotEmpty && !hasMarkdown;
+    final details = material.taskId != null ? _taskDetailsById[material.taskId!] : null;
+    final exerciseUrl = details?.exerciseUrl ?? material.exerciseUrl;
+    final isCodeUnicorn =
+        material.isCodeUnicorn || (details?.isCodeEditorEnabled ?? false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (shouldShowDescription) _buildMarkdownCard(material),
+        if (exerciseUrl != null && !isCodeUnicorn) _buildExerciseUrlLink(exerciseUrl),
         if (material.attachments.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -1458,7 +1663,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final derivedStatus = _deriveStatus(events, details);
     final isBacklog = details?.state == 'backlog' || derivedStatus == 'Бэклог';
     final isStarting = _startingTaskIds.contains(taskId);
-    final startTaskButton = isBacklog ? _buildStartTaskButton(taskId, isStarting) : null;
+    final startTaskButton =
+        isBacklog && !material.isQuestions ? _buildStartTaskButton(taskId, isStarting) : null;
 
     if (isIos) {
       final selectedIndex = _taskTabIndex[taskId] ?? 0;
@@ -1502,7 +1708,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                   ? _buildCommentsTab(taskId, comments, isLoading)
                   : selectedIndex == 2
                       ? _buildInfoTab(material, events, isLoading)
-                      : _buildSolutionTab(taskId, material, events, isLoading),
+                      : material.isQuestions
+                          ? _buildQuizPlayer(taskId)
+                          : _buildSolutionTab(taskId, material, events, isLoading),
             ),
           ],
         ),
@@ -1557,7 +1765,9 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                         content = _buildInfoTab(material, events, isLoading);
                         break;
                       default:
-                        content = _buildSolutionTab(taskId, material, events, isLoading);
+                        content = material.isQuestions
+                            ? _buildQuizPlayer(taskId)
+                            : _buildSolutionTab(taskId, material, events, isLoading);
                     }
                     return Container(
                       color: c.background,
@@ -1580,6 +1790,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     bool isLoading,
   ) {
     final details = _taskDetailsById[taskId];
+    final codeUnicornUrl = _codeUnicornUrl(taskId, material, details);
+    if (codeUnicornUrl != null && details?.state != 'backlog') {
+      return _buildCodeUnicornBlock(codeUnicornUrl);
+    }
     final existingSolutionAttachments = details?.solutionAttachments ?? const [];
     final derivedStatus = _deriveStatus(events, details);
     const editableStates = {
@@ -1682,26 +1896,27 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           composer,
           const SizedBox(height: 12),
         ],
-        if (sortedEvents.isEmpty)
-          Center(
-            child: Text(
-              'История пока пуста',
-              style: TextStyle(color: AppColors.of(context).textTertiary),
-            ),
-          )
-        else
-          ListView.separated(
-            padding: const EdgeInsets.only(top: 4),
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemBuilder: (context, index) {
-              final event = sortedEvents[index];
-              return _buildEventCard(taskId, event);
-            },
-            separatorBuilder: (context, index) => const SizedBox(height: 8),
-            itemCount: sortedEvents.length,
-          ),
+        _buildEventsHistory(taskId, sortedEvents),
       ],
+    );
+  }
+
+  Widget _buildEventsHistory(int taskId, List<TaskEvent> sortedEvents) {
+    if (sortedEvents.isEmpty) {
+      return Center(
+        child: Text(
+          'История пока пуста',
+          style: TextStyle(color: AppColors.of(context).textTertiary),
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.only(top: 4),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) => _buildEventCard(taskId, sortedEvents[index]),
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
+      itemCount: sortedEvents.length,
     );
   }
 
@@ -3985,6 +4200,21 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         return 'Перенос дедлайна отменён';
       case 'exerciseEstimated':
         return 'Выставлены параметры';
+      case 'exerciseDeadlineChanged':
+        final newDeadline = event.content.contentDeadline;
+        return newDeadline != null
+            ? 'Дедлайн изменён на ${_formatDateTime(newDeadline)}'
+            : 'Дедлайн изменён';
+      case 'questionsTaskStarted':
+        return 'Тест начат';
+      case 'questionsTaskAttemptStarted':
+        return 'Попытка начата';
+      case 'questionsTaskAttemptCompleted':
+        return 'Попытка завершена';
+      case 'questionsTaskCompleted':
+        return event.content.state == 'evaluated'
+            ? 'Тест завершён и оценён'
+            : 'Тест отправлен на проверку';
       case 'exerciseAttachmentsChanged':
         return 'Файлы задания обновлены';
       case 'exerciseChanged':
@@ -4011,6 +4241,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     'exerciseEstimated',
     'exerciseAttachmentsChanged',
     'exerciseChanged',
+    'exerciseAssigneesAdded',
+    'exerciseAssigneesRemoved',
+    'exerciseMaxScoreChanged',
+    'exerciseStartDateChanged',
+    'questionsTaskSessionStarted',
+    'questionsTaskSessionCompleted',
   };
 
   List<TaskEvent> _sortEvents(List<TaskEvent> events) {

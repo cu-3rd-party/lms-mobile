@@ -1,7 +1,7 @@
 import 'package:cumobile/data/models/longread_material.dart';
 
 class TaskComment {
-  final int id;
+  final String id;
   final String content;
   final CommentSender sender;
   final DateTime? createdAt;
@@ -16,11 +16,14 @@ class TaskComment {
   });
 
   factory TaskComment.fromJson(Map<String, dynamic> json) {
+    final sender = json['sender'];
     return TaskComment(
-      id: json['id'] ?? 0,
-      content: json['content'] ?? '',
-      sender: CommentSender.fromJson(json['sender'] ?? const {}),
-      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
+      id: json['id']?.toString() ?? '',
+      content: json['content']?.toString() ?? '',
+      sender: CommentSender.fromJson(
+        sender is Map<String, dynamic> ? sender : const <String, dynamic>{},
+      ),
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
       attachments: (json['attachments'] as List?)
               ?.whereType<Map<String, dynamic>>()
               .map(MaterialAttachment.fromJson)
@@ -44,8 +47,8 @@ class CommentSender {
   factory CommentSender.fromJson(Map<String, dynamic> json) {
     return CommentSender(
       id: json['id']?.toString() ?? '',
-      email: json['email'] ?? '',
-      name: json['name'] ?? '',
+      email: json['email']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
     );
   }
 }

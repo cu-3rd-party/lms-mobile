@@ -12,6 +12,10 @@ class LongreadMaterial {
   final List<MaterialAttachment> attachments;
   final MaterialEstimation? estimation;
   final int? taskId;
+  final String? exerciseUrl;
+  final bool isCodeEditorEnabled;
+  final int? attemptsLimit;
+  final String? evaluationStrategy;
 
   LongreadMaterial({
     required this.id,
@@ -25,25 +29,15 @@ class LongreadMaterial {
     this.attachments = const [],
     this.estimation,
     this.taskId,
+    this.exerciseUrl,
+    this.isCodeEditorEnabled = false,
+    this.attemptsLimit,
+    this.evaluationStrategy,
   });
 
   factory LongreadMaterial.fromJson(Map<String, dynamic> json) {
-    String? content;
-    final viewContent = json['viewContent'];
-    if (viewContent is Map) {
-      content = viewContent['value']?.toString() ?? viewContent['description']?.toString();
-    } else if (viewContent is String) {
-      try {
-        final decoded = jsonDecode(viewContent);
-        if (decoded is Map) {
-          content = decoded['value']?.toString() ?? decoded['description']?.toString();
-        } else {
-          content = viewContent;
-        }
-      } catch (_) {
-        content = viewContent;
-      }
-    }
+    final content = parseRichContent(json['viewContent']);
+    final settings = json['settings'];
 
     return LongreadMaterial(
       id: json['id'] ?? 0,
@@ -62,6 +56,10 @@ class LongreadMaterial {
           ? MaterialEstimation.fromJson(json['estimation'])
           : null,
       taskId: json['taskId'],
+      exerciseUrl: _nonEmpty(json['exerciseUrl'] ?? (json['coding'] is Map ? json['coding']['exerciseUrl'] : null)),
+      isCodeEditorEnabled: json['isCodeEditorEnabled'] == true,
+      attemptsLimit: settings is Map ? (settings['attemptsLimit'] as num?)?.toInt() : null,
+      evaluationStrategy: settings is Map ? settings['evaluationStrategy']?.toString() : null,
     );
   }
 
@@ -69,6 +67,15 @@ class LongreadMaterial {
   bool get isFile => discriminator == 'file';
   bool get isCoding => discriminator == 'coding';
   bool get isQuestions => discriminator == 'questions';
+  bool get isExercise => isCoding || isQuestions;
+
+  bool get isCodeUnicorn => isCoding && isCodeEditorEnabled && exerciseUrl != null;
+
+  DateTime? get opensAt {
+    final start = estimation?.startDate;
+    if (start == null || !start.isAfter(DateTime.now())) return null;
+    return start;
+  }
 
   String get formattedSize {
     if (length == null) return '';
@@ -76,6 +83,27 @@ class LongreadMaterial {
     if (length! < 1024 * 1024) return '${(length! / 1024).toStringAsFixed(1)} KB';
     return '${(length! / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
+}
+
+String? _nonEmpty(dynamic raw) {
+  final value = raw?.toString().trim();
+  return value == null || value.isEmpty ? null : value;
+}
+
+String? parseRichContent(dynamic raw) {
+  if (raw is Map) {
+    return raw['value']?.toString() ?? raw['description']?.toString();
+  }
+  if (raw is String) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        return decoded['value']?.toString() ?? decoded['description']?.toString();
+      }
+    } catch (_) {}
+    return raw;
+  }
+  return null;
 }
 
 class MaterialAttachment {
@@ -117,12 +145,14 @@ class MaterialAttachment {
 }
 
 class MaterialEstimation {
+  final DateTime? startDate;
   final DateTime? deadline;
   final int maxScore;
   final String? activityName;
   final double? activityWeight;
 
   MaterialEstimation({
+    this.startDate,
     this.deadline,
     required this.maxScore,
     this.activityName,
@@ -131,6 +161,7 @@ class MaterialEstimation {
 
   factory MaterialEstimation.fromJson(Map<String, dynamic> json) {
     return MaterialEstimation(
+      startDate: DateTime.tryParse(json['startDate']?.toString() ?? ''),
       deadline: json['deadline'] != null ? DateTime.parse(json['deadline']) : null,
       maxScore: (json['maxScore'] as num?)?.toInt() ?? 0,
       activityName: json['activity']?['name'],

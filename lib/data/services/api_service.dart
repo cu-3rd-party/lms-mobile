@@ -15,6 +15,7 @@ import 'package:cumobile/data/models/course_extras.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/longread_material.dart';
 import 'package:cumobile/data/models/notification_item.dart';
+import 'package:cumobile/data/models/quiz.dart';
 import 'package:cumobile/data/models/student_lms_profile.dart';
 import 'package:cumobile/data/models/student_profile.dart';
 import 'package:cumobile/data/models/student_task.dart';
@@ -86,7 +87,7 @@ class ApiService {
   }
 
   Future<bool> uploadAvatar(Uint8List bytes, String filename, String mimeType) async {
-    if (demoService.isDemoMode) return true;
+    if (demoService.isDemoMode) return demoService.uploadAvatar(bytes);
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -105,7 +106,7 @@ class ApiService {
   }
 
   Future<bool> deleteAvatar() async {
-    if (demoService.isDemoMode) return true;
+    if (demoService.isDemoMode) return demoService.deleteAvatar();
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -146,7 +147,15 @@ class ApiService {
     bool failed = false,
     bool evaluated = false,
   }) async {
-    if (demoService.isDemoMode) return demoService.demoTasks();
+    if (demoService.isDemoMode) {
+      return demoService.demoTasks(
+        inProgress: inProgress,
+        review: review,
+        backlog: backlog,
+        failed: failed,
+        evaluated: evaluated,
+      );
+    }
     try {
       final cookie = await getCookie();
       if (cookie == null) return [];
@@ -251,6 +260,7 @@ class ApiService {
   }
 
   Future<CourseOverview?> fetchCourseOverview(int courseId) async {
+    if (demoService.isDemoMode) return demoService.demoCourseOverview(courseId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -271,6 +281,7 @@ class ApiService {
   }
 
   Future<List<LongreadMaterial>> fetchLongreadMaterials(int longreadId) async {
+    if (demoService.isDemoMode) return demoService.demoLongreadMaterials(longreadId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return [];
@@ -293,6 +304,7 @@ class ApiService {
   }
 
   Future<LongreadMaterial?> fetchMaterialById(int materialId) async {
+    if (demoService.isDemoMode) return demoService.demoMaterialById(materialId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -314,6 +326,7 @@ class ApiService {
   }
 
   Future<String?> getDownloadLink(String filename, String version) async {
+    if (demoService.isDemoMode) return null;
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -340,6 +353,15 @@ class ApiService {
     required String filename,
     required String contentType,
   }) async {
+    if (demoService.isDemoMode) {
+      return UploadLinkData(
+        shortName: filename,
+        filename: '$directory/$filename',
+        objectKey: '$directory/$filename',
+        version: 'demo-${DateTime.now().millisecondsSinceEpoch}',
+        url: '',
+      );
+    }
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -402,6 +424,13 @@ class ApiService {
     String? metaVersion,
     void Function(double progress)? onProgress,
   }) async {
+    if (demoService.isDemoMode) {
+      for (var step = 1; step <= 10; step++) {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        onProgress?.call(step / 10);
+      }
+      return true;
+    }
     try {
       _log.info('Upload PUT: url=$url contentType=$contentType');
       final length = await file.length();
@@ -457,6 +486,7 @@ class ApiService {
   }
 
   Future<List<TaskEvent>> fetchTaskEvents(int taskId) async {
+    if (demoService.isDemoMode) return demoService.demoTaskEvents(taskId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return [];
@@ -478,6 +508,7 @@ class ApiService {
   }
 
   Future<List<TaskComment>> fetchTaskComments(int taskId) async {
+    if (demoService.isDemoMode) return demoService.demoTaskComments(taskId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return [];
@@ -489,9 +520,20 @@ class ApiService {
 
       await _handleResponse(response);
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((e) => TaskComment.fromJson(e)).toList();
+        final data = jsonDecode(response.body);
+        final items = data is List ? data : (data is Map ? data['items'] as List? : null);
+        final comments = <TaskComment>[];
+        for (final item in items ?? const []) {
+          if (item is! Map<String, dynamic>) continue;
+          try {
+            comments.add(TaskComment.fromJson(item));
+          } catch (e, st) {
+            _log.warning('Skipping malformed task comment', e, st);
+          }
+        }
+        return comments;
       }
+      _log.warning('Task comments request failed: ${response.statusCode}');
     } catch (e, st) {
       _log.warning('Error fetching task comments', e, st);
     }
@@ -499,6 +541,7 @@ class ApiService {
   }
 
   Future<TaskDetails?> fetchTaskDetails(int taskId) async {
+    if (demoService.isDemoMode) return demoService.demoTaskDetails(taskId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -521,12 +564,186 @@ class ApiService {
     return null;
   }
 
-  Future<int?> createTaskComment({
+  static const _quizErrorCodes = [
+    'attemptNotStarted',
+    'attemptsLimitReached',
+    'hasActiveAttempt',
+    'invalidState',
+  ];
+
+  QuizActionResult _quizResult(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return const QuizActionResult(true);
+    }
+    final code = _quizErrorCodes.where(response.body.contains).firstOrNull;
+    _log.warning('Quiz action failed: ${response.statusCode} ${code ?? ''}');
+    return QuizActionResult(false, code);
+  }
+
+  Future<QuizTask?> fetchQuizTask(int taskId) async {
+    if (demoService.isDemoMode) return demoService.demoQuizTask(taskId);
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/tasks/$taskId'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic>) return QuizTask.fromJson(data);
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching quiz task', e, st);
+    }
+    return null;
+  }
+
+  Future<List<QuizPlayerQuestion>?> fetchQuizQuestions(int quizId) async {
+    if (demoService.isDemoMode) return demoService.demoQuizQuestions(quizId);
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/quizzes/$quizId/questions'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          return data
+              .whereType<Map<String, dynamic>>()
+              .map(QuizPlayerQuestion.fromJson)
+              .toList();
+        }
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching quiz questions', e, st);
+    }
+    return null;
+  }
+
+  Future<QuizAttempt?> fetchQuizAttempt(int attemptId) async {
+    if (demoService.isDemoMode) return demoService.demoQuizAttempt(attemptId);
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/micro-lms/quizzes/attempts/$attemptId'),
+        headers: {'Cookie': cookie},
+      );
+
+      await _handleResponse(response);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic>) return QuizAttempt.fromJson(data);
+      }
+    } catch (e, st) {
+      _log.warning('Error fetching quiz attempt', e, st);
+    }
+    return null;
+  }
+
+  Future<QuizActionResult> startQuizAttempt(int sessionId) async {
+    if (demoService.isDemoMode) return demoService.startQuizAttempt(sessionId);
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return const QuizActionResult(false);
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/micro-lms/quizzes/attempts'),
+        headers: {
+          'Cookie': cookie,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'sessionId': sessionId}),
+      );
+
+      await _handleResponse(response);
+      return _quizResult(response);
+    } catch (e, st) {
+      _log.warning('Error starting quiz attempt', e, st);
+    }
+    return const QuizActionResult(false);
+  }
+
+  Future<QuizActionResult> submitQuizAnswer({
+    required int attemptId,
+    required int sessionId,
+    required int questionId,
+    required String type,
+    required Object? answer,
+  }) async {
+    if (demoService.isDemoMode) {
+      return demoService.submitQuizAnswer(attemptId, questionId, answer);
+    }
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return const QuizActionResult(false);
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/micro-lms/quizzes/attempts/$attemptId/submit'),
+        headers: {
+          'Cookie': cookie,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'answer': answer,
+          'questionId': questionId,
+          'sessionId': sessionId,
+          'type': type,
+        }),
+      );
+
+      await _handleResponse(response);
+      return _quizResult(response);
+    } catch (e, st) {
+      _log.warning('Error submitting quiz answer', e, st);
+    }
+    return const QuizActionResult(false);
+  }
+
+  Future<QuizActionResult> completeQuizAttempt({
+    required int attemptId,
+    required int sessionId,
+  }) async {
+    if (demoService.isDemoMode) return demoService.completeQuizAttempt(attemptId);
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return const QuizActionResult(false);
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/micro-lms/quizzes/attempts/$attemptId/complete'),
+        headers: {
+          'Cookie': cookie,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'sessionId': sessionId}),
+      );
+
+      await _handleResponse(response);
+      return _quizResult(response);
+    } catch (e, st) {
+      _log.warning('Error completing quiz attempt', e, st);
+    }
+    return const QuizActionResult(false);
+  }
+
+  Future<String?> createTaskComment({
     required int taskId,
     required String content,
     List<Map<String, dynamic>> attachments = const [],
   }) async {
-    if (demoService.isDemoMode) return 9999;
+    if (demoService.isDemoMode) {
+      return demoService.createTaskComment(taskId, content, attachments);
+    }
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -549,9 +766,10 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         if (data is Map<String, dynamic>) {
-          final commentId = data['commentId'];
-          if (commentId is int) return commentId;
+          final commentId = data['commentId'] ?? data['id'];
+          if (commentId != null) return commentId.toString();
         }
+        return '';
       }
     } catch (e, st) {
       _log.warning('Error creating task comment', e, st);
@@ -564,7 +782,9 @@ class ApiService {
     String? solutionUrl,
     List<Map<String, dynamic>> attachments = const [],
   }) async {
-    if (demoService.isDemoMode) return true;
+    if (demoService.isDemoMode) {
+      return demoService.submitTaskSolution(taskId, solutionUrl, attachments);
+    }
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -592,7 +812,7 @@ class ApiService {
   }
 
   Future<bool> startTask(int taskId) async {
-    if (demoService.isDemoMode) return true;
+    if (demoService.isDemoMode) return demoService.startTask(taskId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -620,7 +840,7 @@ class ApiService {
     int limit = 100,
     int offset = 0,
   }) async {
-    if (demoService.isDemoMode) return demoService.demoNotifications();
+    if (demoService.isDemoMode) return demoService.demoNotifications(category);
     try {
       final cookie = await getCookie();
       if (cookie == null) return [];
@@ -667,7 +887,7 @@ class ApiService {
   }
 
   Future<bool> prolongLateDays(int taskId, int lateDays) async {
-    if (demoService.isDemoMode) return true;
+    if (demoService.isDemoMode) return demoService.prolongLateDays(taskId, lateDays);
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -692,7 +912,7 @@ class ApiService {
   }
 
   Future<bool> cancelLateDays(int taskId) async {
-    if (demoService.isDemoMode) return true;
+    if (demoService.isDemoMode) return demoService.cancelLateDays(taskId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return false;
@@ -737,7 +957,7 @@ class ApiService {
   }
 
   Future<List<ActivityPerformance>?> fetchActivitiesPerformance(int courseId) async {
-    if (demoService.isDemoMode) return null;
+    if (demoService.isDemoMode) return demoService.demoActivitiesPerformance(courseId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -762,6 +982,7 @@ class ApiService {
   }
 
   Future<CourseExercisesResponse?> fetchCourseExercises(int courseId) async {
+    if (demoService.isDemoMode) return demoService.demoCourseExercises(courseId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -782,6 +1003,7 @@ class ApiService {
   }
 
   Future<CourseStudentPerformanceResponse?> fetchCourseStudentPerformance(int courseId) async {
+    if (demoService.isDemoMode) return demoService.demoCourseStudentPerformance(courseId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -823,7 +1045,7 @@ class ApiService {
   }
 
   Future<CourseProgress?> fetchCourseProgress(int courseId) async {
-    if (demoService.isDemoMode) return null;
+    if (demoService.isDemoMode) return demoService.demoCourseProgress(courseId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -844,7 +1066,9 @@ class ApiService {
   }
 
   Future<List<StudentTask>?> fetchDeadlines({int limit = 100, int? courseId}) async {
-    if (demoService.isDemoMode) return null;
+    if (demoService.isDemoMode) {
+      return demoService.demoDeadlines(limit: limit, courseId: courseId);
+    }
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -873,7 +1097,7 @@ class ApiService {
   }
 
   Future<List<RecordingHost>> fetchRecordingHosts(int courseId) async {
-    if (demoService.isDemoMode) return [];
+    if (demoService.isDemoMode) return demoService.demoRecordingHosts(courseId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return [];
@@ -906,7 +1130,13 @@ class ApiService {
     Iterable<String> hostEmails = const [],
   }) async {
     if (demoService.isDemoMode) {
-      return const RecordingEventsPage(items: [], totalCount: 0);
+      return demoService.demoRecordingEvents(
+        courseId: courseId,
+        offset: offset,
+        limit: limit,
+        eventTypes: eventTypes,
+        hostEmails: hostEmails,
+      );
     }
     try {
       final cookie = await getCookie();
@@ -943,7 +1173,7 @@ class ApiService {
   }
 
   Future<List<EventRecording>?> fetchEventRecordings(String eventId, String actualDate) async {
-    if (demoService.isDemoMode) return [];
+    if (demoService.isDemoMode) return demoService.demoEventRecordings(eventId);
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -971,7 +1201,7 @@ class ApiService {
   }
 
   Future<List<AttendanceCourse>?> fetchAttendanceCourses({bool archived = false}) async {
-    if (demoService.isDemoMode) return [];
+    if (demoService.isDemoMode) return demoService.demoAttendanceCourses(archived: archived);
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -996,7 +1226,7 @@ class ApiService {
   }
 
   Future<List<AttendanceEvent>?> fetchCourseEventsByDate(int courseId, String date) async {
-    if (demoService.isDemoMode) return [];
+    if (demoService.isDemoMode) return demoService.demoCourseEventsByDate(courseId, date);
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -1021,7 +1251,7 @@ class ApiService {
   }
 
   Future<Set<String>?> fetchAttendedEventIds(int courseId, String date) async {
-    if (demoService.isDemoMode) return {};
+    if (demoService.isDemoMode) return demoService.demoAttendedEventIds(courseId, date);
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;

@@ -401,6 +401,17 @@ class _HomePageState extends State<HomePage> with RouteAware {
   Future<void> _loadSchedule({DateTime? day}) async {
     try {
       final targetDay = day ?? _scheduleDate;
+      if (demoService.isDemoMode) {
+        final classes = demoService.demoCalendarEvents(targetDay).map(_eventToClassData).toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
+        if (!mounted) return;
+        setState(() {
+          _calendarClasses = classes;
+          _isLoadingSchedule = false;
+          _scheduleMessage = classes.isEmpty ? 'Нет занятий на этот день' : null;
+        });
+        return;
+      }
       final prefs = await SharedPreferences.getInstance();
       final icsUrl = prefs.getString(_prefsIcsUrlKey);
       Analytics.setCalendarConnected(icsUrl != null && icsUrl.isNotEmpty);

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
+import 'package:cumobile/core/services/demo_service.dart';
 import 'package:cumobile/data/models/exam_item.dart';
 
 class ExamsService {
@@ -17,6 +18,7 @@ class ExamsService {
   DateTime? _configCachedAt;
 
   Future<List<ExamItem>> fetchForCourse(String courseTitle) async {
+    if (demoService.isDemoMode) return demoService.demoExams(courseTitle);
     final results = await Future.wait([
       _fetchSchedule(),
       _fetchSemesterStart(),
