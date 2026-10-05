@@ -25,6 +25,41 @@ String normalizeHtmlColors(String html) {
   return result;
 }
 
+bool _isTransparent(String value) {
+  final normalized = value.trim().toLowerCase();
+  const keywords = {'transparent', 'inherit', 'initial', 'unset', 'none', 'currentcolor'};
+  if (keywords.contains(normalized)) return true;
+  final rgba = RegExp(r'rgba\s*\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)').firstMatch(normalized);
+  if (rgba != null) return (double.tryParse(rgba.group(1)!) ?? 1) == 0;
+  return false;
+}
+
+List<int>? _rgbChannels(String value) {
+  final match = RegExp(r'rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)').firstMatch(value);
+  if (match != null) {
+    return [for (var i = 1; i <= 3; i++) int.tryParse(match.group(i)!) ?? 0];
+  }
+  final hex = RegExp(r'#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b').firstMatch(value)?.group(1);
+  if (hex == null) return null;
+  final full = hex.length == 3 ? hex.split('').map((ch) => '$ch$ch').join() : hex;
+  return [for (var i = 0; i < 6; i += 2) int.parse(full.substring(i, i + 2), radix: 16)];
+}
+
+bool _isTranslucent(String value) {
+  final alpha = RegExp(r'rgba\s*\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)')
+      .firstMatch(value.toLowerCase())
+      ?.group(1);
+  return alpha != null && (double.tryParse(alpha) ?? 1) < 0.8;
+}
+
+bool _isSaturated(String value) {
+  final channels = _rgbChannels(value);
+  if (channels == null) return false;
+  final max = channels.reduce((a, b) => a > b ? a : b);
+  final min = channels.reduce((a, b) => a < b ? a : b);
+  return max - min >= 80;
+}
+
 String _processStyleForDarkTheme(String styleContent) {
   final styles = <String, String>{};
 
@@ -40,7 +75,8 @@ String _processStyleForDarkTheme(String styleContent) {
     }
   }
 
-  final bgColor = styles['background-color'] ?? styles['background'];
+  final rawBgColor = styles['background-color'] ?? styles['background'];
+  final bgColor = rawBgColor != null && _isTransparent(rawBgColor) ? null : rawBgColor;
   final resultStyles = <String>[];
 
   // Check if background is light and should be inverted/removed
@@ -62,8 +98,11 @@ String _processStyleForDarkTheme(String styleContent) {
           resultStyles.add('$key: $value');
         }
       } else if (bgColor != null) {
-        // Has non-light background, keep original color
-        resultStyles.add('$key: $value');
+        final isGrayDarkOnTranslucent =
+            _isTranslucent(bgColor) && _isDarkColor(value) && !_isSaturated(value);
+        if (!isGrayDarkOnTranslucent) {
+          resultStyles.add('$key: $value');
+        }
       } else {
         // No background - check if it's a dark color
         final isDark = _isDarkColor(value);
@@ -72,7 +111,7 @@ String _processStyleForDarkTheme(String styleContent) {
         }
       }
     } else if (key == 'background-color' || key == 'background') {
-      if (isLightBackground) {
+      if (bgColor == null || isLightBackground) {
         // Skip light backgrounds - they look bad on dark theme
         // Don't add to result
       } else {
