@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:appmetrica_plugin/appmetrica_plugin.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:cumobile/app/app.dart';
@@ -11,6 +13,10 @@ import 'package:cumobile/core/services/theme_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final imagePicker = ImagePickerPlatform.instance;
+  if (imagePicker is ImagePickerAndroid) {
+    imagePicker.useAndroidPhotoPicker = true;
+  }
   await initializeDateFormatting('ru_RU');
   await configureLogging();
   await ThemeController.instance.load();
