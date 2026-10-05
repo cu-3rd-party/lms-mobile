@@ -26,6 +26,7 @@ import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/file_rename_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/core/ui/html_colors.dart';
+import 'package:cumobile/core/ui/html_table_style.dart';
 import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/models/course_overview.dart';
@@ -40,6 +41,8 @@ import 'package:cumobile/features/longread/widgets/attachment_card.dart';
 import 'package:cumobile/features/longread/widgets/exercise_header.dart';
 import 'package:cumobile/features/longread/widgets/file_rename_dialog.dart';
 import 'package:cumobile/features/longread/widgets/longread_file_card.dart';
+import 'package:cumobile/features/longread/widgets/longread_image.dart';
+import 'package:cumobile/features/longread/widgets/longread_video.dart';
 import 'package:cumobile/features/longread/widgets/quiz_player.dart';
 
 class LongreadPage extends StatefulWidget {
@@ -159,6 +162,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             _isLoading = false;
           });
           _updateSearchResults(scrollToFirst: false);
+          _prefetchImages();
           cachedTaskLoad = _loadTaskDetails();
         },
       );
@@ -170,12 +174,21 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         });
         _updateSearchResults(scrollToFirst: false);
       }
+      _prefetchImages();
       await _refreshDownloadedFlags();
       await Future.wait([_loadTaskDetails(), ?cachedTaskLoad]);
     } catch (e, st) {
       _log.warning('Error loading materials', e, st);
       setState(() => _isLoading = false);
     }
+  }
+
+  void _prefetchImages() {
+    LongreadImageCache.prefetch([
+      for (final material in _materials)
+        if (material.isImage && material.filename != null && material.version != null)
+          (material.filename!, material.version!),
+    ]);
   }
 
   Future<void> _refreshDownloadedFlags() async {
@@ -938,6 +951,27 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         items.add(_buildMarkdownCard(material));
       } else if (material.isFile) {
         items.add(_buildFileCard(material));
+      } else if (material.isVideo) {
+        if (material.isViewableVideo) {
+          items.add(LongreadVideo(
+            key: ValueKey('video-${material.id}'),
+            title: material.name,
+            description: material.description,
+            url: material.videoUrl!,
+            themeColor: widget.themeColor,
+          ));
+        }
+      } else if (material.isImage) {
+        final filename = material.filename;
+        final version = material.version;
+        if (filename != null && version != null) {
+          items.add(LongreadImage(
+            key: ValueKey('image-${material.id}'),
+            filename: filename,
+            version: version,
+            name: material.contentName,
+          ));
+        }
       } else if (material.isExercise) {
         final taskId = material.taskId;
         if (taskId != null && !seenTaskIds.add(taskId)) {
@@ -1020,6 +1054,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     final c = AppColors.of(context);
     return Html(
       data: normalizeHtmlColors(html),
+      extensions: const [TableHtmlExtension()],
       style: {
         "body": Style(
           margin: Margins.zero,
@@ -1029,6 +1064,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           lineHeight: LineHeight(1.5),
         ),
         "p": Style(margin: Margins.only(bottom: 4)),
+        ...htmlTableStyles(c),
       },
     );
   }
@@ -1275,6 +1311,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         child: Html(
           data: content,
           extensions: [
+          const TableHtmlExtension(),
           TagExtension(
             tagsToExtend: {"mark"},
             builder: (extensionContext) {
@@ -1457,6 +1494,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
             "h4": Style(
               margin: Margins.only(bottom: 6, top: 10),
             ),
+            ...htmlTableStyles(c),
           },
           onLinkTap: (url, context, attributes) async {
             if (url != null) {
@@ -2598,9 +2636,12 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
                             color: widget.themeColor,
                             textDecoration: TextDecoration.underline,
                           ),
-                          "table": Style(color: c.textPrimary),
-                          "tr": Style(color: c.textPrimary),
-                          "td": Style(color: c.textPrimary),
+                          ...htmlTableStyles(c),
+                          "td": Style(
+                            color: c.textPrimary,
+                            padding: HtmlPaddings.all(8),
+                            border: Border.all(color: c.border, width: 0.5),
+                          ),
                           "div": Style(color: c.textPrimary),
                           "span": Style(color: c.textPrimary),
                         },

@@ -5,12 +5,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
+import 'package:flutter_html_table/flutter_html_table.dart';
 import 'package:html/parser.dart' as html_parser;
 
 import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/core/ui/html_colors.dart';
+import 'package:cumobile/core/ui/html_table_style.dart';
 import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/data/models/quiz.dart';
 import 'package:cumobile/data/models/student_task.dart';
@@ -646,7 +648,9 @@ class _QuizPlayerState extends State<QuizPlayer> {
     final c = AppColors.of(context);
     return Html(
       data: normalizeHtmlColors(html),
+      extensions: const [TableHtmlExtension()],
       style: {
+        ...htmlTableStyles(c),
         'body': Style(
           margin: Margins.zero,
           padding: HtmlPaddings.zero,

@@ -14,6 +14,9 @@ class LongreadMaterial {
   final int? taskId;
   final String? exerciseUrl;
   final bool isCodeEditorEnabled;
+  final String? videoUrl;
+  final String? videoState;
+  final String? description;
   final int? attemptsLimit;
   final String? evaluationStrategy;
 
@@ -31,6 +34,9 @@ class LongreadMaterial {
     this.taskId,
     this.exerciseUrl,
     this.isCodeEditorEnabled = false,
+    this.videoUrl,
+    this.videoState,
+    this.description,
     this.attemptsLimit,
     this.evaluationStrategy,
   });
@@ -58,6 +64,9 @@ class LongreadMaterial {
       taskId: json['taskId'],
       exerciseUrl: _nonEmpty(json['exerciseUrl'] ?? (json['coding'] is Map ? json['coding']['exerciseUrl'] : null)),
       isCodeEditorEnabled: json['isCodeEditorEnabled'] == true,
+      videoUrl: json['discriminator'] == 'videoPlatform' ? _nonEmpty(json['url']) : null,
+      videoState: json['videoState']?.toString(),
+      description: _nonEmpty(json['description']),
       attemptsLimit: settings is Map ? (settings['attemptsLimit'] as num?)?.toInt() : null,
       evaluationStrategy: settings is Map ? settings['evaluationStrategy']?.toString() : null,
     );
@@ -65,6 +74,13 @@ class LongreadMaterial {
 
   bool get isMarkdown => discriminator == 'markdown';
   bool get isFile => discriminator == 'file';
+  bool get isImage => discriminator == 'image';
+  bool get isVideo => discriminator == 'videoPlatform';
+
+  static const _viewableVideoStates = {'ready', 'partiallyReady', 'viewable'};
+
+  bool get isViewableVideo =>
+      isVideo && videoUrl != null && _viewableVideoStates.contains(videoState);
   bool get isCoding => discriminator == 'coding';
   bool get isQuestions => discriminator == 'questions';
   bool get isExercise => isCoding || isQuestions;
