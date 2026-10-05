@@ -9,6 +9,7 @@ import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:cumobile/core/services/demo_service.dart';
+import 'package:cumobile/data/services/api_cache.dart';
 import 'package:cumobile/data/models/attendance.dart';
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/course_extras.dart';
@@ -70,10 +71,83 @@ class ApiService {
     _cookie = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('cookie');
+    await ApiCache.instance.clear();
   }
 
-  Future<Uint8List?> fetchAvatar() async {
+  Future<T?> _cachedRequest<T>({
+    required String cacheKey,
+    required Duration maxAge,
+    required Future<http.Response> Function(String cookie) send,
+    required T? Function(dynamic json) parse,
+    required String label,
+    void Function(T value)? onCached,
+  }) async {
+    T? cachedValue;
+    var isCacheRead = false;
+    Future<T?> readCache() async {
+      if (isCacheRead) return cachedValue;
+      isCacheRead = true;
+      final body = await ApiCache.instance.read(cacheKey, maxAge);
+      if (body == null) return null;
+      try {
+        cachedValue = parse(jsonDecode(body));
+      } catch (e, st) {
+        _log.fine('Ignoring unreadable cache for $cacheKey', e, st);
+      }
+      return cachedValue;
+    }
+
+    if (onCached != null) {
+      final value = await readCache();
+      if (value != null) onCached(value);
+    }
+    try {
+      final cookie = await getCookie();
+      if (cookie == null) return null;
+      final response = await send(cookie);
+      await _handleResponse(response);
+      if (response.statusCode == 401) return null;
+      if (response.statusCode == 200) {
+        final value = parse(jsonDecode(response.body));
+        if (value != null) unawaited(ApiCache.instance.write(cacheKey, response.body));
+        return value;
+      }
+      _log.warning('$label failed: ${response.statusCode}');
+    } catch (e, st) {
+      _log.warning('Error $label', e, st);
+    }
+    return readCache();
+  }
+
+  Future<T?> _cachedGet<T>(
+    String path, {
+    required Duration maxAge,
+    required T? Function(dynamic json) parse,
+    required String label,
+    void Function(T value)? onCached,
+  }) {
+    return _cachedRequest(
+      cacheKey: path,
+      maxAge: maxAge,
+      send: (cookie) => http.get(Uri.parse('$baseUrl$path'), headers: {'Cookie': cookie}),
+      parse: parse,
+      label: label,
+      onCached: onCached,
+    );
+  }
+
+  static List<T> _parseList<T>(dynamic json, T Function(Map<String, dynamic>) parse) {
+    final items = json is List ? json : (json is Map ? json['items'] as List? : null);
+    return (items ?? const []).whereType<Map<String, dynamic>>().map(parse).toList();
+  }
+
+  Future<Uint8List?> fetchAvatar({void Function(Uint8List bytes)? onCached}) async {
     if (demoService.isDemoMode) return demoService.demoAvatar();
+    const cacheKey = 'avatar';
+    if (onCached != null) {
+      final cached = await ApiCache.instance.readBytes(cacheKey, CacheTtl.long);
+      if (cached != null) onCached(cached);
+    }
     try {
       final cookie = await getCookie();
       if (cookie == null) return null;
@@ -81,9 +155,16 @@ class ApiService {
         Uri.parse('$baseUrl/hub/avatars/me'),
         headers: {'Cookie': cookie},
       );
-      if (response.statusCode == 200) return response.bodyBytes;
+      if (response.statusCode == 200) {
+        unawaited(ApiCache.instance.writeBytes(cacheKey, response.bodyBytes));
+        return response.bodyBytes;
+      }
+      if (response.statusCode == 404) {
+        await ApiCache.instance.remove(cacheKey);
+        return null;
+      }
     } catch (_) {}
-    return null;
+    return ApiCache.instance.readBytes(cacheKey, CacheTtl.long);
   }
 
   Future<bool> uploadAvatar(Uint8List bytes, String filename, String mimeType) async {
@@ -100,7 +181,9 @@ class ApiService {
         contentType: MediaType.parse(mimeType),
       ));
       final response = await request.send();
-      return response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204;
+      final ok = response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204;
+      if (ok) await ApiCache.instance.writeBytes('avatar', bytes);
+      return ok;
     } catch (_) {}
     return false;
   }
@@ -114,30 +197,22 @@ class ApiService {
         Uri.parse('$baseUrl/hub/avatars/me'),
         headers: {'Cookie': cookie},
       );
-      return response.statusCode == 200 || response.statusCode == 204;
+      final ok = response.statusCode == 200 || response.statusCode == 204;
+      if (ok) await ApiCache.instance.remove('avatar');
+      return ok;
     } catch (_) {}
     return false;
   }
 
-  Future<StudentProfile?> fetchProfile() async {
+  Future<StudentProfile?> fetchProfile({void Function(StudentProfile profile)? onCached}) async {
     if (demoService.isDemoMode) return demoService.demoProfile();
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/student-hub/students/me'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        return StudentProfile.fromJson(jsonDecode(response.body));
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching profile', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/student-hub/students/me',
+      maxAge: CacheTtl.long,
+      parse: (json) => StudentProfile.fromJson(json),
+      label: 'fetching profile',
+      onCached: onCached,
+    );
   }
 
   Future<List<StudentTask>?> fetchTasks({
@@ -146,6 +221,7 @@ class ApiService {
     bool backlog = true,
     bool failed = false,
     bool evaluated = false,
+    void Function(List<StudentTask> tasks)? onCached,
   }) async {
     if (demoService.isDemoMode) {
       return demoService.demoTasks(
@@ -156,71 +232,117 @@ class ApiService {
         evaluated: evaluated,
       );
     }
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return [];
-
-      final states = <String>[];
-      if (inProgress) states.addAll(['state=inProgress', 'state=submitted', 'state=reworking']);
-      if (review) states.add('state=review');
-      if (backlog) states.add('state=backlog');
-      if (failed) states.add('state=failed');
-      if (evaluated) states.add('state=evaluated');
-
-      final queryString = states.join('&');
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/tasks/student?$queryString'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((e) => StudentTask.fromJson(e)).toList();
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching tasks', e, st);
-    }
-    return null;
+    final states = <String>[];
+    if (inProgress) states.addAll(['state=inProgress', 'state=submitted', 'state=reworking']);
+    if (review) states.add('state=review');
+    if (backlog) states.add('state=backlog');
+    if (failed) states.add('state=failed');
+    if (evaluated) states.add('state=evaluated');
+    return _cachedGet(
+      '/micro-lms/tasks/student?${states.join('&')}',
+      maxAge: CacheTtl.short,
+      parse: (json) => _parseList(json, StudentTask.fromJson),
+      label: 'fetching tasks',
+      onCached: onCached,
+    );
   }
 
-  Future<List<Course>> fetchCourses() async {
+  Future<T?> _peekCache<T>(String path, Duration maxAge, T? Function(dynamic json) parse) async {
+    final body = await ApiCache.instance.read(path, maxAge);
+    if (body == null) return null;
+    try {
+      return parse(jsonDecode(body));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<CourseOverview?> cachedCourseOverview(int courseId) async {
+    if (demoService.isDemoMode) return demoService.demoCourseOverview(courseId);
+    return _peekCache(
+      '/micro-lms/courses/$courseId/overview',
+      CacheTtl.long,
+      (json) => CourseOverview.fromJson(json),
+    );
+  }
+
+  Future<QuizTask?> cachedQuizTask(int taskId) async {
+    if (demoService.isDemoMode) return null;
+    return _peekCache(
+      '/micro-lms/tasks/$taskId',
+      CacheTtl.short,
+      (json) => json is Map<String, dynamic> ? QuizTask.fromJson(json) : null,
+    );
+  }
+
+  Future<List<QuizPlayerQuestion>?> cachedQuizQuestions(int quizId) async {
+    if (demoService.isDemoMode) return null;
+    return _peekCache(
+      '/micro-lms/quizzes/$quizId/questions',
+      CacheTtl.long,
+      (json) => _parseList(json, QuizPlayerQuestion.fromJson),
+    );
+  }
+
+  Future<QuizAttempt?> cachedQuizAttempt(int attemptId) async {
+    if (demoService.isDemoMode) return null;
+    return _peekCache(
+      '/micro-lms/quizzes/attempts/$attemptId',
+      CacheTtl.short,
+      (json) => json is Map<String, dynamic> ? QuizAttempt.fromJson(json) : null,
+    );
+  }
+
+  Future<List<Course>> fetchCourses({void Function(List<Course> courses)? onCached}) async {
     if (demoService.isDemoMode) return demoService.demoCourses();
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return [];
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/courses/student?limit=10000'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        return _parseCourses(response.body);
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching courses', e, st);
-    }
-    return [];
+    final courses = await _cachedGet(
+      '/micro-lms/courses/student?limit=10000',
+      maxAge: CacheTtl.long,
+      parse: (json) => _parseList(json, Course.fromJson),
+      label: 'fetching courses',
+      onCached: onCached,
+    );
+    return courses ?? [];
   }
 
-  Future<List<Course>> fetchArchivedCourses({int pageSize = 20}) async {
+  Future<List<Course>> fetchArchivedCourses({
+    int pageSize = 20,
+    void Function(List<Course> courses)? onCached,
+  }) async {
     if (demoService.isDemoMode) {
       return demoService.demoCourses().where((c) => c.isArchived).toList();
     }
-    return _fetchCoursesPaged(state: 'archived', pageSize: pageSize);
+    const cacheKey = 'courses/archived';
+    List<Course>? readCached(String? body) {
+      if (body == null) return null;
+      try {
+        return _parseList(jsonDecode(body), Course.fromJson);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    if (onCached != null) {
+      final cached = readCached(await ApiCache.instance.read(cacheKey, CacheTtl.long));
+      if (cached != null) onCached(cached);
+    }
+    final items = await _fetchCoursesPaged(state: 'archived', pageSize: pageSize);
+    if (items != null) {
+      unawaited(ApiCache.instance.write(cacheKey, jsonEncode(items)));
+      return items.map(Course.fromJson).toList();
+    }
+    return readCached(await ApiCache.instance.read(cacheKey, CacheTtl.long)) ?? [];
   }
 
-  Future<List<Course>> _fetchCoursesPaged({
+  Future<List<Map<String, dynamic>>?> _fetchCoursesPaged({
     required String state,
     int pageSize = 20,
   }) async {
-    final result = <Course>[];
-    final seenIds = <int>{};
+    final result = <Map<String, dynamic>>[];
+    final seenIds = <Object?>{};
     try {
       final cookie = await getCookie();
-      if (cookie == null) return result;
+      if (cookie == null) return null;
 
       var offset = 0;
       while (offset < _coursesPagingCap) {
@@ -233,74 +355,53 @@ class ApiService {
         );
 
         await _handleResponse(response);
-        if (response.statusCode != 200) break;
+        if (response.statusCode != 200) return null;
 
-        final page = _parseCourses(response.body);
-        final fresh = page.where((c) => seenIds.add(c.id)).toList();
+        final data = jsonDecode(response.body);
+        final page = (data is List ? data : (data is Map ? data['items'] as List? : null) ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        final fresh = page.where((c) => seenIds.add(c['id'])).toList();
         result.addAll(fresh);
         if (fresh.isEmpty || page.length < pageSize) break;
         offset += pageSize;
       }
     } catch (e, st) {
       _log.warning('Error fetching courses (state: $state)', e, st);
+      return null;
     }
     return result;
   }
 
-  List<Course> _parseCourses(String body) {
-    final data = jsonDecode(body);
-    if (data is List) {
-      return data.map((e) => Course.fromJson(e)).toList();
-    }
-    if (data is Map<String, dynamic>) {
-      final List<dynamic> items = data['items'] ?? [];
-      return items.map((e) => Course.fromJson(e)).toList();
-    }
-    return [];
-  }
 
-  Future<CourseOverview?> fetchCourseOverview(int courseId) async {
+
+  Future<CourseOverview?> fetchCourseOverview(
+    int courseId, {
+    void Function(CourseOverview overview)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoCourseOverview(courseId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/courses/$courseId/overview'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        return CourseOverview.fromJson(jsonDecode(response.body));
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching course overview', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/courses/$courseId/overview',
+      maxAge: CacheTtl.long,
+      parse: (json) => CourseOverview.fromJson(json),
+      label: 'fetching course overview',
+      onCached: onCached,
+    );
   }
 
-  Future<List<LongreadMaterial>> fetchLongreadMaterials(int longreadId) async {
+  Future<List<LongreadMaterial>> fetchLongreadMaterials(
+    int longreadId, {
+    void Function(List<LongreadMaterial> materials)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoLongreadMaterials(longreadId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return [];
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/longreads/$longreadId/materials?limit=10000'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> items = data['items'] ?? [];
-        return items.map((e) => LongreadMaterial.fromJson(e)).toList();
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching longread materials', e, st);
-    }
-    return [];
+    final materials = await _cachedGet(
+      '/micro-lms/longreads/$longreadId/materials?limit=10000',
+      maxAge: CacheTtl.long,
+      parse: (json) => _parseList(json, LongreadMaterial.fromJson),
+      label: 'fetching longread materials',
+      onCached: onCached,
+    );
+    return materials ?? [];
   }
 
   Future<LongreadMaterial?> fetchMaterialById(int materialId) async {
@@ -464,104 +565,75 @@ class ApiService {
     }
   }
 
-  Future<StudentLmsProfile?> fetchStudentLmsProfile() async {
+  Future<StudentLmsProfile?> fetchStudentLmsProfile({
+    void Function(StudentLmsProfile profile)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoLmsProfile();
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/students/me'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        return StudentLmsProfile.fromJson(jsonDecode(response.body));
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching student LMS profile', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/students/me',
+      maxAge: CacheTtl.short,
+      parse: (json) => StudentLmsProfile.fromJson(json),
+      label: 'fetching student LMS profile',
+      onCached: onCached,
+    );
   }
 
-  Future<List<TaskEvent>> fetchTaskEvents(int taskId) async {
+  Future<List<TaskEvent>> fetchTaskEvents(
+    int taskId, {
+    void Function(List<TaskEvent> events)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoTaskEvents(taskId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return [];
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/tasks/$taskId/events'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((e) => TaskEvent.fromJson(e)).toList();
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching task events', e, st);
-    }
-    return [];
+    final events = await _cachedGet(
+      '/micro-lms/tasks/$taskId/events',
+      maxAge: CacheTtl.short,
+      parse: (json) => _parseList(json, TaskEvent.fromJson),
+      label: 'fetching task events',
+      onCached: onCached,
+    );
+    return events ?? [];
   }
 
-  Future<List<TaskComment>> fetchTaskComments(int taskId) async {
+  Future<List<TaskComment>> fetchTaskComments(
+    int taskId, {
+    void Function(List<TaskComment> comments)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoTaskComments(taskId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return [];
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/tasks/$taskId/comments'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final items = data is List ? data : (data is Map ? data['items'] as List? : null);
-        final comments = <TaskComment>[];
-        for (final item in items ?? const []) {
-          if (item is! Map<String, dynamic>) continue;
-          try {
-            comments.add(TaskComment.fromJson(item));
-          } catch (e, st) {
-            _log.warning('Skipping malformed task comment', e, st);
-          }
-        }
-        return comments;
-      }
-      _log.warning('Task comments request failed: ${response.statusCode}');
-    } catch (e, st) {
-      _log.warning('Error fetching task comments', e, st);
-    }
-    return [];
+    final comments = await _cachedGet(
+      '/micro-lms/tasks/$taskId/comments',
+      maxAge: CacheTtl.short,
+      parse: _parseComments,
+      label: 'fetching task comments',
+      onCached: onCached,
+    );
+    return comments ?? [];
   }
 
-  Future<TaskDetails?> fetchTaskDetails(int taskId) async {
-    if (demoService.isDemoMode) return demoService.demoTaskDetails(taskId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/tasks/$taskId'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data is Map<String, dynamic>) {
-          return TaskDetails.fromJson(data);
-        }
+  static List<TaskComment> _parseComments(dynamic json) {
+    final items = json is List ? json : (json is Map ? json['items'] as List? : null);
+    final comments = <TaskComment>[];
+    for (final item in items ?? const []) {
+      if (item is! Map<String, dynamic>) continue;
+      try {
+        comments.add(TaskComment.fromJson(item));
+      } catch (e, st) {
+        _log.warning('Skipping malformed task comment', e, st);
       }
-    } catch (e, st) {
-      _log.warning('Error fetching task details', e, st);
     }
-    return null;
+    return comments;
+  }
+
+  Future<TaskDetails?> fetchTaskDetails(
+    int taskId, {
+    void Function(TaskDetails details)? onCached,
+  }) async {
+    if (demoService.isDemoMode) return demoService.demoTaskDetails(taskId);
+    return _cachedGet(
+      '/micro-lms/tasks/$taskId',
+      maxAge: CacheTtl.short,
+      parse: (json) => json is Map<String, dynamic> ? TaskDetails.fromJson(json) : null,
+      label: 'fetching task details',
+      onCached: onCached,
+    );
   }
 
   static const _quizErrorCodes = [
@@ -582,73 +654,32 @@ class ApiService {
 
   Future<QuizTask?> fetchQuizTask(int taskId) async {
     if (demoService.isDemoMode) return demoService.demoQuizTask(taskId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/tasks/$taskId'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data is Map<String, dynamic>) return QuizTask.fromJson(data);
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching quiz task', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/tasks/$taskId',
+      maxAge: CacheTtl.short,
+      parse: (json) => json is Map<String, dynamic> ? QuizTask.fromJson(json) : null,
+      label: 'fetching quiz task',
+    );
   }
 
   Future<List<QuizPlayerQuestion>?> fetchQuizQuestions(int quizId) async {
     if (demoService.isDemoMode) return demoService.demoQuizQuestions(quizId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/quizzes/$quizId/questions'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data is List) {
-          return data
-              .whereType<Map<String, dynamic>>()
-              .map(QuizPlayerQuestion.fromJson)
-              .toList();
-        }
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching quiz questions', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/quizzes/$quizId/questions',
+      maxAge: CacheTtl.long,
+      parse: (json) => json is List ? _parseList(json, QuizPlayerQuestion.fromJson) : null,
+      label: 'fetching quiz questions',
+    );
   }
 
   Future<QuizAttempt?> fetchQuizAttempt(int attemptId) async {
     if (demoService.isDemoMode) return demoService.demoQuizAttempt(attemptId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/quizzes/attempts/$attemptId'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data is Map<String, dynamic>) return QuizAttempt.fromJson(data);
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching quiz attempt', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/quizzes/attempts/$attemptId',
+      maxAge: CacheTtl.short,
+      parse: (json) => json is Map<String, dynamic> ? QuizAttempt.fromJson(json) : null,
+      label: 'fetching quiz attempt',
+    );
   }
 
   Future<QuizActionResult> startQuizAttempt(int sessionId) async {
@@ -839,13 +870,13 @@ class ApiService {
     required int category,
     int limit = 100,
     int offset = 0,
+    void Function(List<NotificationItem> items)? onCached,
   }) async {
     if (demoService.isDemoMode) return demoService.demoNotifications(category);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return [];
-
-      final response = await http.post(
+    final items = await _cachedRequest(
+      cacheKey: 'notifications/$category/$limit/$offset',
+      maxAge: CacheTtl.short,
+      send: (cookie) => http.post(
         Uri.parse('$baseUrl/notification-hub/notifications/in-app'),
         headers: {
           'Cookie': cookie,
@@ -861,29 +892,12 @@ class ApiService {
             'category': category,
           },
         }),
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data is List) {
-          return data
-              .whereType<Map<String, dynamic>>()
-              .map(NotificationItem.fromJson)
-              .toList();
-        }
-        if (data is Map<String, dynamic>) {
-          final List<dynamic> items = data['items'] ?? [];
-          return items
-              .whereType<Map<String, dynamic>>()
-              .map(NotificationItem.fromJson)
-              .toList();
-        }
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching notifications', e, st);
-    }
-    return [];
+      ),
+      parse: (json) => _parseList(json, NotificationItem.fromJson),
+      label: 'fetching notifications',
+      onCached: onCached,
+    );
+    return items ?? [];
   }
 
   Future<bool> prolongLateDays(int taskId, int lateDays) async {
@@ -935,190 +949,122 @@ class ApiService {
     }
   }
 
-  Future<StudentPerformanceResponse?> fetchStudentPerformance() async {
+  Future<StudentPerformanceResponse?> fetchStudentPerformance({
+    void Function(StudentPerformanceResponse response)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoPerformance();
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/performance/student'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        return StudentPerformanceResponse.fromJson(jsonDecode(response.body));
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching student performance', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/performance/student',
+      maxAge: CacheTtl.long,
+      parse: (json) => StudentPerformanceResponse.fromJson(json),
+      label: 'fetching student performance',
+      onCached: onCached,
+    );
   }
 
-  Future<List<ActivityPerformance>?> fetchActivitiesPerformance(int courseId) async {
+  Future<List<ActivityPerformance>?> fetchActivitiesPerformance(
+    int courseId, {
+    void Function(List<ActivityPerformance> items)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoActivitiesPerformance(courseId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/courses/$courseId/activities-performance'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return (data['items'] as List? ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map(ActivityPerformance.fromJson)
-            .toList();
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching activities performance', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/courses/$courseId/activities-performance',
+      maxAge: CacheTtl.long,
+      parse: (json) => _parseList(json, ActivityPerformance.fromJson),
+      label: 'fetching activities performance',
+      onCached: onCached,
+    );
   }
 
-  Future<CourseExercisesResponse?> fetchCourseExercises(int courseId) async {
+  Future<CourseExercisesResponse?> fetchCourseExercises(
+    int courseId, {
+    void Function(CourseExercisesResponse response)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoCourseExercises(courseId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/courses/$courseId/exercises'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        return CourseExercisesResponse.fromJson(jsonDecode(response.body));
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching course exercises', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/courses/$courseId/exercises',
+      maxAge: CacheTtl.long,
+      parse: (json) => CourseExercisesResponse.fromJson(json),
+      label: 'fetching course exercises',
+      onCached: onCached,
+    );
   }
 
-  Future<CourseStudentPerformanceResponse?> fetchCourseStudentPerformance(int courseId) async {
+  Future<CourseStudentPerformanceResponse?> fetchCourseStudentPerformance(
+    int courseId, {
+    void Function(CourseStudentPerformanceResponse response)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoCourseStudentPerformance(courseId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/courses/$courseId/student-performance'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        return CourseStudentPerformanceResponse.fromJson(jsonDecode(response.body));
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching course student performance', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/courses/$courseId/student-performance',
+      maxAge: CacheTtl.long,
+      parse: (json) => CourseStudentPerformanceResponse.fromJson(json),
+      label: 'fetching course student performance',
+      onCached: onCached,
+    );
   }
 
-  Future<GradebookResponse?> fetchGradebook() async {
+  Future<GradebookResponse?> fetchGradebook({
+    void Function(GradebookResponse response)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoGradebook();
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/gradebook'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        return GradebookResponse.fromJson(jsonDecode(response.body));
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching gradebook', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/gradebook',
+      maxAge: CacheTtl.long,
+      parse: (json) => GradebookResponse.fromJson(json),
+      label: 'fetching gradebook',
+      onCached: onCached,
+    );
   }
 
-  Future<CourseProgress?> fetchCourseProgress(int courseId) async {
+  Future<CourseProgress?> fetchCourseProgress(
+    int courseId, {
+    void Function(CourseProgress progress)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoCourseProgress(courseId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/courses/$courseId/student/progress'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        return CourseProgress.fromJson(jsonDecode(response.body));
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching course progress', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/courses/$courseId/student/progress',
+      maxAge: CacheTtl.long,
+      parse: (json) => CourseProgress.fromJson(json),
+      label: 'fetching course progress',
+      onCached: onCached,
+    );
   }
 
-  Future<List<StudentTask>?> fetchDeadlines({int limit = 100, int? courseId}) async {
+  Future<List<StudentTask>?> fetchDeadlines({
+    int limit = 100,
+    int? courseId,
+    void Function(List<StudentTask> tasks)? onCached,
+  }) async {
     if (demoService.isDemoMode) {
       return demoService.demoDeadlines(limit: limit, courseId: courseId);
     }
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final query = [
-        'limit=$limit',
-        if (courseId != null) 'courseId=$courseId',
-      ].join('&');
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/deadlines?$query'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data
-            .whereType<Map<String, dynamic>>()
-            .map(StudentTask.fromJson)
-            .toList();
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching deadlines', e, st);
-    }
-    return null;
+    final query = [
+      'limit=$limit',
+      if (courseId != null) 'courseId=$courseId',
+    ].join('&');
+    return _cachedGet(
+      '/micro-lms/deadlines?$query',
+      maxAge: CacheTtl.short,
+      parse: (json) => _parseList(json, StudentTask.fromJson),
+      label: 'fetching deadlines',
+      onCached: onCached,
+    );
   }
 
-  Future<List<RecordingHost>> fetchRecordingHosts(int courseId) async {
+  Future<List<RecordingHost>> fetchRecordingHosts(
+    int courseId, {
+    void Function(List<RecordingHost> hosts)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoRecordingHosts(courseId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return [];
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/calendar-events/recording-hosts?courseId=$courseId'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data
-            .whereType<Map<String, dynamic>>()
-            .map(RecordingHost.fromJson)
-            .toList();
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching recording hosts', e, st);
-    }
-    return [];
+    final hosts = await _cachedGet(
+      '/micro-lms/calendar-events/recording-hosts?courseId=$courseId',
+      maxAge: CacheTtl.long,
+      parse: (json) => _parseList(json, RecordingHost.fromJson),
+      label: 'fetching recording hosts',
+      onCached: onCached,
+    );
+    return hosts ?? [];
   }
 
   Future<RecordingEventsPage?> fetchRecordingEvents({
@@ -1128,6 +1074,7 @@ class ApiService {
     bool myEvents = true,
     Iterable<String> eventTypes = const [],
     Iterable<String> hostEmails = const [],
+    void Function(RecordingEventsPage page)? onCached,
   }) async {
     if (demoService.isDemoMode) {
       return demoService.demoRecordingEvents(
@@ -1138,138 +1085,81 @@ class ApiService {
         hostEmails: hostEmails,
       );
     }
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final query = [
-        'offset=$offset',
-        'limit=$limit',
-        'myEvents=$myEvents',
-        ...eventTypes.map((t) => 'eventTypes=${Uri.encodeQueryComponent(t)}'),
-        ...hostEmails.map((e) => 'hostEmails=${Uri.encodeQueryComponent(e)}'),
-        'courseId=$courseId',
-      ].join('&');
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/calendar-events/recording-events?$query'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final items = (data['items'] as List? ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map(RecordingEvent.fromJson)
-            .toList();
-        final paging = data['paging'];
+    final query = [
+      'offset=$offset',
+      'limit=$limit',
+      'myEvents=$myEvents',
+      ...eventTypes.map((t) => 'eventTypes=${Uri.encodeQueryComponent(t)}'),
+      ...hostEmails.map((e) => 'hostEmails=${Uri.encodeQueryComponent(e)}'),
+      'courseId=$courseId',
+    ].join('&');
+    return _cachedGet(
+      '/micro-lms/calendar-events/recording-events?$query',
+      maxAge: CacheTtl.long,
+      parse: (json) {
+        final items = _parseList(json, RecordingEvent.fromJson);
+        final paging = json is Map ? json['paging'] : null;
         final total = paging is Map ? (paging['totalCount'] as num?)?.toInt() : null;
         return RecordingEventsPage(items: items, totalCount: total ?? items.length);
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching recording events', e, st);
-    }
-    return null;
+      },
+      label: 'fetching recording events',
+      onCached: onCached,
+    );
   }
 
   Future<List<EventRecording>?> fetchEventRecordings(String eventId, String actualDate) async {
     if (demoService.isDemoMode) return demoService.demoEventRecordings(eventId);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse(
-          '$baseUrl/micro-lms/calendar-events/$eventId/recordings?actualDate=$actualDate',
-        ),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data
-            .whereType<Map<String, dynamic>>()
-            .map(EventRecording.fromJson)
-            .where((r) => r.url.isNotEmpty)
-            .toList();
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching event recordings', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/calendar-events/$eventId/recordings?actualDate=$actualDate',
+      maxAge: CacheTtl.short,
+      parse: (json) =>
+          _parseList(json, EventRecording.fromJson).where((r) => r.url.isNotEmpty).toList(),
+      label: 'fetching event recordings',
+    );
   }
 
-  Future<List<AttendanceCourse>?> fetchAttendanceCourses({bool archived = false}) async {
+  Future<List<AttendanceCourse>?> fetchAttendanceCourses({
+    bool archived = false,
+    void Function(List<AttendanceCourse> courses)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoAttendanceCourses(archived: archived);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/v0/attendance/learn/courses?isArchived=$archived'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data
-            .whereType<Map<String, dynamic>>()
-            .map(AttendanceCourse.fromJson)
-            .toList();
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching attendance courses', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/v0/attendance/learn/courses?isArchived=$archived',
+      maxAge: CacheTtl.short,
+      parse: (json) => _parseList(json, AttendanceCourse.fromJson),
+      label: 'fetching attendance courses',
+      onCached: onCached,
+    );
   }
 
-  Future<List<AttendanceEvent>?> fetchCourseEventsByDate(int courseId, String date) async {
+  Future<List<AttendanceEvent>?> fetchCourseEventsByDate(
+    int courseId,
+    String date, {
+    void Function(List<AttendanceEvent> events)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoCourseEventsByDate(courseId, date);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/calendar-events/learn/courses/$courseId/events/$date'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data
-            .whereType<Map<String, dynamic>>()
-            .map(AttendanceEvent.fromJson)
-            .toList();
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching course events', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/calendar-events/learn/courses/$courseId/events/$date',
+      maxAge: CacheTtl.long,
+      parse: (json) => _parseList(json, AttendanceEvent.fromJson),
+      label: 'fetching course events',
+      onCached: onCached,
+    );
   }
 
-  Future<Set<String>?> fetchAttendedEventIds(int courseId, String date) async {
+  Future<Set<String>?> fetchAttendedEventIds(
+    int courseId,
+    String date, {
+    void Function(Set<String> ids)? onCached,
+  }) async {
     if (demoService.isDemoMode) return demoService.demoAttendedEventIds(courseId, date);
-    try {
-      final cookie = await getCookie();
-      if (cookie == null) return null;
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/micro-lms/v0/attendance/learn/courses/$courseId/events/$date'),
-        headers: {'Cookie': cookie},
-      );
-
-      await _handleResponse(response);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((e) => e.toString()).toSet();
-      }
-    } catch (e, st) {
-      _log.warning('Error fetching attended events', e, st);
-    }
-    return null;
+    return _cachedGet(
+      '/micro-lms/v0/attendance/learn/courses/$courseId/events/$date',
+      maxAge: CacheTtl.short,
+      parse: (json) => json is List ? json.map((e) => e.toString()).toSet() : null,
+      label: 'fetching attended events',
+      onCached: onCached,
+    );
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/data/models/attendance.dart';
 import 'package:cumobile/data/services/api_service.dart';
 import 'package:cumobile/features/attendance/pages/attendance_course_page.dart';
@@ -38,12 +39,17 @@ class _AttendanceTabState extends State<AttendanceTab> {
       _loading.add(archived);
       _failed.remove(archived);
     });
-    final courses = await apiService.fetchAttendanceCourses(archived: archived);
+    final courses = await apiService.fetchAttendanceCourses(
+      archived: archived,
+      onCached: (cached) {
+        if (mounted) setState(() => _coursesByArchive[archived] = _sorted(cached));
+      },
+    );
     if (!mounted) return;
     setState(() {
       _loading.remove(archived);
       if (courses == null) {
-        _failed.add(archived);
+        if (!_coursesByArchive.containsKey(archived)) _failed.add(archived);
       } else {
         _coursesByArchive[archived] = _sorted(courses);
       }
@@ -128,6 +134,11 @@ class _AttendanceTabState extends State<AttendanceTab> {
           chip(false, 'Актуальные'),
           const SizedBox(width: 8),
           chip(true, 'Архивные'),
+          const Spacer(),
+          SyncIndicator(
+            visible: _loading.contains(_showArchived) &&
+                _coursesByArchive.containsKey(_showArchived),
+          ),
         ],
       ),
     );

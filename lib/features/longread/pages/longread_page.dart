@@ -26,6 +26,7 @@ import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/services/file_rename_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/core/ui/html_colors.dart';
+import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/longread_material.dart';
@@ -69,7 +70,7 @@ class LongreadPage extends StatefulWidget {
   State<LongreadPage> createState() => _LongreadPageState();
 }
 
-class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver {
+class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver, SyncTracker {
   List<LongreadMaterial> _materials = [];
   bool _isLoading = true;
   final Set<String> _downloadingKeys = {};
@@ -80,6 +81,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   final Map<int, List<TaskComment>> _commentsByTaskId = {};
   final Map<int, TaskDetails> _taskDetailsById = {};
   final Set<int> _loadingTaskIds = {};
+  final Set<int> _requestedTaskIds = {};
   final Set<int> _lateDaysLoadingTaskIds = {};
   final Map<int, String?> _taskLoadErrors = {};
   final Map<int, int> _taskTabIndex = {};
@@ -118,7 +120,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         longreadId: widget.longread.id,
       );
     }
-    _loadMaterials();
+    trackSync(_loadMaterials());
   }
 
   @override
@@ -145,14 +147,31 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
 
   Future<void> _loadMaterials() async {
     try {
-      final materials = await apiService.fetchLongreadMaterials(widget.longread.id);
-      setState(() {
-        _materials = materials;
-        _isLoading = false;
-      });
-      _updateSearchResults(scrollToFirst: false);
+      var hasCachedMaterials = false;
+      Future<void>? cachedTaskLoad;
+      final materials = await apiService.fetchLongreadMaterials(
+        widget.longread.id,
+        onCached: (cached) {
+          if (!mounted) return;
+          hasCachedMaterials = cached.isNotEmpty;
+          setState(() {
+            _materials = cached;
+            _isLoading = false;
+          });
+          _updateSearchResults(scrollToFirst: false);
+          cachedTaskLoad = _loadTaskDetails();
+        },
+      );
+      if (!mounted) return;
+      if (materials.isNotEmpty || !hasCachedMaterials) {
+        setState(() {
+          _materials = materials;
+          _isLoading = false;
+        });
+        _updateSearchResults(scrollToFirst: false);
+      }
       await _refreshDownloadedFlags();
-      await _loadTaskDetails();
+      await Future.wait([_loadTaskDetails(), ?cachedTaskLoad]);
     } catch (e, st) {
       _log.warning('Error loading materials', e, st);
       setState(() => _isLoading = false);
@@ -189,39 +208,57 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
   }
 
   Future<void> _loadTaskDetails() async {
-    final taskIds = _materials
-        .where((m) => m.isExercise && m.taskId != null)
-        .map((m) => m.taskId!)
-        .toSet();
-
-    for (final taskId in taskIds) {
-      if (_loadingTaskIds.contains(taskId)) continue;
-      _loadingTaskIds.add(taskId);
-      try {
-        final results = await Future.wait([
-          apiService.fetchTaskEvents(taskId),
-          apiService.fetchTaskComments(taskId),
-          apiService.fetchTaskDetails(taskId),
-        ]);
-        if (!mounted) return;
-        setState(() {
-          _eventsByTaskId[taskId] = results[0] as List<TaskEvent>;
-          _commentsByTaskId[taskId] = results[1] as List<TaskComment>;
-          final details = results[2] as TaskDetails?;
-          if (details != null) {
-            _taskDetailsById[taskId] = details;
-          }
-          _taskLoadErrors[taskId] = null;
-        });
-        await _refreshDownloadedTaskAttachments(taskId);
-      } catch (e, st) {
-        _log.warning('Error loading task details', e, st);
-        if (mounted) {
-          setState(() => _taskLoadErrors[taskId] = 'Не удалось загрузить историю');
-        }
-      } finally {
-        _loadingTaskIds.remove(taskId);
+    final taskIds = <int>{};
+    for (final material in _materials) {
+      final taskId = material.taskId;
+      if (material.isExercise && taskId != null && _requestedTaskIds.add(taskId)) {
+        taskIds.add(taskId);
       }
+    }
+
+    await Future.wait(taskIds.map((taskId) => _fetchTaskData(taskId, useCache: true)));
+  }
+
+  Future<void> _fetchTaskData(int taskId, {required bool useCache}) async {
+    if (_loadingTaskIds.contains(taskId)) return;
+    _loadingTaskIds.add(taskId);
+    void applyCached(void Function() update) {
+      if (mounted) setState(update);
+    }
+
+    try {
+      final results = await Future.wait([
+        apiService.fetchTaskEvents(
+          taskId,
+          onCached: useCache ? (v) => applyCached(() => _eventsByTaskId[taskId] = v) : null,
+        ),
+        apiService.fetchTaskComments(
+          taskId,
+          onCached: useCache ? (v) => applyCached(() => _commentsByTaskId[taskId] = v) : null,
+        ),
+        apiService.fetchTaskDetails(
+          taskId,
+          onCached: useCache ? (v) => applyCached(() => _taskDetailsById[taskId] = v) : null,
+        ),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _eventsByTaskId[taskId] = results[0] as List<TaskEvent>;
+        _commentsByTaskId[taskId] = results[1] as List<TaskComment>;
+        final details = results[2] as TaskDetails?;
+        if (details != null) {
+          _taskDetailsById[taskId] = details;
+        }
+        _taskLoadErrors[taskId] = null;
+      });
+      await _refreshDownloadedTaskAttachments(taskId);
+    } catch (e, st) {
+      _log.warning('Error loading task details', e, st);
+      if (mounted) {
+        setState(() => _taskLoadErrors[taskId] = 'Не удалось загрузить историю');
+      }
+    } finally {
+      _loadingTaskIds.remove(taskId);
     }
   }
 
@@ -556,6 +593,10 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (!_isSearching) ...[
+                SyncIndicator(visible: isSyncing),
+                const SizedBox(width: 8),
+              ],
               if (_isSearching)
                 ...[
                   CupertinoButton(
@@ -643,6 +684,7 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
         toolbarHeight: _isSearching ? kToolbarHeight : kToolbarHeight + 20,
         centerTitle: false,
         actions: [
+          if (!_isSearching) Center(child: SyncIndicator(visible: isSyncing, size: 16)),
           if (_isSearching) ...[
             IconButton(
               icon: Icon(Icons.keyboard_arrow_up, color: c.textPrimary),
@@ -4264,35 +4306,8 @@ class _LongreadPageState extends State<LongreadPage> with WidgetsBindingObserver
     return filtered;
   }
 
-  Future<void> _reloadTaskDetails(int taskId) async {
-    if (_loadingTaskIds.contains(taskId)) return;
-    _loadingTaskIds.add(taskId);
-    try {
-      final results = await Future.wait([
-        apiService.fetchTaskEvents(taskId),
-        apiService.fetchTaskComments(taskId),
-        apiService.fetchTaskDetails(taskId),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _eventsByTaskId[taskId] = results[0] as List<TaskEvent>;
-        _commentsByTaskId[taskId] = results[1] as List<TaskComment>;
-        final details = results[2] as TaskDetails?;
-        if (details != null) {
-          _taskDetailsById[taskId] = details;
-        }
-        _taskLoadErrors[taskId] = null;
-      });
-      await _refreshDownloadedTaskAttachments(taskId);
-    } catch (e, st) {
-      _log.warning('Error reloading task details', e, st);
-      if (mounted) {
-        setState(() => _taskLoadErrors[taskId] = 'Не удалось загрузить историю');
-      }
-    } finally {
-      _loadingTaskIds.remove(taskId);
-    }
-  }
+  Future<void> _reloadTaskDetails(int taskId) =>
+      trackSync(_fetchTaskData(taskId, useCache: false));
 
   Future<void> _startTask(int taskId) async {
     if (_startingTaskIds.contains(taskId)) return;

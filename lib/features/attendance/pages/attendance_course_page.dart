@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/models/attendance.dart';
 import 'package:cumobile/data/models/campus_map.dart';
@@ -39,6 +40,7 @@ class _AttendanceCoursePageState extends State<AttendanceCoursePage> {
   List<AttendanceEvent> _events = [];
   Set<String> _attendedIds = {};
   bool _isLoading = true;
+  bool _isRefreshing = false;
   bool _hasError = false;
   int _requestId = 0;
   CampusMapData? _mapData;
@@ -69,17 +71,46 @@ class _AttendanceCoursePageState extends State<AttendanceCoursePage> {
     final date = _apiDateFormat.format(_date);
     setState(() {
       _isLoading = true;
+      _isRefreshing = true;
       _hasError = false;
     });
+    List<AttendanceEvent>? cachedEvents;
+    Set<String>? cachedAttended;
+    void showCached() {
+      final events = cachedEvents;
+      if (!mounted || requestId != _requestId || events == null) return;
+      setState(() {
+        _isLoading = false;
+        _events = [...events]..sort((a, b) => a.startTime.compareTo(b.startTime));
+        _attendedIds = cachedAttended ?? {};
+      });
+    }
+
     final results = await Future.wait([
-      apiService.fetchCourseEventsByDate(widget.course.courseId, date),
-      apiService.fetchAttendedEventIds(widget.course.courseId, date),
+      apiService.fetchCourseEventsByDate(
+        widget.course.courseId,
+        date,
+        onCached: (cached) {
+          cachedEvents = cached;
+          showCached();
+        },
+      ),
+      apiService.fetchAttendedEventIds(
+        widget.course.courseId,
+        date,
+        onCached: (cached) {
+          cachedAttended = cached;
+          showCached();
+        },
+      ),
     ]);
     if (!mounted || requestId != _requestId) return;
     final events = results[0] as List<AttendanceEvent>?;
     final attended = results[1] as Set<String>?;
     setState(() {
       _isLoading = false;
+      _isRefreshing = false;
+      if (events == null && cachedEvents != null) return;
       if (events == null) {
         _hasError = true;
         _events = [];
@@ -142,6 +173,7 @@ class _AttendanceCoursePageState extends State<AttendanceCoursePage> {
             child: Icon(CupertinoIcons.back, color: c.accent),
           ),
           middle: title,
+          trailing: SyncIndicator(visible: _isRefreshing && !_isLoading),
         ),
         child: SafeArea(bottom: false, child: _buildBody(isIos)),
       );
@@ -156,6 +188,10 @@ class _AttendanceCoursePageState extends State<AttendanceCoursePage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: title,
+        actions: [
+          Center(child: SyncIndicator(visible: _isRefreshing && !_isLoading, size: 16)),
+          const SizedBox(width: 16),
+        ],
       ),
       body: _buildBody(isIos),
     );

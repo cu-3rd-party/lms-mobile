@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 
 import 'package:cumobile/core/services/demo_service.dart';
 import 'package:cumobile/data/models/exam_item.dart';
+import 'package:cumobile/data/services/api_cache.dart';
 
 class ExamsService {
   static final Logger _log = Logger('ExamsService');
@@ -102,16 +103,25 @@ class ExamsService {
   }
 
   Future<dynamic> _fetchJson(String url) async {
+    final cacheKey = 'exams:$url';
     try {
       final response =
           await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
-      if (response.statusCode != 200) {
-        _log.warning('$url returned ${response.statusCode}');
-        return null;
+      if (response.statusCode == 200) {
+        final body = utf8.decode(response.bodyBytes);
+        final decoded = jsonDecode(body);
+        await ApiCache.instance.write(cacheKey, body);
+        return decoded;
       }
-      return jsonDecode(utf8.decode(response.bodyBytes));
+      _log.warning('$url returned ${response.statusCode}');
     } catch (e, st) {
       _log.warning('Error fetching $url', e, st);
+    }
+    final cached = await ApiCache.instance.read(cacheKey, CacheTtl.long);
+    if (cached == null) return null;
+    try {
+      return jsonDecode(cached);
+    } catch (_) {
       return null;
     }
   }

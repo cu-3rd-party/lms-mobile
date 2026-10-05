@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/data/models/student_lms_profile.dart';
 import 'package:cumobile/data/models/student_profile.dart';
 
@@ -17,6 +18,7 @@ class HomeTopNavigation extends StatelessWidget {
   final VoidCallback onOpenNotifications;
   final VoidCallback onOpenProfile;
   final VoidCallback? onOpenMap;
+  final bool isSyncing;
 
   const HomeTopNavigation({
     super.key,
@@ -28,6 +30,7 @@ class HomeTopNavigation extends StatelessWidget {
     required this.onOpenNotifications,
     required this.onOpenProfile,
     this.onOpenMap,
+    this.isSyncing = false,
   });
 
   @override
@@ -39,13 +42,22 @@ class HomeTopNavigation extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: c.textPrimary,
-              ),
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    title,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: c.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SyncIndicator(visible: isSyncing),
+              ],
             ),
           ),
           if (lmsProfile != null) ...[

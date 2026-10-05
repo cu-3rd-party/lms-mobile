@@ -11,6 +11,7 @@ import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/core/ui/html_colors.dart';
+import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/data/models/quiz.dart';
 import 'package:cumobile/data/models/student_task.dart';
 import 'package:cumobile/data/services/api_service.dart';
@@ -47,6 +48,7 @@ class _QuizPlayerState extends State<QuizPlayer> {
   bool _isStarting = false;
   bool _isCompleting = false;
   bool _timeIsUp = false;
+  bool _isFromCache = false;
   final Map<int, Object?> _answers = {};
   final Map<int, Timer> _saveTimers = {};
   final Map<int, Future<void>> _saveFutures = {};
@@ -78,6 +80,7 @@ class _QuizPlayerState extends State<QuizPlayer> {
   bool get _isEditable {
     final task = _task;
     return task != null &&
+        !_isFromCache &&
         !_timeIsUp &&
         task.isAnswerableState &&
         task.currentAttemptId != null &&
@@ -87,16 +90,17 @@ class _QuizPlayerState extends State<QuizPlayer> {
   Future<void> _load({bool silent = false}) async {
     if (!silent) {
       setState(() {
-        _isLoading = true;
+        _isLoading = _task == null;
         _hasError = false;
       });
+      if (_task == null) await _showCachedSnapshot();
     }
     final task = await apiService.fetchQuizTask(widget.taskId);
     if (!mounted) return;
     if (task == null) {
       setState(() {
         _isLoading = false;
-        _hasError = true;
+        _hasError = _task == null;
       });
       return;
     }
@@ -111,12 +115,43 @@ class _QuizPlayerState extends State<QuizPlayer> {
           : Future<QuizAttempt?>.value(null),
     ]);
     if (!mounted) return;
-    final attempt = results[1] as QuizAttempt?;
-    final questions = _orderQuestions(
+    _apply(
+      task,
+      results[1] as QuizAttempt?,
       results[0] as List<QuizPlayerQuestion>? ?? const [],
-      attempt,
+      fromCache: false,
     );
+  }
 
+  Future<void> _showCachedSnapshot() async {
+    final task = await apiService.cachedQuizTask(widget.taskId);
+    if (task == null || !mounted) return;
+    final attemptId = task.displayAttemptId;
+    final quizId = task.quizId;
+    final results = await Future.wait([
+      quizId != null && task.state != 'backlog'
+          ? apiService.cachedQuizQuestions(quizId)
+          : Future<List<QuizPlayerQuestion>?>.value(null),
+      attemptId != null
+          ? apiService.cachedQuizAttempt(attemptId)
+          : Future<QuizAttempt?>.value(null),
+    ]);
+    if (!mounted || (!_isFromCache && _task != null)) return;
+    _apply(
+      task,
+      results[1] as QuizAttempt?,
+      results[0] as List<QuizPlayerQuestion>? ?? const [],
+      fromCache: true,
+    );
+  }
+
+  void _apply(
+    QuizTask task,
+    QuizAttempt? attempt,
+    List<QuizPlayerQuestion> rawQuestions, {
+    required bool fromCache,
+  }) {
+    final questions = _orderQuestions(rawQuestions, attempt);
     for (final controller in _textControllers.values) {
       controller.dispose();
     }
@@ -136,6 +171,7 @@ class _QuizPlayerState extends State<QuizPlayer> {
       _task = task;
       _attempt = attempt;
       _questions = questions;
+      _isFromCache = fromCache;
       _isLoading = false;
       _hasError = false;
       _timeIsUp = false;
@@ -443,11 +479,26 @@ class _QuizPlayerState extends State<QuizPlayer> {
     }
 
     final canStart = !_isEditable &&
+        !_isFromCache &&
         (task.canStartTask || (task.canStartAttempt && task.isAnswerableState));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_isFromCache)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                SyncIndicator(visible: _isFromCache),
+                const SizedBox(width: 8),
+                Text(
+                  'Обновляем тест…',
+                  style: TextStyle(fontSize: 12, color: c.textTertiary),
+                ),
+              ],
+            ),
+          ),
         if (_timerEnd != null && _isEditable) ...[
           _buildTimer(),
           const SizedBox(height: 12),

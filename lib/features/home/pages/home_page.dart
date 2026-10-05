@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -19,6 +20,7 @@ import 'package:cumobile/features/home/widgets/late_days_dialog.dart';
 
 import 'package:cumobile/data/models/class_data.dart';
 import 'package:cumobile/data/models/course.dart';
+import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/student_lms_profile.dart';
 import 'package:cumobile/data/models/student_profile.dart';
 import 'package:cumobile/data/models/student_task.dart';
@@ -28,6 +30,7 @@ import 'package:cumobile/features/notifications/pages/notifications_page.dart';
 import 'package:cumobile/features/profile/pages/profile_page.dart';
 import 'package:cumobile/data/services/api_service.dart';
 import 'package:cumobile/core/services/demo_service.dart';
+import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
 import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/services/ical_service.dart';
@@ -52,7 +55,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with RouteAware {
+class _HomePageState extends State<HomePage> with RouteAware, SyncTracker {
   int _selectedTab = 0;
   bool _useNativeTabBar = false;
   double _nativeTabBarHeight = 0;
@@ -162,7 +165,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
   }
 
   Future<void> _loadData() async {
-    await Future.wait([
+    await trackSync(Future.wait([
       _loadProfile(),
       _loadTasks(),
       _loadCourses(),
@@ -170,7 +173,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
       _loadSchedule(),
       _loadPerformance(),
       _loadGradebook(),
-    ]);
+    ]));
   }
 
   Future<void> _loadTaskFilters() async {
@@ -214,11 +217,23 @@ class _HomePageState extends State<HomePage> with RouteAware {
   Future<void> _loadProfile() async {
     try {
       final results = await Future.wait([
-        apiService.fetchProfile(),
-        apiService.fetchAvatar(),
+        apiService.fetchProfile(
+          onCached: (cached) {
+            if (!mounted || _profile != null) return;
+            setState(() {
+              _profile = cached;
+              _isLoadingProfile = false;
+            });
+          },
+        ),
+        apiService.fetchAvatar(
+          onCached: (cached) {
+            if (mounted && _avatarBytes == null) setState(() => _avatarBytes = cached);
+          },
+        ),
       ]);
       if (!mounted) return;
-      final profile = results[0] as StudentProfile?;
+      final profile = results[0] as StudentProfile? ?? _profile;
       setState(() {
         _profile = profile;
         _avatarBytes = results[1] as Uint8List?;
@@ -243,8 +258,24 @@ class _HomePageState extends State<HomePage> with RouteAware {
           backlog: true,
           failed: true,
           evaluated: true,
+          onCached: (cached) {
+            if (!mounted || _tasks.isNotEmpty) return;
+            final tasks = [...cached]..sort(_compareTasksByDeadline);
+            setState(() {
+              _tasks = tasks;
+              _isLoadingTasks = false;
+              _tasksError = false;
+              final deadlines = _deadlineTasks;
+              if (deadlines != null) _deadlineTasks = _mergeDeadlines(deadlines, tasks);
+            });
+          },
         ),
-        apiService.fetchDeadlines(),
+        apiService.fetchDeadlines(
+          onCached: (cached) {
+            if (!mounted || _deadlineTasks != null) return;
+            setState(() => _deadlineTasks = _mergeDeadlines(cached, _tasks));
+          },
+        ),
       ]);
       final tasks = results[0];
       final deadlines = results[1];
@@ -275,55 +306,83 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
   Future<void> _loadCourses() async {
     try {
-      final responses = await Future.wait([
-        apiService.fetchCourses(),
-        apiService.fetchArchivedCourses(),
-      ]);
-      final fetchedCourses = responses[0];
-      final apiArchivedCourses = responses[1];
-      final courses = <int, Course>{
-        for (final course in apiArchivedCourses) course.id: course,
-        for (final course in fetchedCourses) course.id: course,
-      }.values.toList();
-
-      final prefs = await SharedPreferences.getInstance();
-      final savedActiveOrder = prefs.getStringList(_prefsActiveCoursesKey);
-      final savedArchivedOrder = prefs.getStringList(_prefsArchivedCoursesKey);
-      final hasSavedArchived = savedArchivedOrder != null;
-      final backendArchivedIds = <int>{
-        ...fetchedCourses.where((c) => c.isArchived).map((c) => c.id),
-        ...apiArchivedCourses.map((c) => c.id),
-      };
-      final localArchivedIds = (savedArchivedOrder ?? <String>[])
-          .map(int.tryParse)
-          .whereType<int>()
-          .toSet();
-      final effectiveArchivedIds = hasSavedArchived
-          ? {...backendArchivedIds, ...localArchivedIds}
-          : backendArchivedIds;
-
-      final activeCourses =
-          courses.where((c) => !effectiveArchivedIds.contains(c.id)).toList();
-      final archivedCourses =
-          courses.where((c) => effectiveArchivedIds.contains(c.id)).toList();
-      final orderedActive = _applyCourseOrder(activeCourses, savedActiveOrder);
-      final orderedArchived = _applyCourseOrder(archivedCourses, savedArchivedOrder);
-      if (!mounted) return;
-      setState(() {
-        _activeCourses = orderedActive;
-        _archivedCourses = orderedArchived;
-        _isLoadingCourses = false;
-      });
-      // Сохраняем обновленный список если бекенд архивировал курсы
-      if (backendArchivedIds.isNotEmpty) {
-        _saveCoursePreferences();
+      List<Course>? cachedCourses;
+      List<Course>? cachedArchived;
+      var isFreshApplied = false;
+      final hasCourses = _activeCourses.isNotEmpty || _archivedCourses.isNotEmpty;
+      void applyCached() {
+        final active = cachedCourses;
+        if (active == null || !mounted || hasCourses) return;
+        _applyCourses(active, cachedArchived ?? const [], isStale: () => isFreshApplied);
       }
+
+      final responses = await Future.wait([
+        apiService.fetchCourses(
+          onCached: (cached) {
+            cachedCourses = cached;
+            applyCached();
+          },
+        ),
+        apiService.fetchArchivedCourses(
+          onCached: (cached) {
+            cachedArchived = cached;
+            applyCached();
+          },
+        ),
+      ]);
+      if (!mounted) return;
+      isFreshApplied = true;
+      await _applyCourses(responses[0], responses[1]);
     } catch (e, st) {
       _log.warning('Error loading courses', e, st);
       if (!mounted) return;
       setState(() {
         _isLoadingCourses = false;
       });
+    }
+  }
+
+  Future<void> _applyCourses(
+    List<Course> fetchedCourses,
+    List<Course> apiArchivedCourses, {
+    bool Function()? isStale,
+  }) async {
+    final courses = <int, Course>{
+      for (final course in apiArchivedCourses) course.id: course,
+      for (final course in fetchedCourses) course.id: course,
+    }.values.toList();
+
+    final prefs = await SharedPreferences.getInstance();
+    final savedActiveOrder = prefs.getStringList(_prefsActiveCoursesKey);
+    final savedArchivedOrder = prefs.getStringList(_prefsArchivedCoursesKey);
+    final hasSavedArchived = savedArchivedOrder != null;
+    final backendArchivedIds = <int>{
+      ...fetchedCourses.where((c) => c.isArchived).map((c) => c.id),
+      ...apiArchivedCourses.map((c) => c.id),
+    };
+    final localArchivedIds = (savedArchivedOrder ?? <String>[])
+        .map(int.tryParse)
+        .whereType<int>()
+        .toSet();
+    final effectiveArchivedIds = hasSavedArchived
+        ? {...backendArchivedIds, ...localArchivedIds}
+        : backendArchivedIds;
+
+    final activeCourses =
+        courses.where((c) => !effectiveArchivedIds.contains(c.id)).toList();
+    final archivedCourses =
+        courses.where((c) => effectiveArchivedIds.contains(c.id)).toList();
+    final orderedActive = _applyCourseOrder(activeCourses, savedActiveOrder);
+    final orderedArchived = _applyCourseOrder(archivedCourses, savedArchivedOrder);
+    if (!mounted || (isStale?.call() ?? false)) return;
+    setState(() {
+      _activeCourses = orderedActive;
+      _archivedCourses = orderedArchived;
+      _isLoadingCourses = false;
+    });
+    // Сохраняем обновленный список если бекенд архивировал курсы
+    if (backendArchivedIds.isNotEmpty) {
+      _saveCoursePreferences();
     }
   }
 
@@ -355,10 +414,14 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
   Future<void> _loadLmsProfile() async {
     try {
-      final profile = await apiService.fetchStudentLmsProfile();
+      final profile = await apiService.fetchStudentLmsProfile(
+        onCached: (cached) {
+          if (mounted && _lmsProfile == null) setState(() => _lmsProfile = cached);
+        },
+      );
       if (!mounted) return;
       setState(() {
-        _lmsProfile = profile;
+        _lmsProfile = profile ?? _lmsProfile;
       });
       if (profile != null) {
         Analytics.setStudyLevel(profile.studyLevel);
@@ -370,10 +433,18 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
   Future<void> _loadPerformance() async {
     try {
-      final response = await apiService.fetchStudentPerformance();
+      final response = await apiService.fetchStudentPerformance(
+        onCached: (cached) {
+          if (!mounted || _performanceCourses.isNotEmpty) return;
+          setState(() {
+            _performanceCourses = cached.courses;
+            _isLoadingPerformance = false;
+          });
+        },
+      );
       if (!mounted) return;
       setState(() {
-        _performanceCourses = response?.courses ?? [];
+        _performanceCourses = response?.courses ?? _performanceCourses;
         _isLoadingPerformance = false;
       });
     } catch (e, st) {
@@ -385,10 +456,18 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
   Future<void> _loadGradebook() async {
     try {
-      final response = await apiService.fetchGradebook();
+      final response = await apiService.fetchGradebook(
+        onCached: (cached) {
+          if (!mounted || _gradebook != null) return;
+          setState(() {
+            _gradebook = cached;
+            _isLoadingGradebook = false;
+          });
+        },
+      );
       if (!mounted) return;
       setState(() {
-        _gradebook = response;
+        _gradebook = response ?? _gradebook;
         _isLoadingGradebook = false;
       });
     } catch (e, st) {
@@ -543,6 +622,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
           onOpenNotifications: _openNotifications,
           onOpenProfile: _openProfile,
           onOpenMap: (_profile?.hasCampusMap ?? false) ? _openMap : null,
+          isSyncing: isSyncing,
         ),
         if (demoService.isDemoMode) _buildDemoBanner(),
         const SizedBox(height: 12),
@@ -934,7 +1014,15 @@ class _HomePageState extends State<HomePage> with RouteAware {
       taskStatus: task.normalizedState,
       courseId: task.course.id,
     );
+    final cachedOverview = await apiService.cachedCourseOverview(task.course.id);
     if (!mounted) return;
+    final cachedTarget = cachedOverview == null ? null : _locateTask(cachedOverview, task);
+    if (cachedTarget != null) {
+      unawaited(apiService.fetchCourseOverview(task.course.id));
+      await _openTaskLongread(task, cachedTarget.$1, cachedTarget.$2);
+      return;
+    }
+
     final accent = AppColors.of(context).accent;
     if (Platform.isIOS) {
       showCupertinoDialog(
@@ -970,54 +1058,50 @@ class _HomePageState extends State<HomePage> with RouteAware {
         return;
       }
 
-      for (final theme in overview.themes) {
-        for (final longread in theme.longreads) {
-          final match = longread.exercises.any((ex) => ex.id == task.exercise.id);
-          if (match) {
-            final course = _findCourse(task.course.id);
-            final themeColor = course?.categoryColor ?? const Color(0xFF607D8B);
-            final courseName = course?.cleanName ?? task.course.cleanName;
-            await Navigator.push(
-              context,
-              Platform.isIOS
-                  ? CupertinoPageRoute(
-                      builder: (context) => LongreadPage(
-                        longread: longread,
-                        themeColor: themeColor,
-                        courseName: courseName,
-                        themeName: theme.name,
-                        courseId: task.course.id,
-                        themeId: theme.id,
-                        selectedTaskId: task.id,
-                      ),
-                    )
-                  : MaterialPageRoute(
-                      builder: (context) => LongreadPage(
-                        longread: longread,
-                        themeColor: themeColor,
-                        courseName: courseName,
-                        themeName: theme.name,
-                        courseId: task.course.id,
-                        themeId: theme.id,
-                        selectedTaskId: task.id,
-                      ),
-                    ),
-            );
-            if (!mounted) return;
-            setState(() => _isLoadingTasks = true);
-            await Future.wait([_loadTasks(), _loadLmsProfile()]);
-            return;
-          }
-        }
+      final target = _locateTask(overview, task);
+      if (target == null) {
+        _showSnack('Задание не найдено в курсе');
+        return;
       }
-
-      _showSnack('Задание не найдено в курсе');
+      await _openTaskLongread(task, target.$1, target.$2);
     } catch (e, st) {
       _log.warning('Error opening task', e, st);
       if (!mounted) return;
       Navigator.of(context).pop();
       _showSnack('Не удалось открыть задание');
     }
+  }
+
+  (CourseTheme, Longread)? _locateTask(CourseOverview overview, StudentTask task) {
+    for (final theme in overview.themes) {
+      for (final longread in theme.longreads) {
+        if (longread.exercises.any((ex) => ex.id == task.exercise.id)) {
+          return (theme, longread);
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<void> _openTaskLongread(StudentTask task, CourseTheme theme, Longread longread) async {
+    final course = _findCourse(task.course.id);
+    final page = LongreadPage(
+      longread: longread,
+      themeColor: course?.categoryColor ?? const Color(0xFF607D8B),
+      courseName: course?.cleanName ?? task.course.cleanName,
+      themeName: theme.name,
+      courseId: task.course.id,
+      themeId: theme.id,
+      selectedTaskId: task.id,
+    );
+    await Navigator.push(
+      context,
+      Platform.isIOS
+          ? CupertinoPageRoute(builder: (context) => page)
+          : MaterialPageRoute(builder: (context) => page),
+    );
+    if (!mounted) return;
+    await trackSync(Future.wait([_loadTasks(), _loadLmsProfile()]));
   }
 
   Course? _findCourse(int courseId) {

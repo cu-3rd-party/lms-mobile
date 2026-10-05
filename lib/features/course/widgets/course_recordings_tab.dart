@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/core/ui/app_dialogs.dart';
 import 'package:cumobile/data/models/course_extras.dart';
 import 'package:cumobile/data/services/api_service.dart';
@@ -36,6 +37,7 @@ class _CourseRecordingsTabState extends State<CourseRecordingsTab>
   List<RecordingHost> _hosts = [];
   List<RecordingEvent> _events = [];
   bool _isLoading = true;
+  bool _isRefreshing = false;
   bool _hasError = false;
   int _requestId = 0;
 
@@ -58,7 +60,12 @@ class _CourseRecordingsTabState extends State<CourseRecordingsTab>
   }
 
   Future<void> _loadHosts() async {
-    final hosts = await apiService.fetchRecordingHosts(widget.courseId);
+    final hosts = await apiService.fetchRecordingHosts(
+      widget.courseId,
+      onCached: (cached) {
+        if (mounted && _hosts.isEmpty) setState(() => _hosts = cached);
+      },
+    );
     if (!mounted) return;
     setState(() => _hosts = hosts);
   }
@@ -67,6 +74,7 @@ class _CourseRecordingsTabState extends State<CourseRecordingsTab>
     final requestId = ++_requestId;
     setState(() {
       _isLoading = true;
+      _isRefreshing = true;
       _hasError = false;
     });
 
@@ -75,6 +83,13 @@ class _CourseRecordingsTabState extends State<CourseRecordingsTab>
     final serverEmails = includesNoHost
         ? const <String>[]
         : selectedHosts.map((h) => h.email).whereType<String>().toList();
+    List<RecordingEvent> filterByHosts(List<RecordingEvent> events) {
+      if (!includesNoHost) return events;
+      final emails = selectedHosts.map((h) => h.email).whereType<String>().toSet();
+      return events
+          .where((e) => e.hosts.isEmpty || e.hosts.any((h) => emails.contains(h.email)))
+          .toList();
+    }
 
     final all = <RecordingEvent>[];
     var offset = 0;
@@ -87,6 +102,15 @@ class _CourseRecordingsTabState extends State<CourseRecordingsTab>
         myEvents: _myEvents,
         eventTypes: _types.isEmpty ? recordingEventTypes.keys : _types,
         hostEmails: serverEmails,
+        onCached: offset == 0
+            ? (cached) {
+                if (!mounted || requestId != _requestId) return;
+                setState(() {
+                  _events = filterByHosts(cached.items);
+                  _isLoading = false;
+                });
+              }
+            : null,
       );
       if (!mounted || requestId != _requestId) return;
       if (page == null) {
@@ -98,16 +122,11 @@ class _CourseRecordingsTabState extends State<CourseRecordingsTab>
       if (page.items.isEmpty || offset >= page.totalCount) break;
     }
 
-    var events = all;
-    if (includesNoHost) {
-      final emails = selectedHosts.map((h) => h.email).whereType<String>().toSet();
-      events = events
-          .where((e) => e.hosts.isEmpty || e.hosts.any((h) => emails.contains(h.email)))
-          .toList();
-    }
+    final events = filterByHosts(all);
 
     setState(() {
       _isLoading = false;
+      _isRefreshing = false;
       _hasError = failed && all.isEmpty;
       _events = events;
     });
@@ -488,7 +507,18 @@ class _CourseRecordingsTabState extends State<CourseRecordingsTab>
     return Column(
       children: [
         _buildFilters(isIos),
-        Expanded(child: _buildList(isIos)),
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(child: _buildList(isIos)),
+              Positioned(
+                top: 6,
+                right: 16,
+                child: SyncIndicator(visible: _isRefreshing && !_isLoading),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

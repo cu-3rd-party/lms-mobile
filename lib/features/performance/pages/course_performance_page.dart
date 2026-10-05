@@ -6,6 +6,7 @@ import 'package:logging/logging.dart';
 
 import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/data/models/student_performance.dart';
 import 'package:cumobile/data/services/api_service.dart';
 
@@ -21,7 +22,7 @@ class CoursePerformancePage extends StatefulWidget {
   State<CoursePerformancePage> createState() => _CoursePerformancePageState();
 }
 
-class _CoursePerformancePageState extends State<CoursePerformancePage> {
+class _CoursePerformancePageState extends State<CoursePerformancePage> with SyncTracker {
   static final Logger _log = Logger('CoursePerformancePage');
   bool _isLoading = true;
   CourseExercisesResponse? _exercisesResponse;
@@ -33,21 +34,41 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    trackSync(_loadData());
+  }
+
+  void _applyCached(void Function() update) {
+    if (!mounted) return;
+    setState(() {
+      update();
+      if (_exercisesResponse != null && _performanceResponse != null) _isLoading = false;
+    });
   }
 
   Future<void> _loadData() async {
     try {
+      final courseId = widget.course.id;
       final results = await Future.wait([
-        apiService.fetchCourseExercises(widget.course.id),
-        apiService.fetchCourseStudentPerformance(widget.course.id),
-        apiService.fetchActivitiesPerformance(widget.course.id),
+        apiService.fetchCourseExercises(
+          courseId,
+          onCached: (cached) => _applyCached(() => _exercisesResponse = cached),
+        ),
+        apiService.fetchCourseStudentPerformance(
+          courseId,
+          onCached: (cached) => _applyCached(() => _performanceResponse = cached),
+        ),
+        apiService.fetchActivitiesPerformance(
+          courseId,
+          onCached: (cached) => _applyCached(() => _activitiesPerformance = cached),
+        ),
       ]);
       if (!mounted) return;
       setState(() {
-        _exercisesResponse = results[0] as CourseExercisesResponse?;
-        _performanceResponse = results[1] as CourseStudentPerformanceResponse?;
-        _activitiesPerformance = results[2] as List<ActivityPerformance>?;
+        _exercisesResponse = results[0] as CourseExercisesResponse? ?? _exercisesResponse;
+        _performanceResponse =
+            results[1] as CourseStudentPerformanceResponse? ?? _performanceResponse;
+        _activitiesPerformance =
+            results[2] as List<ActivityPerformance>? ?? _activitiesPerformance;
         _isLoading = false;
       });
     } catch (e, st) {
@@ -190,6 +211,7 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+          trailing: SyncIndicator(visible: isSyncing && !_isLoading),
         ),
         child: SafeArea(bottom: false, child: _buildBody(isIos)),
       );
@@ -209,6 +231,10 @@ class _CoursePerformancePageState extends State<CoursePerformancePage> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+        actions: [
+          Center(child: SyncIndicator(visible: isSyncing && !_isLoading, size: 16)),
+          const SizedBox(width: 16),
+        ],
       ),
       body: _buildBody(isIos),
     );

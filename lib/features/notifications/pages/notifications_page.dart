@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/data/models/course_overview.dart';
 import 'package:cumobile/data/models/notification_item.dart';
 import 'package:cumobile/data/services/api_service.dart';
@@ -22,7 +23,7 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SyncTracker {
   TabController? _tabController;
   int _selectedSegment = 0;
   bool _isLoading = true;
@@ -38,7 +39,7 @@ class _NotificationsPageState extends State<NotificationsPage>
       _tabController = TabController(length: 2, vsync: this);
       _tabController?.addListener(_onAndroidTabChanged);
     }
-    _loadNotifications();
+    trackSync(_loadNotifications());
   }
 
   void _onAndroidTabChanged() {
@@ -57,13 +58,30 @@ class _NotificationsPageState extends State<NotificationsPage>
   Future<void> _loadNotifications() async {
     try {
       final results = await Future.wait([
-        apiService.fetchNotifications(category: 1),
-        apiService.fetchNotifications(category: 2),
+        apiService.fetchNotifications(
+          category: 1,
+          onCached: (cached) {
+            if (!mounted) return;
+            setState(() {
+              _educationItems = _sorted(cached);
+              _isLoading = false;
+            });
+          },
+        ),
+        apiService.fetchNotifications(
+          category: 2,
+          onCached: (cached) {
+            if (!mounted) return;
+            setState(() {
+              _otherItems = _sorted(cached);
+              _isLoading = false;
+            });
+          },
+        ),
       ]);
-      final education = results[0];
-      final other = results[1];
-      education.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      other.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      if (!mounted) return;
+      final education = _sorted(results[0]);
+      final other = _sorted(results[1]);
       setState(() {
         _educationItems = education;
         _otherItems = other;
@@ -71,9 +89,12 @@ class _NotificationsPageState extends State<NotificationsPage>
       });
     } catch (e, st) {
       _log.warning('Error loading notifications', e, st);
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  static List<NotificationItem> _sorted(List<NotificationItem> items) =>
+      [...items]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
   @override
   Widget build(BuildContext context) {
@@ -100,8 +121,9 @@ class _NotificationsPageState extends State<NotificationsPage>
 
     if (isIos) {
       return CupertinoPageScaffold(
-        navigationBar: const CupertinoNavigationBar(
-          middle: Text('Уведомления'),
+        navigationBar: CupertinoNavigationBar(
+          middle: const Text('Уведомления'),
+          trailing: SyncIndicator(visible: isSyncing),
         ),
         backgroundColor: c.background,
         child: SafeArea(top: false, bottom: false, child: body),
@@ -119,6 +141,10 @@ class _NotificationsPageState extends State<NotificationsPage>
           'Уведомления',
           style: TextStyle(color: c.textPrimary, fontSize: 16),
         ),
+        actions: [
+          Center(child: SyncIndicator(visible: isSyncing, size: 16)),
+          const SizedBox(width: 16),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: c.accent,

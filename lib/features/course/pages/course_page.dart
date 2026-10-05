@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:cumobile/core/services/analytics_service.dart';
 import 'package:cumobile/core/theme/app_colors.dart';
+import 'package:cumobile/core/ui/sync_indicator.dart';
 import 'package:cumobile/data/models/course.dart';
 import 'package:cumobile/data/models/course_extras.dart';
 import 'package:cumobile/data/models/course_overview.dart';
@@ -27,7 +28,7 @@ class CoursePage extends StatefulWidget {
   State<CoursePage> createState() => _CoursePageState();
 }
 
-class _CoursePageState extends State<CoursePage> {
+class _CoursePageState extends State<CoursePage> with SyncTracker {
   CourseOverview? _overview;
   bool _isLoading = true;
   List<ExamItem> _exams = [];
@@ -43,22 +44,36 @@ class _CoursePageState extends State<CoursePage> {
   @override
   void initState() {
     super.initState();
-    _loadOverview();
-    _loadExams();
-    _loadProgress();
-    _loadNearestDeadline();
+    trackSync(Future.wait([
+      _loadOverview(),
+      _loadExams(),
+      _loadProgress(),
+      _loadNearestDeadline(),
+    ]));
   }
 
   Future<void> _loadProgress() async {
-    final progress = await apiService.fetchCourseProgress(widget.course.id);
+    final progress = await apiService.fetchCourseProgress(
+      widget.course.id,
+      onCached: (cached) {
+        if (mounted) setState(() => _progress = cached);
+      },
+    );
     if (!mounted || progress == null) return;
     setState(() => _progress = progress);
   }
 
   Future<void> _loadNearestDeadline() async {
-    final deadlines = await apiService.fetchDeadlines(limit: 1, courseId: widget.course.id);
-    if (!mounted || deadlines == null || deadlines.isEmpty) return;
-    setState(() => _nearestDeadline = deadlines.first);
+    final deadlines = await apiService.fetchDeadlines(
+      limit: 1,
+      courseId: widget.course.id,
+      onCached: (cached) {
+        if (!mounted || cached.isEmpty) return;
+        setState(() => _nearestDeadline = cached.first);
+      },
+    );
+    if (!mounted || deadlines == null) return;
+    setState(() => _nearestDeadline = deadlines.isEmpty ? null : deadlines.first);
   }
 
   @override
@@ -75,10 +90,19 @@ class _CoursePageState extends State<CoursePage> {
 
   Future<void> _loadOverview() async {
     try {
-      final overview = await apiService.fetchCourseOverview(widget.course.id);
+      final overview = await apiService.fetchCourseOverview(
+        widget.course.id,
+        onCached: (cached) {
+          if (!mounted) return;
+          setState(() {
+            _overview = cached;
+            _isLoading = false;
+          });
+        },
+      );
       if (!mounted) return;
       setState(() {
-        _overview = overview;
+        _overview = overview ?? _overview;
         _isLoading = false;
       });
     } catch (e, st) {
@@ -180,6 +204,10 @@ class _CoursePageState extends State<CoursePage> {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (!_isSearching) ...[
+                SyncIndicator(visible: isSyncing),
+                const SizedBox(width: 8),
+              ],
               if (_isSearching)
                 CupertinoButton(
                   padding: EdgeInsets.zero,
@@ -244,6 +272,8 @@ class _CoursePageState extends State<CoursePage> {
                 overflow: TextOverflow.ellipsis,
               ),
         actions: [
+          if (!_isSearching)
+            Center(child: SyncIndicator(visible: isSyncing, size: 16)),
           if (!_isSearching && canSearch)
             IconButton(
               icon: Icon(Icons.search, color: c.textPrimary),
